@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
-    "auth:generate": "npx auth@latest generate --config scripts/auth-cli.ts --output db/auth-schema.ts --yes"
+    "auth:generate": "npx auth@latest generate --config scripts/auth-cli.ts --output db/auth-schema.ts --yes",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.7",
