@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
+import { formatDocumentNumber } from "@/invoicing/documents"
 import type { BankField, JurisdictionCode } from "@/jurisdictions/types"
 import { saveSettings } from "@/server/actions/settings"
 import type { WorkspaceSettings } from "@/server/repos/workspace"
@@ -20,6 +21,8 @@ const BANK_LABELS: Record<BankField, { name: keyof WorkspaceSettings; label: str
   accountNumber: { name: "ukAccountNumber", label: "Account number" },
   routingNumber: { name: "usRoutingNumber", label: "Routing number (ABA)" },
 }
+
+const nextNumber = (prefix: string, seq: number) => formatDocumentNumber(prefix, new Date().getFullYear(), seq)
 
 function TextField({ name, label, value, description, className }: { name: string; label: string; value: string; description?: string; className?: string }) {
   return (
@@ -38,6 +41,7 @@ export function SettingsForm({
   taxLabel,
   taxIdLabel,
   bankFields,
+  emailEnabled,
 }: {
   orgName: string
   settings: WorkspaceSettings
@@ -45,6 +49,7 @@ export function SettingsForm({
   taxLabel: string
   taxIdLabel: string
   bankFields: BankField[]
+  emailEnabled: boolean
 }) {
   const [state, action, pending] = useActionState(saveSettings, {})
   const [registered, setRegistered] = useState(settings.taxRegistered || settings.smallBusinessExempt)
@@ -111,6 +116,18 @@ export function SettingsForm({
                   </SelectContent>
                 </Select>
               </Field>
+              <Field>
+                <FieldLabel>{jurisdiction === "de" ? "Versteuerung" : "VAT accounting"}</FieldLabel>
+                <Select name="vatAccounting" defaultValue={s.vatAccounting}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="accrual">{jurisdiction === "de" ? "Soll (on invoice date)" : "Standard (on invoice date)"}</SelectItem>
+                    <SelectItem value="cash">{jurisdiction === "de" ? "Ist (on payment)" : "Cash accounting (on payment)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
               {jurisdiction === "de" ? (
                 <Field orientation="horizontal" className="self-end">
                   <Switch id="deDauerfrist" name="deDauerfrist" defaultChecked={s.deDauerfrist} />
@@ -146,11 +163,32 @@ export function SettingsForm({
             {bankFields.map((f) => (
               <TextField key={f} name={BANK_LABELS[f].name} label={BANK_LABELS[f].label} value={String(s[BANK_LABELS[f].name] ?? "")} />
             ))}
-            <TextField name="invoicePrefix" label="Invoice number prefix" value={s.invoicePrefix} description={`Next number: ${s.invoicePrefix}${new Date().getFullYear()}-${String(s.nextInvoiceSeq).padStart(4, "0")}`} />
+            <TextField name="invoicePrefix" label="Invoice number prefix" value={s.invoicePrefix} description={`Next: ${nextNumber(s.invoicePrefix, s.nextInvoiceSeq)}`} />
+            <TextField name="quotePrefix" label="Quote number prefix" value={s.quotePrefix} description={`Next: ${nextNumber(s.quotePrefix, s.nextQuoteSeq)}`} />
+            <TextField name="creditNotePrefix" label="Credit note prefix" value={s.creditNotePrefix} description={`Next: ${nextNumber(s.creditNotePrefix, s.nextCreditNoteSeq)}`} />
             <Field>
               <FieldLabel htmlFor="defaultPaymentTermsDays">Default payment terms (days)</FieldLabel>
               <Input id="defaultPaymentTermsDays" name="defaultPaymentTermsDays" type="number" min={0} max={365} defaultValue={s.defaultPaymentTermsDays} />
             </Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment reminders</CardTitle>
+          <CardDescription>
+            Overdue invoices get a friendly reminder email with the link to pay{emailEnabled ? "" : " — available once email sending is configured on the server"}.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup className="grid gap-4 sm:grid-cols-2">
+            <Field orientation="horizontal" className="sm:col-span-2">
+              <Switch id="remindersEnabled" name="remindersEnabled" defaultChecked={s.remindersEnabled} disabled={!emailEnabled} />
+              <FieldLabel htmlFor="remindersEnabled">Send reminders automatically</FieldLabel>
+            </Field>
+            <TextField name="reminderDays" label="Days after the due date" value={s.reminderDays.join(", ")} description="Up to five, e.g. 7, 21, 35" />
+            <TextField name="lateFeePercent" label="Late fee from the 2nd reminder (%)" value={String(s.lateFeeBp / 100)} description="0 for none. Shown in the reminder, not added to the invoice." />
           </FieldGroup>
         </CardContent>
       </Card>

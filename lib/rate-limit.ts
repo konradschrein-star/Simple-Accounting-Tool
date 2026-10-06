@@ -17,5 +17,6 @@ export const limits = {
   cta: (userId: string) => takeToken(`cta:${userId}`, 3, 3 / 3_600_000),
   /** Paid model calls outside the PDF quota (categorization reruns, rules, month summaries). */
   llm: (orgId: string) => takeToken(`llm:${orgId}`, 10, 10 / 3_600_000),
+  publicLink: (token: string) => takeToken(`public:${token}`, 5, 5 / 3_600_000),
   demo: (ip: string) => (process.env.NODE_ENV === "production" ? takeToken(`demo:${ip}`, 3, 3 / 3_600_000) : true),
 }

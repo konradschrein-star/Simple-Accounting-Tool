@@ -6,7 +6,7 @@ import { activeAlerts } from "@/server/repos/advisory"
 import { listCloses } from "@/server/repos/books"
 import { createClient, listClients } from "@/server/repos/clients"
 import { requestEngagement, staffMayAccess, updateEngagement } from "@/server/repos/engagements"
-import { getInvoice, listInvoices } from "@/server/repos/invoices"
+import { getInvoice, listDocuments } from "@/server/repos/invoices"
 import { listTransactions, reviewQueue } from "@/server/repos/ledger"
 import { bootstrapWorkspace } from "@/server/repos/workspace"
 import { createUser, testDatabase } from "./helpers"
@@ -30,8 +30,11 @@ describe.each(JURISDICTION_CODES)("demo workspace (%s)", (code) => {
     expect(alertTypes).toContain("margin_low")
     expect(reviewQueue(db, orgId)).toHaveLength(5)
     expect(listCloses(db, orgId).filter((c) => c.status === "closed")).toHaveLength(1)
-    const statuses = new Set(listInvoices(db, orgId).map((r) => r.invoice.status))
-    expect([...statuses].sort()).toEqual(["draft", "finalized", "paid"])
+    const statuses = new Set(listDocuments(db, orgId, "invoice").map((r) => r.invoice.status))
+    expect([...statuses].sort()).toEqual(["cancelled", "draft", "finalized", "paid"])
+    expect(listDocuments(db, orgId, "credit_note")).toHaveLength(1)
+    expect(new Set(listDocuments(db, orgId, "quote").map((r) => r.invoice.status))).toEqual(new Set(["draft", "finalized", "accepted"]))
+    expect(listDocuments(db, orgId, "invoice").some((r) => r.paidMinor > 0 && r.invoice.status === "finalized")).toBe(true)
   })
 })
 
@@ -44,9 +47,9 @@ describe("tenant isolation", () => {
     seedDemoWorkspace(db, orgA, alice, "de", TODAY)
     createClient(db, orgB, { name: "Only B", email: "", addressLine1: "", addressLine2: "", postcode: "", city: "", country: "", vatId: "" })
 
-    const invoiceOfA = listInvoices(db, orgA)[0].invoice.id
+    const invoiceOfA = listDocuments(db, orgA, "invoice")[0].invoice.id
     expect(getInvoice(db, orgB, invoiceOfA)).toBeNull()
-    expect(listInvoices(db, orgB)).toHaveLength(0)
+    expect(listDocuments(db, orgB, "invoice")).toHaveLength(0)
     expect(listTransactions(db, orgB, {})).toHaveLength(0)
     expect(listClients(db, orgA).map((c) => c.client.name)).not.toContain("Only B")
   })

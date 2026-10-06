@@ -1,20 +1,30 @@
 import { and, desc, eq, inArray } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import { advisoryAlerts, advisoryRequests, invoices, ledgerAccounts, transactions } from "@/db/schema"
-import type { MetricInvoice, MetricTransaction } from "@/advisory/metrics"
+import { advisoryAlerts, advisoryRequests, invoicePayments, invoices, ledgerAccounts, transactions } from "@/db/schema"
+import type { MetricInvoice, MetricPayment, MetricTransaction } from "@/advisory/metrics"
+import { toBaseMinor } from "@/lib/money"
 import type { TriggeredAlert } from "@/advisory/triggers"
 
 export type AdvisoryAlert = typeof advisoryAlerts.$inferSelect
 
-export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]; transactions: MetricTransaction[] } {
+/** Everything the metrics need, converted to the workspace currency with each document's locked rate. */
+export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]; payments: MetricPayment[]; transactions: MetricTransaction[] } {
+  const docs = db
+    .select({ id: invoices.id, kind: invoices.kind, status: invoices.status, issueDate: invoices.issueDate, dueDate: invoices.dueDate, totalMinor: invoices.totalMinor, fx: invoices.fxRateMicro })
+    .from(invoices)
+    .where(eq(invoices.orgId, orgId))
+    .all()
+  const fxById = new Map(docs.map((d) => [d.id, d.fx]))
   return {
-    invoices: db
-      .select({ id: invoices.id, status: invoices.status, issueDate: invoices.issueDate, dueDate: invoices.dueDate, paidDate: invoices.paidDate, totalMinor: invoices.totalMinor })
-      .from(invoices)
-      .where(eq(invoices.orgId, orgId))
-      .all(),
+    invoices: docs.map(({ fx, ...d }) => ({ ...d, totalMinor: toBaseMinor(d.totalMinor, fx) })),
+    payments: db
+      .select({ invoiceId: invoicePayments.invoiceId, date: invoicePayments.date, amountMinor: invoicePayments.amountMinor, transactionId: invoicePayments.transactionId })
+      .from(invoicePayments)
+      .where(eq(invoicePayments.orgId, orgId))
+      .all()
+      .map((p) => ({ ...p, amountMinor: toBaseMinor(p.amountMinor, fxById.get(p.invoiceId) ?? 1_000_000) })),
     transactions: db
-      .select({ date: transactions.date, amountMinor: transactions.amountMinor, kind: ledgerAccounts.kind, invoiceId: transactions.invoiceId })
+      .select({ date: transactions.date, amountMinor: transactions.amountMinor, kind: ledgerAccounts.kind })
       .from(transactions)
       .leftJoin(ledgerAccounts, eq(ledgerAccounts.id, transactions.ledgerAccountId))
       .where(eq(transactions.orgId, orgId))

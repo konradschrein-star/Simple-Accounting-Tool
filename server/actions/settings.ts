@@ -13,6 +13,7 @@ import { audit, requireReadyOrg } from "@/server/context"
 import { eraseWorkspace, renameOrganization, updateSettings } from "@/server/repos/workspace"
 
 const text = textField()
+const prefix = z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-_/]+$/, "Prefixes may only contain letters, digits, - _ /")
 
 const profileSchema = z.object({
   businessName: z.string().trim().min(2).max(120),
@@ -32,7 +33,16 @@ const profileSchema = z.object({
   ukSortCode: text,
   ukAccountNumber: text,
   usRoutingNumber: text,
-  invoicePrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-_/]+$/, "Prefix may only contain letters, digits, - _ /"),
+  invoicePrefix: prefix,
+  quotePrefix: prefix,
+  creditNotePrefix: prefix,
+  remindersEnabled: checkbox,
+  reminderDays: z
+    .string()
+    .transform((v) => [...new Set(v.split(/[s,;]+/).filter(Boolean).map(Number))].sort((a, b) => a - b))
+    .pipe(z.array(z.number().int().min(1, "Reminder days must be at least 1").max(365)).max(5, "At most 5 reminders")),
+  lateFeePercent: z.coerce.number().min(0).max(20, "Late fees above 20 % are not allowed"),
+  vatAccounting: z.enum(["accrual", "cash"]),
   defaultPaymentTermsDays: z.coerce.number().int().min(0).max(365),
   taxRegistered: checkbox,
   smallBusinessExempt: checkbox,
@@ -48,9 +58,10 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   const ctx = await requireReadyOrg()
   const parsed = profileSchema.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
-  const { businessName, advisoryOptIn, taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist, ...profile } = parsed.data
+  const { businessName, advisoryOptIn, taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist, lateFeePercent, ...profile } = parsed.data
   const next = {
     ...profile,
+    lateFeeBp: Math.round(lateFeePercent * 100),
     ...normalizeTaxProfile(ctx.jurisdiction, { taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist }),
     advisoryOptIn,
     advisoryOptInAt: advisoryOptIn && !ctx.settings.advisoryOptIn ? new Date() : advisoryOptIn ? ctx.settings.advisoryOptInAt : null,
@@ -59,7 +70,9 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   updateSettings(db, ctx.orgId, next)
   // Bank details and tax ids end up on invoices: keep a before/after trail, especially for bookkeeper edits.
   const changed = Object.fromEntries(
-    (Object.keys(profile) as (keyof typeof profile)[]).filter((k) => ctx.settings[k] !== profile[k]).map((k) => [k, { from: ctx.settings[k], to: profile[k] }]),
+    (Object.keys(profile) as (keyof typeof profile)[])
+      .filter((k) => JSON.stringify(ctx.settings[k]) !== JSON.stringify(profile[k]))
+      .map((k) => [k, { from: ctx.settings[k], to: profile[k] }]),
   )
   audit(ctx, "settings.updated", "workspace", ctx.orgId, changed)
   evaluateTriggers(db, ctx.orgId)

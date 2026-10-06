@@ -2,6 +2,7 @@ import { DownloadIcon, Trash2Icon } from "lucide-react"
 import type { Metadata } from "next"
 import { LogoUpload } from "@/components/settings/logo-upload"
 import { SettingsForm } from "@/components/settings/settings-form"
+import { emailConfigured } from "@/lib/email"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
 import {
   AlertDialog,
@@ -42,6 +43,7 @@ export default async function SettingsPage() {
         taxLabel={ctx.jurisdiction.taxLabel}
         taxIdLabel={ctx.jurisdiction.taxIdLabel}
         bankFields={ctx.jurisdiction.bankFields}
+        emailEnabled={emailConfigured()}
       />
       <Card>
         <CardHeader>

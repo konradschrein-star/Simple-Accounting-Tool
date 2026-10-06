@@ -54,3 +54,36 @@ test("real flow: test login → onboarding (UK) → client → invoice → final
   await page.getByRole("button", { name: "Finalize invoice" }).click()
   await expect(page.getByRole("heading", { name: /INV-\d{4}-0001/ })).toBeVisible()
 })
+
+test("invoicing depth: part payment → paid, cancel by credit note, quote → invoice", async ({ page }) => {
+  const errors: string[] = []
+  page.on("pageerror", (e) => errors.push(e.message))
+  await page.goto("/")
+  await page.getByRole("button", { name: /^UK/ }).click()
+  await page.waitForURL("**/dashboard")
+
+  // The part-paid invoice: settle the rest.
+  await page.goto("/invoices")
+  await page.getByText("Part-paid").first().click()
+  await page.waitForURL(/\/invoices\/[\w-]+$/)
+  await page.getByRole("button", { name: "Record payment" }).click()
+  await page.getByRole("dialog").getByRole("button", { name: "Record payment" }).click()
+  await expect(page.getByText("Paid", { exact: true }).first()).toBeVisible()
+  await expect(page.getByText(/received/).first()).toBeVisible()
+
+  // Cancel it the compliant way.
+  await page.getByRole("button", { name: "More actions" }).click()
+  await page.getByRole("menuitem", { name: /Cancel with credit note/ }).click()
+  await page.getByRole("button", { name: "Issue credit note" }).click()
+  await expect(page.getByText(/Cancelled by credit note CN-/)).toBeVisible()
+  await page.goto("/invoices?tab=credit-notes")
+  await expect(page.getByRole("link", { name: /CN-\d{4}-\d{4}/ }).first()).toBeVisible()
+
+  // Accepted quote becomes an invoice draft.
+  await page.goto("/quotes")
+  await page.getByText("Accepted").first().click()
+  await page.waitForURL(/\/invoices\/[\w-]+$/)
+  await page.getByRole("button", { name: "Convert to invoice" }).click()
+  await expect(page.getByRole("heading", { name: "New invoice" })).toBeVisible()
+  expect(errors).toEqual([])
+})

@@ -9,7 +9,7 @@ import { renderInvoicePdf } from "./render"
 type Preview = NonNullable<ReturnType<typeof previewContext>>
 
 /**
- * The PDF for an invoice. Drafts render live (watermarked); finalized and paid invoices are immutable,
+ * The PDF for a document. Drafts render live (watermarked); issued documents are immutable,
  * so they render once from the frozen snapshot and every later request serves the stored file.
  */
 export async function invoicePdf(db: Db, orgId: string, { invoice, snapshot }: Preview): Promise<Buffer> {
@@ -23,9 +23,10 @@ export async function invoicePdf(db: Db, orgId: string, { invoice, snapshot }: P
       notes: invoice.notes,
       paymentTerms: invoice.paymentTerms,
       stripePaymentLink: invoice.stripePaymentLink,
-      watermark: invoice.status === "draft" ? "draft" : invoice.status === "void" ? "void" : null,
+      watermark: invoice.status === "draft" ? "draft" : invoice.status === "void" ? "void" : invoice.status === "cancelled" ? "cancelled" : null,
     })
-  if (invoice.status !== "finalized" && invoice.status !== "paid") return render()
+  // Drafts change constantly and cancelled ones carry a stamp; everything else is frozen.
+  if (invoice.status === "draft" || invoice.status === "void" || invoice.status === "cancelled") return render()
 
   const relative = path.join("pdfs", orgId, `${invoice.id}.pdf`)
   const file = dataPath(relative)

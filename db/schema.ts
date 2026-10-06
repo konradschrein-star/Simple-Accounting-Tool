@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { nanoid } from "nanoid"
 import type { CsvMapping, StoredCsvMapping } from "../ingest/csv/types"
 import { organization, user } from "./auth-schema"
@@ -14,6 +14,10 @@ const createdAt = () =>
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
 const json = <T>(name: string) => text(name, { mode: "json" }).$type<T>()
 const bool = (name: string) => integer(name, { mode: "boolean" }).notNull().default(false)
+
+export const CURRENCIES = ["EUR", "GBP", "USD"] as const
+/** draft → finalized → paid (invoices) · accepted/declined → converted (quotes) · cancelled by a credit note. */
+export const DOCUMENT_STATUSES = ["draft", "finalized", "paid", "void", "cancelled", "accepted", "declined", "converted"] as const
 
 // ─── Workspace ────────────────────────────────────────────────────────────────
 
@@ -37,7 +41,7 @@ export const workspaceSettings = sqliteTable("workspace_settings", {
   ukAccountNumber: text("uk_account_number").notNull().default(""),
   usRoutingNumber: text("us_routing_number").notNull().default(""),
   logoPath: text("logo_path"),
-  currency: text("currency", { enum: ["EUR", "GBP", "USD"] }).notNull().default("EUR"),
+  currency: text("currency", { enum: CURRENCIES }).notNull().default("EUR"),
   locale: text("locale").notNull().default("en-GB"),
   timezone: text("timezone").notNull().default("Europe/London"),
   taxRegistered: bool("tax_registered"),
@@ -49,6 +53,17 @@ export const workspaceSettings = sqliteTable("workspace_settings", {
   defaultPaymentTermsDays: integer("default_payment_terms_days").notNull().default(14),
   invoicePrefix: text("invoice_prefix").notNull().default("INV-"),
   nextInvoiceSeq: integer("next_invoice_seq").notNull().default(1),
+  quotePrefix: text("quote_prefix").notNull().default("QUO-"),
+  nextQuoteSeq: integer("next_quote_seq").notNull().default(1),
+  creditNotePrefix: text("credit_note_prefix").notNull().default("CN-"),
+  nextCreditNoteSeq: integer("next_credit_note_seq").notNull().default(1),
+  /** Payment reminders: days after the due date for each dunning level, e.g. [7, 21, 35]. */
+  remindersEnabled: bool("reminders_enabled"),
+  reminderDays: text("reminder_days", { mode: "json" }).$type<number[]>().notNull().default([7, 21, 35]),
+  /** Late fee added from the 2nd reminder on, in basis points of the open amount (0 = none). */
+  lateFeeBp: integer("late_fee_bp").notNull().default(0),
+  /** VAT on issued invoices is due when invoiced (accrual / Soll) or when paid (cash / Ist). */
+  vatAccounting: text("vat_accounting", { enum: ["accrual", "cash"] }).notNull().default("accrual"),
   currencyLocked: bool("currency_locked"),
   advisoryOptIn: bool("advisory_opt_in"),
   advisoryOptInAt: integer("advisory_opt_in_at", { mode: "timestamp_ms" }),
@@ -72,9 +87,31 @@ export const clients = sqliteTable(
     city: text("city").notNull().default(""),
     country: text("country").notNull().default(""),
     vatId: text("vat_id").notNull().default(""),
+    /** Buyer reference (Leitweg-ID for German public bodies) printed into XRechnung. */
+    buyerReference: text("buyer_reference").notNull().default(""),
+    language: text("language", { enum: ["de", "en"] }),
+    currency: text("currency", { enum: CURRENCIES }),
     createdAt: createdAt(),
   },
   (t) => [index("clients_org_name").on(t.orgId, t.name)],
+)
+
+/** Reusable products & services for the invoice editor's autocomplete. */
+export const products = sqliteTable(
+  "products",
+  {
+    id: id(),
+    orgId: orgId(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    unit: text("unit").notNull().default(""),
+    unitPriceMinor: integer("unit_price_minor").notNull().default(0),
+    taxRateBp: integer("tax_rate_bp"),
+    archived: bool("archived"),
+    usageCount: integer("usage_count").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("products_org_name").on(t.orgId, t.name)],
 )
 
 export type InvoiceSnapshot = {
@@ -87,7 +124,10 @@ export type InvoiceSnapshot = {
   taxLabel: string
   exemptionNote: string | null
   logoPath: string | null
-  items: { description: string; quantityMilli: number; unitPriceMinor: number; taxRateBp: number; netMinor: number }[]
+  kind?: "invoice" | "quote" | "credit_note"
+  /** For a credit note: the number of the invoice it corrects. */
+  relatedNumber?: string | null
+  items: { description: string; quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number; unit?: string; netMinor: number }[]
   taxGroups: { rateBp: number; netMinor: number; taxMinor: number }[]
 }
 
@@ -97,12 +137,23 @@ export const invoices = sqliteTable(
     id: id(),
     orgId: orgId(),
     clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    /** One table, three document kinds: they share editor, PDF and numbering machinery. */
+    kind: text("kind", { enum: ["invoice", "quote", "credit_note"] }).notNull().default("invoice"),
     number: text("number"),
-    status: text("status", { enum: ["draft", "finalized", "paid", "void"] }).notNull().default("draft"),
+    status: text("status", { enum: DOCUMENT_STATUSES }).notNull().default("draft"),
     issueDate: text("issue_date").notNull(),
     serviceDate: text("service_date"),
+    /** Payment due date for invoices; "valid until" for quotes. */
     dueDate: text("due_date").notNull(),
-    currency: text("currency", { enum: ["EUR", "GBP", "USD"] }).notNull(),
+    currency: text("currency", { enum: CURRENCIES }).notNull(),
+    /** Units of workspace currency per 1 document currency, ×1e6; locked at finalize (1e6 when equal). */
+    fxRateMicro: integer("fx_rate_micro").notNull().default(1_000_000),
+    /** Credit note → the invoice it corrects; quote → the invoice it became; invoice → its cancellation note. */
+    relatedId: text("related_id"),
+    recurringSeriesId: text("recurring_series_id"),
+    publicToken: text("public_token"),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    viewedAt: integer("viewed_at", { mode: "timestamp_ms" }),
     subtotalMinor: integer("subtotal_minor").notNull().default(0),
     taxMinor: integer("tax_minor").notNull().default(0),
     totalMinor: integer("total_minor").notNull().default(0),
@@ -119,9 +170,73 @@ export const invoices = sqliteTable(
   },
   (t) => [
     uniqueIndex("invoices_org_number").on(t.orgId, t.number),
+    uniqueIndex("invoices_public_token").on(t.publicToken),
     index("invoices_org_status_due").on(t.orgId, t.status, t.dueDate),
     index("invoices_org_issue").on(t.orgId, t.issueDate),
+    index("invoices_org_kind").on(t.orgId, t.kind),
   ],
+)
+
+/** Money received against an invoice (bank match, manual entry, or online payment). */
+export const invoicePayments = sqliteTable(
+  "invoice_payments",
+  {
+    id: id(),
+    orgId: orgId(),
+    invoiceId: text("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    method: text("method", { enum: ["bank", "manual", "online"] }).notNull().default("manual"),
+    transactionId: text("transaction_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("payments_invoice").on(t.invoiceId)],
+)
+
+/** Activity timeline per document: created, finalized, sent, viewed, reminder, payment, cancelled… */
+export const invoiceEvents = sqliteTable(
+  "invoice_events",
+  {
+    id: id(),
+    orgId: orgId(),
+    invoiceId: text("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    detail: json<Record<string, unknown>>("detail"),
+    at: createdAt(),
+  },
+  (t) => [index("events_invoice").on(t.invoiceId, t.at)],
+)
+
+export const recurringSeries = sqliteTable(
+  "recurring_series",
+  {
+    id: id(),
+    orgId: orgId(),
+    /** The draft-like invoice used as the template for every generated invoice. */
+    templateInvoiceId: text("template_invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    frequency: text("frequency", { enum: ["weekly", "monthly", "quarterly", "yearly"] }).notNull(),
+    /** First issue date; the n-th invoice is anchor + n periods, so month-end dates never drift. */
+    anchorDate: text("anchor_date").notNull(),
+    nextIssueDate: text("next_issue_date").notNull(),
+    endDate: text("end_date"),
+    remaining: integer("remaining"),
+    autoSend: bool("auto_send"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    generatedCount: integer("generated_count").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("recurring_org_next").on(t.orgId, t.active, t.nextIssueDate)],
+)
+
+/** Daily reference rates (ECB via Frankfurter), quoted per 1 EUR. */
+export const fxRates = sqliteTable(
+  "fx_rates",
+  {
+    date: text("date").notNull(),
+    currency: text("currency").notNull(),
+    ratePerEurMicro: integer("rate_per_eur_micro").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.currency] })],
 )
 
 export const invoiceItems = sqliteTable(
@@ -134,6 +249,8 @@ export const invoiceItems = sqliteTable(
     quantityMilli: integer("quantity_milli").notNull().default(1000),
     unitPriceMinor: integer("unit_price_minor").notNull().default(0),
     taxRateBp: integer("tax_rate_bp").notNull().default(0),
+    discountBp: integer("discount_bp").notNull().default(0),
+    unit: text("unit").notNull().default(""),
     netMinor: integer("net_minor").notNull().default(0),
   },
   (t) => [index("invoice_items_invoice").on(t.invoiceId, t.position)],
@@ -213,6 +330,8 @@ export const ledgerAccounts = sqliteTable(
     name: text("name").notNull(),
     kind: text("kind", { enum: ["income", "expense", "transfer", "owner", "tax"] }).notNull(),
     taxLine: text("tax_line"),
+    /** Default input-VAT rate for purchases booked here (null = no VAT, e.g. wages, insurance, bank fees). */
+    inputVatBp: integer("input_vat_bp"),
     archived: bool("archived"),
   },
   (t) => [uniqueIndex("ledger_accounts_org_code").on(t.orgId, t.code)],
@@ -234,6 +353,9 @@ export const transactions = sqliteTable(
     reviewStatus: text("review_status", { enum: ["ok", "needs_review"] }).notNull().default("needs_review"),
     dedupeHash: text("dedupe_hash").notNull(),
     invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    /** Input VAT rate contained in this (gross) purchase; null = account default. */
+    vatRateBp: integer("vat_rate_bp"),
+    note: text("note").notNull().default(""),
     createdAt: createdAt(),
   },
   (t) => [
@@ -361,3 +483,23 @@ export const advisoryRequests = sqliteTable(
   (t) => [index("requests_org").on(t.orgId, t.createdAt)],
 )
 
+
+/** Receipts & documents. Uploaded to the inbox, then matched (by AI + amount/date) to a bank transaction. */
+export const attachments = sqliteTable(
+  "attachments",
+  {
+    id: id(),
+    orgId: orgId(),
+    transactionId: text("transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+    filePath: text("file_path").notNull(),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    /** What the AI read off the receipt (vendor, date, total, VAT). */
+    extracted: json<{ vendor: string | null; date: string | null; totalMinor: number | null; vatMinor: number | null; currency: string | null }>("extracted"),
+    status: text("status", { enum: ["processing", "unmatched", "suggested", "matched"] }).notNull().default("processing"),
+    suggestedTransactionId: text("suggested_transaction_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("attachments_org_status").on(t.orgId, t.status), index("attachments_txn").on(t.transactionId)],
+)

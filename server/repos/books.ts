@@ -1,31 +1,28 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import { importBatches, importRows, invoices, periodCloses, transactions, type CloseChecklist, type CloseSummary } from "@/db/schema"
+import { importBatches, importRows, invoicePayments, invoices, periodCloses, transactions, type CloseChecklist, type CloseSummary } from "@/db/schema"
+import { toBaseMinor } from "@/lib/money"
 import { computePnl, type Pnl, type PnlTransaction } from "@/bookkeeping/pnl"
 import { monthRange, priorMonth } from "@/lib/dates"
 import { listAccounts } from "./ledger"
 
 export type PeriodClose = typeof periodCloses.$inferSelect
 
+/** Ledger lines plus invoice payments that never touched an imported statement (manual / online), in base currency. */
 export function pnlInputs(db: Db, orgId: string): { txns: PnlTransaction[]; unlinkedPaid: { paidDate: string; totalMinor: number }[] } {
   const txns = db
     .select({ date: transactions.date, amountMinor: transactions.amountMinor, accountId: transactions.ledgerAccountId })
     .from(transactions)
     .where(eq(transactions.orgId, orgId))
     .all()
-  const linked = db
-    .select({ id: transactions.invoiceId })
-    .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), sql`${transactions.invoiceId} is not null`))
+  const unlinkedPaid = db
+    .select({ paidDate: invoicePayments.date, amountMinor: invoicePayments.amountMinor, fx: invoices.fxRateMicro })
+    .from(invoicePayments)
+    .innerJoin(invoices, eq(invoices.id, invoicePayments.invoiceId))
+    .where(and(eq(invoicePayments.orgId, orgId), isNull(invoicePayments.transactionId)))
     .all()
-    .map((r) => r.id!)
-  const paid = db
-    .select({ id: invoices.id, paidDate: invoices.paidDate, totalMinor: invoices.totalMinor })
-    .from(invoices)
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.status, "paid")))
-    .all()
-  const linkedSet = new Set(linked)
-  return { txns, unlinkedPaid: paid.filter((p) => p.paidDate && !linkedSet.has(p.id)).map((p) => ({ paidDate: p.paidDate!, totalMinor: p.totalMinor })) }
+    .map((p) => ({ paidDate: p.paidDate, totalMinor: toBaseMinor(p.amountMinor, p.fx) }))
+  return { txns, unlinkedPaid }
 }
 
 export function monthChecklist(db: Db, orgId: string, month: string): CloseChecklist {

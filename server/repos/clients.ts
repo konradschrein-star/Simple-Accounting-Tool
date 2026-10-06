@@ -1,9 +1,11 @@
 import { and, asc, count, eq } from "drizzle-orm"
 import { z } from "zod"
 import type { Db } from "@/db/client"
-import { clients, invoices } from "@/db/schema"
+import { CURRENCIES, clients, invoices } from "@/db/schema"
 
 export type Client = typeof clients.$inferSelect
+
+const emptyToNull = (v: unknown) => (v === "" ? null : v)
 
 export const clientInputSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -14,6 +16,11 @@ export const clientInputSchema = z.object({
   city: z.string().trim().default(""),
   country: z.string().trim().default(""),
   vatId: z.string().trim().default(""),
+  /** Leitweg-ID / purchase order reference — required on XRechnung e-invoices to public bodies. */
+  buyerReference: z.string().trim().max(100).default(""),
+  /** Overrides the workspace language and currency for this client's documents and emails. */
+  language: z.preprocess(emptyToNull, z.enum(["de", "en"]).nullable()).default(null),
+  currency: z.preprocess(emptyToNull, z.enum(CURRENCIES).nullable()).default(null),
 })
 export type ClientInput = z.infer<typeof clientInputSchema>
 
@@ -28,8 +35,8 @@ export function listClients(db: Db, orgId: string) {
     .all()
 }
 
-export function createClient(db: Db, orgId: string, input: ClientInput): Client {
-  return db.insert(clients).values({ orgId, ...input }).returning().get()
+export function createClient(db: Db, orgId: string, input: z.input<typeof clientInputSchema>): Client {
+  return db.insert(clients).values({ orgId, ...clientInputSchema.parse(input) }).returning().get()
 }
 
 export function updateClient(db: Db, orgId: string, id: string, input: ClientInput) {

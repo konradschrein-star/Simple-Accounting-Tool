@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import { categorizationRules, importBatches, importRows, invoices, ledgerAccounts, periodCloses, transactions } from "@/db/schema"
+import { categorizationRules, importBatches, importRows, invoiceEvents, invoicePayments, invoices, ledgerAccounts, periodCloses, transactions } from "@/db/schema"
 import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
 import { hashBankRows } from "@/ingest/dedupe"
 import { DomainError } from "@/lib/action-result"
@@ -56,7 +56,7 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
     let inserted = 0
     let invoicesPaid = 0
     for (const { row, hash } of included) {
-      const result = tx
+      const booked = tx
         .insert(transactions)
         .values({
           orgId,
@@ -70,14 +70,21 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
           reviewStatus: "needs_review",
         })
         .onConflictDoNothing()
-        .run()
-      inserted += result.changes
-      if (row.matchedInvoiceId && result.changes) {
-        invoicesPaid += tx
-          .update(invoices)
-          .set({ status: "paid", paidDate: row.date })
-          .where(and(eq(invoices.orgId, orgId), eq(invoices.id, row.matchedInvoiceId), eq(invoices.status, "finalized")))
-          .run().changes
+        .returning({ id: transactions.id })
+        .get()
+      if (!booked) continue
+      inserted++
+      if (row.matchedInvoiceId) {
+        // The bank line *is* the payment: record it linked, so cash is never counted twice.
+        const invoice = tx.select().from(invoices).where(and(eq(invoices.orgId, orgId), eq(invoices.id, row.matchedInvoiceId), eq(invoices.status, "finalized"))).get()
+        if (!invoice) continue
+        tx.insert(invoicePayments).values({ orgId, invoiceId: invoice.id, date: row.date!, amountMinor: row.amountMinor!, method: "bank", transactionId: booked.id }).run()
+        const paid = tx.select({ paid: sql<number>`coalesce(sum(${invoicePayments.amountMinor}), 0)` }).from(invoicePayments).where(eq(invoicePayments.invoiceId, invoice.id)).get()!.paid
+        if (paid >= invoice.totalMinor) {
+          tx.update(invoices).set({ status: "paid", paidDate: row.date }).where(eq(invoices.id, invoice.id)).run()
+          invoicesPaid++
+        }
+        tx.insert(invoiceEvents).values({ orgId, invoiceId: invoice.id, type: "payment", detail: { amountMinor: row.amountMinor, date: row.date, method: "bank" } }).run()
       }
     }
     tx.update(importBatches).set({ status: "committed", committedAt: new Date() }).where(eq(importBatches.id, batchId)).run()

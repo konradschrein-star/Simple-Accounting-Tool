@@ -1,7 +1,16 @@
+type Kind = "invoice" | "quote" | "credit_note"
+
 export type InvoiceLabels = {
-  invoice: string
-  number: string
-  issueDate: string
+  title: Record<Kind, string>
+  number: Record<Kind, string>
+  validUntil: string
+  corrects: (number: string) => string
+  quoteValid: (date: string) => string
+  credited: string
+  unit: string
+  discount: string
+  cancelled: string
+  issueDate: Record<Kind, string>
   serviceDate: string
   dueDate: string
   clientVatId: string
@@ -26,9 +35,17 @@ export type InvoiceLabels = {
 
 export const LABELS: Record<"de" | "en", InvoiceLabels> = {
   de: {
-    invoice: "Rechnung",
-    number: "Rechnungsnummer",
-    issueDate: "Rechnungsdatum",
+    // Not "Gutschrift": in German VAT law that means self-billing (§14(2) UStG). A reversal is a Stornorechnung.
+    title: { invoice: "Rechnung", quote: "Angebot", credit_note: "Stornorechnung" },
+    number: { invoice: "Rechnungsnummer", quote: "Angebotsnummer", credit_note: "Belegnummer" },
+    validUntil: "Gültig bis",
+    corrects: (number) => `Korrektur zu Rechnung ${number}`,
+    quoteValid: (date) => `Dieses Angebot ist gültig bis zum ${date}.`,
+    credited: "Der Betrag wird Ihnen gutgeschrieben bzw. erstattet.",
+    unit: "Einheit",
+    discount: "Rabatt",
+    cancelled: "STORNIERT",
+    issueDate: { invoice: "Rechnungsdatum", quote: "Angebotsdatum", credit_note: "Datum" },
     serviceDate: "Leistungsdatum",
     dueDate: "Fällig am",
     clientVatId: "USt-IdNr. Kunde",
@@ -51,9 +68,16 @@ export const LABELS: Record<"de" | "en", InvoiceLabels> = {
     notes: "Hinweise",
   },
   en: {
-    invoice: "Invoice",
-    number: "Invoice number",
-    issueDate: "Issue date",
+    title: { invoice: "Invoice", quote: "Quote", credit_note: "Credit note" },
+    number: { invoice: "Invoice number", quote: "Quote number", credit_note: "Credit note number" },
+    validUntil: "Valid until",
+    corrects: (number) => `Corrects invoice ${number}`,
+    quoteValid: (date) => `This quote is valid until ${date}.`,
+    credited: "This amount will be credited or refunded to you.",
+    unit: "Unit",
+    discount: "Discount",
+    cancelled: "CANCELLED",
+    issueDate: { invoice: "Issue date", quote: "Date", credit_note: "Date" },
     serviceDate: "Date of supply",
     dueDate: "Due date",
     clientVatId: "Client VAT no.",

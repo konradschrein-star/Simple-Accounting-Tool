@@ -14,6 +14,9 @@ const schema = z.object({
   BOOKING_URL: z.string().url().optional(),
   LEAD_WEBHOOK_URL: z.string().url().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  /** e.g. "Studio Billing <billing@your-domain.com>" — the domain must be verified in Resend. */
+  EMAIL_FROM: z.string().optional(),
   LLM_TEXT_MODEL: z.string().default("deepseek/deepseek-v4.1-flash"),
   LLM_VISION_MODEL: z.string().default("qwen/qwen3-vl-30b-a3b-instruct"),
   LLM_ESCALATION_MODEL: z.string().default("qwen/qwen3-vl-235b-a22b-instruct"),

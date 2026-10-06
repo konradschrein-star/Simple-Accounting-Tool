@@ -7,8 +7,14 @@ export function roundHalfAwayFromZero(value: number): number {
   return Math.sign(value) * Math.round(Math.abs(value))
 }
 
-export function lineNetMinor(quantityMilli: number, unitPriceMinor: number): number {
-  return roundHalfAwayFromZero((quantityMilli * unitPriceMinor) / 1000)
+/** quantity × price, less the line discount — rounded once, at the end. */
+export function lineNetMinor(quantityMilli: number, unitPriceMinor: number, discountBp = 0): number {
+  return roundHalfAwayFromZero((quantityMilli * unitPriceMinor * (10_000 - discountBp)) / 10_000_000)
+}
+
+/** Converts an amount in a document currency to the workspace currency with a locked rate (×1e6). */
+export function toBaseMinor(minor: number, fxRateMicro: number): number {
+  return roundHalfAwayFromZero((minor * fxRateMicro) / 1_000_000)
 }
 
 export function taxOnNetMinor(netMinor: number, rateBp: number): number {
@@ -26,12 +32,12 @@ export type InvoiceTotals = {
 
 /** Tax is computed per rate group on the summed nets (not per line) — required for DE/UK compliant breakdowns. */
 export function computeTotals(
-  lines: { quantityMilli: number; unitPriceMinor: number; taxRateBp: number }[],
+  lines: { quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number }[],
 ): InvoiceTotals {
   const groups = new Map<number, number>()
   let subtotalMinor = 0
   for (const line of lines) {
-    const net = lineNetMinor(line.quantityMilli, line.unitPriceMinor)
+    const net = lineNetMinor(line.quantityMilli, line.unitPriceMinor, line.discountBp)
     subtotalMinor += net
     groups.set(line.taxRateBp, (groups.get(line.taxRateBp) ?? 0) + net)
   }

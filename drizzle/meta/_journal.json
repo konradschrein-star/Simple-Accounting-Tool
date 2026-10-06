@@ -15,6 +15,13 @@
       "when": 1791308351281,
       "tag": "0001_sparkling_scarecrow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791316935310,
+      "tag": "0002_messy_red_hulk",
+      "breakpoints": true
     }
   ]
 }

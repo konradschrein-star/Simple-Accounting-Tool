@@ -13,7 +13,7 @@ export type InvoiceDocumentProps = {
   notes: string
   paymentTerms: string
   stripePaymentLink: string
-  watermark: "draft" | "void" | null
+  watermark: "draft" | "void" | "cancelled" | null
   logo: { data: Buffer; format: "png" | "jpg" } | null
 }
 
@@ -42,6 +42,7 @@ const s = StyleSheet.create({
   cDesc: { width: "44%", paddingRight: 8 },
   cQty: { width: "10%", textAlign: "right" },
   cUnit: { width: "15%", textAlign: "right" },
+  sub: { fontSize: 7, color: MUTED },
   cTax: { width: "9%", textAlign: "right" },
   cAmt: { width: "16%", textAlign: "right" },
   totals: { marginTop: 10, marginLeft: "45%" },
@@ -58,6 +59,8 @@ const s = StyleSheet.create({
 export function InvoiceDocument(props: InvoiceDocumentProps) {
   const { snapshot: snap } = props
   const t = LABELS[snap.language]
+  const kind = snap.kind ?? "invoice"
+  const title = t.title[kind]
   const money = (minor: number) => formatMoney(minor, snap.currency, snap.locale)
   const date = (iso: string) => new Intl.DateTimeFormat(snap.locale, { dateStyle: "medium", timeZone: "UTC" }).format(fromIso(iso))
   const qty = (milli: number) => new Intl.NumberFormat(snap.locale, { maximumFractionDigits: 3 }).format(milli / 1000)
@@ -76,16 +79,17 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
   ].filter(Boolean) as string[]
 
   return (
-    <Document title={`${t.invoice} ${props.number ?? ""}`.trim()} author={seller.name}>
+    <Document title={`${title} ${props.number ?? ""}`.trim()} author={seller.name}>
       <Page size="A4" style={s.page}>
-        {props.watermark ? <Text style={s.watermark} fixed>{props.watermark === "void" ? t.void : t.draft}</Text> : null}
+        {props.watermark ? <Text style={s.watermark} fixed>{props.watermark === "void" ? t.void : props.watermark === "cancelled" ? t.cancelled : t.draft}</Text> : null}
 
         <View style={s.header}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt */}
           {props.logo ? <Image style={s.logo} src={props.logo} /> : <Text style={s.sellerName}>{seller.name}</Text>}
           <View>
-            <Text style={s.title}>{t.invoice}</Text>
+            <Text style={s.title}>{title}</Text>
             {props.number ? <Text style={{ textAlign: "right", color: MUTED, marginTop: 4 }}>{props.number}</Text> : null}
+            {snap.relatedNumber && kind === "credit_note" ? <Text style={{ textAlign: "right", color: MUTED }}>{t.corrects(snap.relatedNumber)}</Text> : null}
           </View>
         </View>
 
@@ -96,10 +100,10 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
             {clientAddress.map((line) => <Text key={line}>{line}</Text>)}
           </View>
           <View style={s.meta}>
-            {props.number ? <MetaRow label={t.number} value={props.number} /> : null}
-            <MetaRow label={t.issueDate} value={date(props.issueDate)} />
+            {props.number ? <MetaRow label={t.number[kind]} value={props.number} /> : null}
+            <MetaRow label={t.issueDate[kind]} value={date(props.issueDate)} />
             {props.serviceDate ? <MetaRow label={t.serviceDate} value={date(props.serviceDate)} /> : null}
-            <MetaRow label={t.dueDate} value={date(props.dueDate)} />
+            {kind === "credit_note" ? null : <MetaRow label={kind === "quote" ? t.validUntil : t.dueDate} value={date(props.dueDate)} />}
             {client.vatId ? <MetaRow label={t.clientVatId} value={client.vatId} /> : null}
           </View>
         </View>
@@ -117,8 +121,14 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
             <View style={s.tr} key={index} wrap={false}>
               <Text style={s.cPos}>{index + 1}</Text>
               <Text style={s.cDesc}>{item.description}</Text>
-              <Text style={s.cQty}>{qty(item.quantityMilli)}</Text>
-              <Text style={s.cUnit}>{money(item.unitPriceMinor)}</Text>
+              <Text style={s.cQty}>
+                {qty(item.quantityMilli)}
+                {item.unit ? ` ${item.unit}` : ""}
+              </Text>
+              <View style={s.cUnit}>
+                <Text>{money(item.unitPriceMinor)}</Text>
+                {item.discountBp ? <Text style={s.sub}>−{formatRate(item.discountBp, snap.locale)} {t.discount}</Text> : null}
+              </View>
               <Text style={s.cTax}>{formatRate(item.taxRateBp, snap.locale)}</Text>
               <Text style={s.cAmt}>{money(item.netMinor)}</Text>
             </View>
@@ -148,7 +158,7 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
 
         <View style={s.section} wrap={false}>
           {snap.exemptionNote ? <Text style={[s.bold, { marginBottom: 6 }]}>{snap.exemptionNote}</Text> : null}
-          <Text>{t.payableBy(date(props.dueDate))}</Text>
+          <Text>{kind === "quote" ? t.quoteValid(date(props.dueDate)) : kind === "credit_note" ? t.credited : t.payableBy(date(props.dueDate))}</Text>
           {props.paymentTerms && !/^\d+$/.test(props.paymentTerms) ? <Text style={s.note}>{props.paymentTerms}</Text> : null}
           {props.notes ? (
             <View style={{ marginTop: 8 }}>
@@ -156,7 +166,7 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
               <Text style={s.note}>{props.notes}</Text>
             </View>
           ) : null}
-          {props.stripePaymentLink ? (
+          {props.stripePaymentLink && kind === "invoice" ? (
             <Link src={props.stripePaymentLink} style={s.payButton}>
               {t.payOnline} →
             </Link>

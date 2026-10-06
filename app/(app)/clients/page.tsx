@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { db } from "@/db/client"
 import { requireReadyOrg } from "@/server/context"
 import { listClients } from "@/server/repos/clients"
-import { newInvoice } from "@/server/actions/invoices"
+import { newDocument } from "@/server/actions/invoices"
 
 export const metadata: Metadata = { title: "Clients" }
 
@@ -58,7 +58,7 @@ export default async function ClientsPage() {
                   <TableCell className="text-right tabular-nums">{invoiceCount}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <form action={newInvoice.bind(null, client.id)}>
+                      <form action={newDocument.bind(null, "invoice", client.id)}>
                         <Button size="sm" variant="ghost">Invoice</Button>
                       </form>
                       <ClientDialog

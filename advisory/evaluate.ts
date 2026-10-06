@@ -9,7 +9,7 @@ import { evaluateAlerts } from "./triggers"
 
 export function workspaceMetrics(db: Db, orgId: string, today: string): Metrics {
   const inputs = metricInputs(db, orgId)
-  return computeMetrics(inputs.invoices, inputs.transactions, today)
+  return computeMetrics(inputs.invoices, inputs.payments, inputs.transactions, today)
 }
 
 /** Re-evaluates advisory triggers for a workspace. Called after money-moving mutations and by the hourly sweep (time-based alerts). */

@@ -3,9 +3,11 @@
 import {
   BookOpenCheckIcon,
   BriefcaseBusinessIcon,
+  FileSignatureIcon,
   FileTextIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
+  PackageIcon,
   type LucideIcon,
   ReceiptTextIcon,
   SettingsIcon,
@@ -42,6 +44,8 @@ function navGroups(role: ShellRole, reviewCount: number): { label: string; items
       label: "Get paid",
       items: [
         { title: "Invoices", url: "/invoices", icon: FileTextIcon },
+        { title: "Quotes", url: "/quotes", icon: FileSignatureIcon },
+        { title: "Products", url: "/products", icon: PackageIcon },
         { title: "Clients", url: "/clients", icon: UsersIcon },
       ],
     },
