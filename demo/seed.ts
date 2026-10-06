@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto"
+import fs from "node:fs"
+import path from "node:path"
+import { eq } from "drizzle-orm"
 import { evaluateTriggers, workspaceMetrics } from "@/advisory/evaluate"
 import { draftSummary } from "@/bookkeeping/pnl"
 import type { Db } from "@/db/client"
-import { categorizationRules, transactions } from "@/db/schema"
+import { attachments, categorizationRules, transactions } from "@/db/schema"
 import type { DocumentKind } from "@/invoicing/documents"
 import type { DraftLine } from "@/invoicing/rules"
-import { getJurisdiction, type JurisdictionCode } from "@/jurisdictions"
+import { defaultInputTaxBp, getJurisdiction, type JurisdictionCode } from "@/jurisdictions"
+import { dataPath } from "@/lib/data-path"
 import { addDays, addMonths, dayOfMonth, daysBetween, lastDayOfMonth, monthKey, monthLabel, type IsoDate } from "@/lib/dates"
-import { computeTotals } from "@/lib/money"
+import { computeTotals, formatMoney, roundHalfAwayFromZero } from "@/lib/money"
 import { closePeriod, monthChecklist, monthPnl } from "@/server/repos/books"
 import { createClient } from "@/server/repos/clients"
 import { cancelInvoice, createDraft, finalizeDocument, recordPayment, saveDraft, setQuoteOutcome } from "@/server/repos/invoices"
@@ -16,6 +20,7 @@ import { bumpProductUsage, saveProduct } from "@/server/repos/products"
 import { createSeries } from "@/server/repos/recurring"
 import { applyJurisdiction, getSettings, renameOrganization, updateSettings } from "@/server/repos/workspace"
 import { PERSONAS } from "./personas"
+import { receiptPdf } from "./receipt-pdf"
 
 const DEMO_MARGIN_BP = 1500
 /** Demo documents are in the workspace currency, so the locked exchange rate is 1. */
@@ -254,6 +259,52 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
   rows.forEach((r, i) => {
     if (r.invoiceId) recordPayment(db, orgId, r.invoiceId, { date: r.date, amountMinor: r.amountMinor, method: "bank", transactionId: inserted[i].id })
   })
+
+  // ── Receipts: two filed against their payments, one waiting in the inbox with its match suggested ──
+  const lastIndexOf = (description: string) => rows.findLastIndex((r) => r.description === description)
+  const receiptPlan: [number, "matched" | "suggested"][] = [
+    [lastIndexOf(persona.vendors[1].description), "matched"],
+    [lastIndexOf(persona.vendors[2].description), "matched"],
+    [lastIndexOf(persona.recentOneOffs[0].description), "suggested"],
+  ]
+  for (const [index, status] of receiptPlan) {
+    if (index < 0) continue
+    const row = rows[index]
+    const total = -row.amountMinor
+    const rateBp = settings.taxRegistered && row.code ? defaultInputTaxBp(jurisdiction, row.code) : 0
+    const vat = roundHalfAwayFromZero((total * rateBp) / (10_000 + rateBp))
+    const money = (minor: number) => formatMoney(minor, settings.currency, settings.locale)
+    const id = `demo${createHash("sha256").update(`${orgId}|receipt|${index}`).digest("hex").slice(0, 17)}`
+    const filePath = path.join("uploads", orgId, "receipts", `${id}.pdf`)
+    const pdf = receiptPdf([
+      { text: row.counterparty, size: 16, bold: true },
+      { text: `Invoice R-${row.date.replace(/-/g, "")}-${index}`, gapBefore: 8 },
+      { text: `Date: ${row.date}` },
+      { text: `Bill to: ${persona.business.legalName}` },
+      { text: row.description, gapBefore: 16 },
+      { text: `Net: ${money(total - vat)}`, gapBefore: 16 },
+      { text: `${jurisdiction.taxLabel} ${rateBp / 100} %: ${money(vat)}` },
+      { text: `Total: ${money(total)}`, size: 12, bold: true },
+      { text: "Paid - thank you.", gapBefore: 16 },
+    ])
+    fs.mkdirSync(path.dirname(dataPath(filePath)), { recursive: true })
+    fs.writeFileSync(dataPath(filePath), pdf)
+    db.insert(attachments)
+      .values({
+        id,
+        orgId,
+        filePath,
+        filename: `${row.counterparty.replace(/[^\w]+/g, "-").toLowerCase()}-${row.date}.pdf`,
+        mimeType: "application/pdf",
+        sizeBytes: pdf.byteLength,
+        extracted: { vendor: row.counterparty, date: row.date, totalMinor: total, vatMinor: vat, currency: settings.currency },
+        status,
+        transactionId: status === "matched" ? inserted[index].id : null,
+        suggestedTransactionId: status === "suggested" ? inserted[index].id : null,
+      })
+      .run()
+    if (status === "matched") db.update(transactions).set({ vatRateBp: rateBp }).where(eq(transactions.id, inserted[index].id)).run()
+  }
 
   // The story needs a visible margin squeeze: size one subcontractor bill so the 90-day margin lands near 15 %.
   const t90 = workspaceMetrics(db, orgId, today).trailing90

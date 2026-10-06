@@ -122,6 +122,8 @@ export function DataTable<T>({
   pageSize = 25,
   toolbar,
   empty,
+  initialSearch = "",
+  initialFilters = [],
 }: {
   columns: ColumnDef<T>[]
   data: T[]
@@ -132,11 +134,15 @@ export function DataTable<T>({
   pageSize?: number
   toolbar?: React.ReactNode
   empty?: React.ReactNode
+  /** Pre-filled search, e.g. from a `?q=` link. */
+  initialSearch?: string
+  /** Pre-selected facet values, e.g. `[{ id: "status", value: ["overdue"] }]` from a dashboard link. */
+  initialFilters?: ColumnFiltersState
 }) {
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = useState("")
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialFilters)
+  const [globalFilter, setGlobalFilter] = useState(initialSearch)
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table is the shadcn data-table standard; the component simply opts out of compiler memoization.
   const table = useReactTable({
     data,

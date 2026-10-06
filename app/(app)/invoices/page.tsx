@@ -18,9 +18,10 @@ const TABS = [
   ["recurring", "Recurring"],
 ] as const
 
-export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ tab?: string; status?: string }> }) {
   const ctx = await requireReadyOrg()
-  const tab = parseTab(TABS, (await searchParams).tab)
+  const params = await searchParams
+  const tab = parseTab(TABS, params.tab)
   const { currency, locale } = ctx.settings
   const metrics = workspaceMetrics(db, ctx.orgId, ctx.today)
   const stats = [
@@ -53,7 +54,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
       </div>
       <PageTabs basePath="/invoices" tabs={TABS} current={tab} />
       {tab === "invoices" ? (
-        <DocumentList ctx={ctx} kind="invoice" />
+        <DocumentList ctx={ctx} kind="invoice" status={params.status} />
       ) : tab === "credit-notes" ? (
         <DocumentList ctx={ctx} kind="credit_note" />
       ) : (

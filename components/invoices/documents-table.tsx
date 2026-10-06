@@ -44,12 +44,15 @@ export function DocumentsTable({
   dueLabel,
   toolbar,
   empty,
+  status,
 }: {
   rows: DocumentRow[]
   locale: string
   dueLabel: string
   toolbar?: React.ReactNode
   empty?: React.ReactNode
+  /** Pre-selected status filter (from `?status=`). */
+  status?: DisplayStatus
 }) {
   const statuses = [...new Set(rows.map((r) => r.status))]
   const facets: Facet[] = [{ columnId: "status", title: "Status", options: statuses.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s })) }]
@@ -103,6 +106,7 @@ export function DocumentsTable({
       rowHref={(r) => `/invoices/${r.id}`}
       searchPlaceholder="Search number or client…"
       initialSorting={[{ id: "issueDate", desc: true }]}
+      initialFilters={status ? [{ id: "status", value: [status] }] : []}
       toolbar={toolbar}
       empty={empty}
     />
