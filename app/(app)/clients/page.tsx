@@ -59,7 +59,9 @@ export default async function ClientsPage() {
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <form action={newDocument.bind(null, "invoice", client.id)}>
-                        <Button size="sm" variant="ghost">Invoice</Button>
+                        <Button size="sm" variant="ghost">
+                          Invoice
+                        </Button>
                       </form>
                       <ClientDialog
                         client={client}

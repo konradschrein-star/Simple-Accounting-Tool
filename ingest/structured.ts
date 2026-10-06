@@ -40,7 +40,10 @@ export function parseCamt(xml: string, workspaceCurrency: string): StructuredSta
       const tx = entry.transactions[0]
       // The other party: who paid us, or whom we paid. Reversals keep the original party on the opposite side.
       const counterparty = (direction === "credit" ? (tx?.debtor?.name ?? tx?.creditor?.name) : (tx?.creditor?.name ?? tx?.debtor?.name)) ?? ""
-      const remittance = entry.transactions.map((t) => t.remittanceInformation).filter(Boolean).join(" ")
+      const remittance = entry.transactions
+        .map((t) => t.remittanceInformation)
+        .filter(Boolean)
+        .join(" ")
       const issues: RowIssue[] = []
       if (entry.currency !== workspaceCurrency) issues.push("foreign_currency")
       const date = isoDay(entry.bookingDate)
@@ -52,7 +55,14 @@ export function parseCamt(xml: string, workspaceCurrency: string): StructuredSta
         counterparty: clean(counterparty),
         amountMinor: signed(entry.amount, direction),
         balanceMinor: null,
-        raw: [date ?? "", clean(counterparty), clean(remittance), String(signed(entry.amount, direction) / 100), entry.currency, entry.accountServicerReferenceId ?? ""],
+        raw: [
+          date ?? "",
+          clean(counterparty),
+          clean(remittance),
+          String(signed(entry.amount, direction) / 100),
+          entry.currency,
+          entry.accountServicerReferenceId ?? "",
+        ],
         issues,
       })
     }

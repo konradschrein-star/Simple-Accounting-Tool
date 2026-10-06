@@ -38,7 +38,19 @@ const STATUS_LABELS: Partial<Record<DisplayStatus, string>> = {
   issued: "Issued",
 }
 
-export function DocumentsTable({ rows, locale, dueLabel, toolbar, empty }: { rows: DocumentRow[]; locale: string; dueLabel: string; toolbar?: React.ReactNode; empty?: React.ReactNode }) {
+export function DocumentsTable({
+  rows,
+  locale,
+  dueLabel,
+  toolbar,
+  empty,
+}: {
+  rows: DocumentRow[]
+  locale: string
+  dueLabel: string
+  toolbar?: React.ReactNode
+  empty?: React.ReactNode
+}) {
   const statuses = [...new Set(rows.map((r) => r.status))]
   const facets: Facet[] = [{ columnId: "status", title: "Status", options: statuses.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s })) }]
   const columns: ColumnDef<DocumentRow>[] = [
@@ -64,7 +76,9 @@ export function DocumentsTable({ rows, locale, dueLabel, toolbar, empty }: { row
       accessorKey: "dueDate",
       header: ({ column }) => <SortHeader column={column} title={dueLabel} className="hidden md:inline-flex" />,
       cell: ({ row }) => (
-        <span className={cn("hidden md:inline", row.original.status === "overdue" ? "text-destructive" : "text-muted-foreground")}>{formatDate(row.original.dueDate, locale)}</span>
+        <span className={cn("hidden md:inline", row.original.status === "overdue" ? "text-destructive" : "text-muted-foreground")}>
+          {formatDate(row.original.dueDate, locale)}
+        </span>
       ),
     },
     { accessorKey: "status", header: "Status", filterFn: facetFilterFn, cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
@@ -74,7 +88,9 @@ export function DocumentsTable({ rows, locale, dueLabel, toolbar, empty }: { row
       cell: ({ row }) => (
         <div className="text-right">
           <div className="font-medium tabular-nums">{formatMoney(row.original.totalMinor, row.original.currency, locale)}</div>
-          {row.original.status === "partial" ? <div className="text-xs text-muted-foreground tabular-nums">{formatMoney(row.original.openMinor, row.original.currency, locale)} open</div> : null}
+          {row.original.status === "partial" ? (
+            <div className="text-xs text-muted-foreground tabular-nums">{formatMoney(row.original.openMinor, row.original.currency, locale)} open</div>
+          ) : null}
         </div>
       ),
     },

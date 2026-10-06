@@ -163,9 +163,24 @@ export function SettingsForm({
             {bankFields.map((f) => (
               <TextField key={f} name={BANK_LABELS[f].name} label={BANK_LABELS[f].label} value={String(s[BANK_LABELS[f].name] ?? "")} />
             ))}
-            <TextField name="invoicePrefix" label="Invoice number prefix" value={s.invoicePrefix} description={`Next: ${nextNumber(s.invoicePrefix, s.nextInvoiceSeq)}`} />
-            <TextField name="quotePrefix" label="Quote number prefix" value={s.quotePrefix} description={`Next: ${nextNumber(s.quotePrefix, s.nextQuoteSeq)}`} />
-            <TextField name="creditNotePrefix" label="Credit note prefix" value={s.creditNotePrefix} description={`Next: ${nextNumber(s.creditNotePrefix, s.nextCreditNoteSeq)}`} />
+            <TextField
+              name="invoicePrefix"
+              label="Invoice number prefix"
+              value={s.invoicePrefix}
+              description={`Next: ${nextNumber(s.invoicePrefix, s.nextInvoiceSeq)}`}
+            />
+            <TextField
+              name="quotePrefix"
+              label="Quote number prefix"
+              value={s.quotePrefix}
+              description={`Next: ${nextNumber(s.quotePrefix, s.nextQuoteSeq)}`}
+            />
+            <TextField
+              name="creditNotePrefix"
+              label="Credit note prefix"
+              value={s.creditNotePrefix}
+              description={`Next: ${nextNumber(s.creditNotePrefix, s.nextCreditNoteSeq)}`}
+            />
             <Field>
               <FieldLabel htmlFor="defaultPaymentTermsDays">Default payment terms (days)</FieldLabel>
               <Input id="defaultPaymentTermsDays" name="defaultPaymentTermsDays" type="number" min={0} max={365} defaultValue={s.defaultPaymentTermsDays} />
@@ -178,7 +193,8 @@ export function SettingsForm({
         <CardHeader>
           <CardTitle>Payment reminders</CardTitle>
           <CardDescription>
-            Overdue invoices get a friendly reminder email with the link to pay{emailEnabled ? "" : " — available once email sending is configured on the server"}.
+            Overdue invoices get a friendly reminder email with the link to pay
+            {emailEnabled ? "" : " — available once email sending is configured on the server"}.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -188,7 +204,12 @@ export function SettingsForm({
               <FieldLabel htmlFor="remindersEnabled">Send reminders automatically</FieldLabel>
             </Field>
             <TextField name="reminderDays" label="Days after the due date" value={s.reminderDays.join(", ")} description="Up to five, e.g. 7, 21, 35" />
-            <TextField name="lateFeePercent" label="Late fee from the 2nd reminder (%)" value={String(s.lateFeeBp / 100)} description="0 for none. Shown in the reminder, not added to the invoice." />
+            <TextField
+              name="lateFeePercent"
+              label="Late fee from the 2nd reminder (%)"
+              value={String(s.lateFeeBp / 100)}
+              description="0 for none. Shown in the reminder, not added to the invoice."
+            />
           </FieldGroup>
         </CardContent>
       </Card>

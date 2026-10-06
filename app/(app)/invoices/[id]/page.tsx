@@ -70,7 +70,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             lines: items,
           }}
           clients={listClients(db, ctx.orgId).map(({ client: c }) => ({ id: c.id, name: c.name, currency: c.currency }))}
-          products={listProducts(db, ctx.orgId).map((p) => ({ id: p.id, name: p.name, description: p.description, unit: p.unit, unitPriceMinor: p.unitPriceMinor, taxRateBp: p.taxRateBp }))}
+          products={listProducts(db, ctx.orgId).map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            unit: p.unit,
+            unitPriceMinor: p.unitPriceMinor,
+            taxRateBp: p.taxRateBp,
+          }))}
           currencies={CURRENCIES}
           taxRatesBp={ctx.settings.smallBusinessExempt || !ctx.settings.taxRegistered ? [0] : ctx.jurisdiction.taxRatesBp}
           taxLabel={ctx.jurisdiction.taxLabel}
@@ -183,7 +190,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <CardTitle className="text-base">Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <DocumentTimeline events={events.map((e) => ({ id: e.id, type: e.type, detail: e.detail, at: e.at.getTime() }))} currency={invoice.currency} locale={locale} timeZone={ctx.settings.timezone} />
+              <DocumentTimeline
+                events={events.map((e) => ({ id: e.id, type: e.type, detail: e.detail, at: e.at.getTime() }))}
+                currency={invoice.currency}
+                locale={locale}
+                timeZone={ctx.settings.timezone}
+              />
             </CardContent>
           </Card>
         </div>

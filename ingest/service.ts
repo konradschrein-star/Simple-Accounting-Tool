@@ -25,7 +25,7 @@ export type ImportContext = { orgId: string; jurisdiction: JurisdictionCode; cur
 export class ImportRejected extends Error {
   constructor(
     readonly code: string,
-    readonly status: number,
+    readonly status: number
   ) {
     super(code)
   }
@@ -55,10 +55,10 @@ export function pdfImportsThisMonth(orgId: string, today: string): number {
           eq(importBatches.source, "pdf"),
           eq(importBatches.llmCalled, true),
           gte(importBatches.createdAt, fromIso(`${monthKey(today)}-01`)),
-          or(isNull(importBatches.errorCode), notInArray(importBatches.errorCode, ["LLM_UNAVAILABLE", "PDF_TOOLING_UNAVAILABLE", "INTERRUPTED", "INTERNAL"])),
-        ),
+          or(isNull(importBatches.errorCode), notInArray(importBatches.errorCode, ["LLM_UNAVAILABLE", "PDF_TOOLING_UNAVAILABLE", "INTERRUPTED", "INTERNAL"]))
+        )
       )
-      .get()?.n ?? 0,
+      .get()?.n ?? 0
   )
 }
 

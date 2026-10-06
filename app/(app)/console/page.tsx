@@ -20,7 +20,12 @@ export default async function ConsolePage() {
   const engagements = listEngagements(db, { staffUserId: user.role === "admin" ? undefined : user.id, statuses: ["active"] })
   const currentMonth = monthKey(todayIn("Europe/London"))
   const lastMonth = priorMonth(currentMonth)
-  const signals = consoleSignals(db, engagements.map((e) => e.engagement.orgId), currentMonth, lastMonth)
+  const signals = consoleSignals(
+    db,
+    engagements.map((e) => e.engagement.orgId),
+    currentMonth,
+    lastMonth
+  )
   const rows = engagements
     .map((e) => ({ ...e, s: signals.get(e.engagement.orgId)! }))
     .map((r) => ({ ...r, work: r.s.needsReview + r.s.failedRecon * 10 + (r.s.lastMonthClosed ? 0 : 5) }))
@@ -66,11 +71,21 @@ export default async function ConsolePage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {s.needsReview ? <Badge variant="outline" className="border-warning/60">{s.needsReview}</Badge> : <span className="text-muted-foreground">0</span>}
+                    {s.needsReview ? (
+                      <Badge variant="outline" className="border-warning/60">
+                        {s.needsReview}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{s.lastImport ? s.lastImport.toLocaleDateString("en-GB") : "never"}</TableCell>
-                  <TableCell>{s.failedRecon ? <Badge variant="destructive">{s.failedRecon} failed</Badge> : <span className="text-success">OK</span>}</TableCell>
-                  <TableCell>{s.lastMonthClosed ? <span className="text-success">{s.lastClose}</span> : <Badge variant="outline">{lastMonth} open</Badge>}</TableCell>
+                  <TableCell>
+                    {s.failedRecon ? <Badge variant="destructive">{s.failedRecon} failed</Badge> : <span className="text-success">OK</span>}
+                  </TableCell>
+                  <TableCell>
+                    {s.lastMonthClosed ? <span className="text-success">{s.lastClose}</span> : <Badge variant="outline">{lastMonth} open</Badge>}
+                  </TableCell>
                   <TableCell className="pr-6 text-right">
                     <form action={enterClientWorkspace.bind(null, engagement.orgId)}>
                       <Button size="sm">

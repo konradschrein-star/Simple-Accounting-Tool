@@ -27,7 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <BriefcaseBusinessIcon className="size-4" /> Acting as bookkeeper for <strong>{ctx.orgName}</strong> — every change is audited.
             </span>
             <form action={exitClientWorkspace}>
-              <Button size="sm" variant="secondary">Exit client</Button>
+              <Button size="sm" variant="secondary">
+                Exit client
+              </Button>
             </form>
           </div>
         ) : null}

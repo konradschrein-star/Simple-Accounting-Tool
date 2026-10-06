@@ -45,7 +45,6 @@ export function AlertCards({ alerts, currency, locale }: { alerts: AlertView[]; 
   const money = (m: number) => formatMoney(m, currency, locale)
   if (!alerts.length) return null
 
-
   return (
     <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
       {alerts.map((alert) => {

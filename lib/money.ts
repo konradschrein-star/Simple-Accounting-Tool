@@ -31,9 +31,7 @@ export type InvoiceTotals = {
 }
 
 /** Tax is computed per rate group on the summed nets (not per line) — required for DE/UK compliant breakdowns. */
-export function computeTotals(
-  lines: { quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number }[],
-): InvoiceTotals {
+export function computeTotals(lines: { quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number }[]): InvoiceTotals {
   const groups = new Map<number, number>()
   let subtotalMinor = 0
   for (const line of lines) {

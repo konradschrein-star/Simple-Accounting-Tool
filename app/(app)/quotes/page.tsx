@@ -9,7 +9,11 @@ export default async function QuotesPage() {
   const ctx = await requireReadyOrg()
   return (
     <PageBody>
-      <PageHeader title="Quotes" description="Send an offer, track acceptance, and turn it into an invoice in one click." actions={<NewDocumentButton kind="quote" />} />
+      <PageHeader
+        title="Quotes"
+        description="Send an offer, track acceptance, and turn it into an invoice in one click."
+        actions={<NewDocumentButton kind="quote" />}
+      />
       <DocumentList ctx={ctx} kind="quote" />
     </PageBody>
   )

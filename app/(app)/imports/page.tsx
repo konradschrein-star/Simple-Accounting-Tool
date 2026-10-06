@@ -15,8 +15,16 @@ import { listBatches } from "@/server/repos/imports"
 export const metadata: Metadata = { title: "Imports" }
 
 const SAMPLES: Record<string, { file: string; label: string }[]> = {
-  de: [{ file: "sparkasse.csv", label: "Sparkasse CSV" }, { file: "dkb.csv", label: "DKB CSV" }, { file: "sparkasse-camt053.xml", label: "CAMT.053 XML" }],
-  uk: [{ file: "monzo.csv", label: "Monzo CSV" }, { file: "barclays.csv", label: "Barclays CSV" }, { file: "barclays.ofx", label: "Barclays OFX" }],
+  de: [
+    { file: "sparkasse.csv", label: "Sparkasse CSV" },
+    { file: "dkb.csv", label: "DKB CSV" },
+    { file: "sparkasse-camt053.xml", label: "CAMT.053 XML" },
+  ],
+  uk: [
+    { file: "monzo.csv", label: "Monzo CSV" },
+    { file: "barclays.csv", label: "Barclays CSV" },
+    { file: "barclays.ofx", label: "Barclays OFX" },
+  ],
   us: [{ file: "chase.csv", label: "Chase CSV" }],
   je: [{ file: "paid-in-out.csv", label: "Paid in / out CSV" }],
 }
@@ -62,7 +70,7 @@ export default async function ImportsPage() {
                         {b.filename}
                       </Link>
                     </TableCell>
-                    <TableCell className="uppercase text-muted-foreground">{b.source}</TableCell>
+                    <TableCell className="text-muted-foreground uppercase">{b.source}</TableCell>
                     <TableCell className="tabular-nums">{b.rowCount || "—"}</TableCell>
                     <TableCell>
                       <BatchStatusBadge status={b.status} />

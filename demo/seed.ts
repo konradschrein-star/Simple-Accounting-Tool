@@ -31,7 +31,6 @@ function rng(seed: number) {
   }
 }
 
-
 /**
  * Fills a fresh workspace with nine months of believable activity: invoices in every state, a categorized
  * ledger, a review queue with AI suggestions, rules, one closed month, and live advisory alerts.
@@ -57,14 +56,31 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
   const draft = (kind: DocumentKind, clientId: string, issueDate: IsoDate, lines: DraftLine[]) => {
     const id = createDraft(db, orgId, settings, issueDate, { kind, clientId })
     const dueDate = addDays(issueDate, kind === "quote" ? 30 : settings.defaultPaymentTermsDays)
-    saveDraft(db, orgId, id, { clientId, currency: settings.currency, issueDate, serviceDate: issueDate, dueDate, notes: "", paymentTerms: "", stripePaymentLink: "", lines })
+    saveDraft(db, orgId, id, {
+      clientId,
+      currency: settings.currency,
+      issueDate,
+      serviceDate: issueDate,
+      dueDate,
+      notes: "",
+      paymentTerms: "",
+      stripePaymentLink: "",
+      lines,
+    })
     return id
   }
 
   // ── Invoicing: documents are issued in date order, so every number range reads chronologically ──
-  const products = persona.services.map((s) => saveProduct(db, orgId, null, { name: s.description, description: "", unit: "", unitPriceMinor: s.unitPriceMinor, taxRateBp: settings.defaultTaxRateBp }))
+  const products = persona.services.map((s) =>
+    saveProduct(db, orgId, null, { name: s.description, description: "", unit: "", unitPriceMinor: s.unitPriceMinor, taxRateBp: settings.defaultTaxRateBp })
+  )
   products.slice(0, 2).forEach((p) => bumpProductUsage(db, orgId, p.id))
-  const line = (serviceIndex: number, qty: number): DraftLine => ({ description: persona.services[serviceIndex].description, quantityMilli: qty * 1000, unitPriceMinor: persona.services[serviceIndex].unitPriceMinor, taxRateBp: settings.defaultTaxRateBp })
+  const line = (serviceIndex: number, qty: number): DraftLine => ({
+    description: persona.services[serviceIndex].description,
+    quantityMilli: qty * 1000,
+    unitPriceMinor: persona.services[serviceIndex].unitPriceMinor,
+    taxRateBp: settings.defaultTaxRateBp,
+  })
   const issue = (id: string) => finalizeDocument(db, orgId, jurisdiction, id, SAME_CURRENCY)
   const plan: { date: IsoDate; run: () => void }[] = []
 
@@ -81,7 +97,9 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
       const service = persona.services[(offset + 8 + i * 3) % persona.services.length]
       const share = offset === 0 ? [0.45, 0.35, 0.3][i] : i === 0 ? 0.55 : 0.45
       const qtyMilli = Math.max(1000, Math.round((monthTarget * share) / service.unitPriceMinor) * 1000)
-      const lines = [{ description: service.description, quantityMilli: qtyMilli, unitPriceMinor: service.unitPriceMinor, taxRateBp: settings.defaultTaxRateBp }]
+      const lines = [
+        { description: service.description, quantityMilli: qtyMilli, unitPriceMinor: service.unitPriceMinor, taxRateBp: settings.defaultTaxRateBp },
+      ]
       const isDraft = offset === 0 && i === issueDays.length - 1
       const overdueOne = offset === -2 && i === 1 // stays unpaid → overdue
       const paidDate = addDays(issueDate, 9 + Math.round(random() * 12))
@@ -125,31 +143,93 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
         issue(mistaken)
         cancelInvoice(db, orgId, jurisdiction, mistaken, addDays(today, -95), SAME_CURRENCY)
       },
-    },
+    }
   )
   plan.sort((a, b) => a.date.localeCompare(b.date)).forEach((p) => p.run())
 
   // A monthly retainer that bills itself from the 1st of next month.
   const nextMonth = addMonths(monthKey(today), 1)
   const retainerTemplate = draft("invoice", clients[0].id, `${nextMonth}-01`, [line(2, 1)])
-  createSeries(db, orgId, { templateInvoiceId: retainerTemplate, frequency: "monthly", nextIssueDate: `${nextMonth}-01`, endDate: null, remaining: null, autoSend: false })
+  createSeries(db, orgId, {
+    templateInvoiceId: retainerTemplate,
+    frequency: "monthly",
+    nextIssueDate: `${nextMonth}-01`,
+    endDate: null,
+    remaining: null,
+    autoSend: false,
+  })
 
   // ── Ledger ──
-  type Row = { date: IsoDate; description: string; counterparty: string; amountMinor: number; code: string | null; source: "rule" | "ai" | "heuristic" | null; review: "ok" | "needs_review"; confidence?: number; invoiceId?: string }
-  const rows: Row[] = paidInvoices.map((p) => ({ date: p.paidDate, description: `Payment ${p.number}`, counterparty: p.client, amountMinor: p.total, code: incomeAccount, source: "heuristic", review: "ok", invoiceId: p.id }))
+  type Row = {
+    date: IsoDate
+    description: string
+    counterparty: string
+    amountMinor: number
+    code: string | null
+    source: "rule" | "ai" | "heuristic" | null
+    review: "ok" | "needs_review"
+    confidence?: number
+    invoiceId?: string
+  }
+  const rows: Row[] = paidInvoices.map((p) => ({
+    date: p.paidDate,
+    description: `Payment ${p.number}`,
+    counterparty: p.client,
+    amountMinor: p.total,
+    code: incomeAccount,
+    source: "heuristic",
+    review: "ok",
+    invoiceId: p.id,
+  }))
   for (let offset = -8; offset <= 0; offset++) {
     const [y, m] = addMonths(monthKey(today), offset).split("-").map(Number)
     for (const v of persona.vendors) {
       if (v.every === "quarter" && m % 3 !== 1) continue
       const date = dayOfMonth(y, m, v.day)
-      if (date <= today) rows.push({ date, description: v.description, counterparty: v.counterparty, amountMinor: -v.amountMinor, code: v.accountCode, source: random() > 0.4 ? "rule" : "ai", review: "ok" })
+      if (date <= today)
+        rows.push({
+          date,
+          description: v.description,
+          counterparty: v.counterparty,
+          amountMinor: -v.amountMinor,
+          code: v.accountCode,
+          source: random() > 0.4 ? "rule" : "ai",
+          review: "ok",
+        })
     }
     const drawDate = dayOfMonth(y, m, 25)
-    if (drawDate <= today) rows.push({ date: drawDate, description: "Owner drawing", counterparty: persona.owner, amountMinor: -(200000 + Math.round(random() * 50000)), code: persona.ownerCode, source: "rule", review: "ok" })
-    if (m % 3 === 0 && drawDate <= today) rows.push({ date: lastDayOfMonth(y, m), description: "Transfer to savings", counterparty: persona.owner, amountMinor: -300000, code: persona.transferCode, source: "heuristic", review: "ok" })
+    if (drawDate <= today)
+      rows.push({
+        date: drawDate,
+        description: "Owner drawing",
+        counterparty: persona.owner,
+        amountMinor: -(200000 + Math.round(random() * 50000)),
+        code: persona.ownerCode,
+        source: "rule",
+        review: "ok",
+      })
+    if (m % 3 === 0 && drawDate <= today)
+      rows.push({
+        date: lastDayOfMonth(y, m),
+        description: "Transfer to savings",
+        counterparty: persona.owner,
+        amountMinor: -300000,
+        code: persona.transferCode,
+        source: "heuristic",
+        review: "ok",
+      })
   }
   persona.recentOneOffs.forEach((o, i) => {
-    rows.push({ date: addDays(today, -3 - i * 5), description: o.description, counterparty: o.counterparty, amountMinor: -o.amountMinor, code: o.suggestedCode, source: "ai", review: "needs_review", confidence: o.confidence })
+    rows.push({
+      date: addDays(today, -3 - i * 5),
+      description: o.description,
+      counterparty: o.counterparty,
+      amountMinor: -o.amountMinor,
+      code: o.suggestedCode,
+      source: "ai",
+      review: "needs_review",
+      confidence: o.confidence,
+    })
   })
   const inserted = db
     .insert(transactions)
@@ -166,7 +246,7 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
         reviewStatus: r.review,
         invoiceId: r.invoiceId ?? null,
         dedupeHash: createHash("sha256").update(`demo|${orgId}|${i}`).digest("hex"),
-      })),
+      }))
     )
     .returning({ id: transactions.id })
     .all()
@@ -206,13 +286,20 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
         ledgerAccountId: accounts.get(v.accountCode)!.id,
         priority: 100 + i,
         hitCount: 8,
-      })),
+      }))
     )
     .run()
 
   // ── One closed month with a written summary ──
   const period = addMonths(monthKey(today), -2)
-  const summary = draftSummary({ monthLabel: monthLabel(period), pnl: monthPnl(db, orgId, period), currency: settings.currency, locale: settings.locale, overdueMinor: 0, nextDeadline: null })
+  const summary = draftSummary({
+    monthLabel: monthLabel(period),
+    pnl: monthPnl(db, orgId, period),
+    currency: settings.currency,
+    locale: settings.locale,
+    overdueMinor: 0,
+    nextDeadline: null,
+  })
   closePeriod(db, orgId, period, userId, monthChecklist(db, orgId, period), summary)
 
   evaluateTriggers(db, orgId)

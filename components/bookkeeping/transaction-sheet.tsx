@@ -41,7 +41,23 @@ export type TransactionDetail = {
 const DEFAULT = "default"
 
 /** Detail sheet for one ledger line, driven by `?txn=` so it can be linked to and survives reloads. */
-export function TransactionSheet({ detail, accounts, ratesBp, taxLabel, showVat, currency, locale }: { detail: TransactionDetail; accounts: AccountRef[]; ratesBp: number[]; taxLabel: string; showVat: boolean; currency: CurrencyCode; locale: string }) {
+export function TransactionSheet({
+  detail,
+  accounts,
+  ratesBp,
+  taxLabel,
+  showVat,
+  currency,
+  locale,
+}: {
+  detail: TransactionDetail
+  accounts: AccountRef[]
+  ratesBp: number[]
+  taxLabel: string
+  showVat: boolean
+  currency: CurrencyCode
+  locale: string
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -115,7 +131,9 @@ export function TransactionSheet({ detail, accounts, ratesBp, taxLabel, showVat,
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={DEFAULT}>Account default{detail.defaultVatRateBp !== null ? ` (${formatRate(detail.defaultVatRateBp, locale)})` : ""}</SelectItem>
+                  <SelectItem value={DEFAULT}>
+                    Account default{detail.defaultVatRateBp !== null ? ` (${formatRate(detail.defaultVatRateBp, locale)})` : ""}
+                  </SelectItem>
                   {[...new Set([...ratesBp, 0])].map((bp) => (
                     <SelectItem key={bp} value={String(bp)}>
                       {bp ? formatRate(bp, locale) : `No ${taxLabel}`}
@@ -156,13 +174,19 @@ export function TransactionSheet({ detail, accounts, ratesBp, taxLabel, showVat,
             </p>
             {detail.receipt ? (
               <div className="space-y-3">
-                <a href={`/api/receipts/${detail.receipt.id}/file`} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border bg-muted">
+                <a
+                  href={`/api/receipts/${detail.receipt.id}/file`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block overflow-hidden rounded-lg border bg-muted"
+                >
                   {detail.receipt.mimeType.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element -- private, authenticated file
                     <img src={`/api/receipts/${detail.receipt.id}/file`} alt={detail.receipt.filename} className="max-h-72 w-full object-contain" />
                   ) : (
                     <span className="flex items-center gap-2 p-4 text-sm">
-                      <FileTextIcon className="size-5 text-muted-foreground" /> {detail.receipt.filename} <ExternalLinkIcon className="ml-auto size-4 text-muted-foreground" />
+                      <FileTextIcon className="size-5 text-muted-foreground" /> {detail.receipt.filename}{" "}
+                      <ExternalLinkIcon className="ml-auto size-4 text-muted-foreground" />
                     </span>
                   )}
                 </a>
@@ -171,14 +195,25 @@ export function TransactionSheet({ detail, accounts, ratesBp, taxLabel, showVat,
                     {detail.receipt.vendor ?? "Reading…"}
                     {detail.receipt.totalMinor !== null ? ` · ${money(detail.receipt.totalMinor, detail.receipt.currency)}` : ""}
                   </span>
-                  <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => unlinkReceipt(detail.receipt!.id), { success: "Receipt detached" })}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => run(() => unlinkReceipt(detail.receipt!.id), { success: "Receipt detached" })}
+                  >
                     Detach
                   </Button>
                 </div>
               </div>
             ) : (
               <>
-                <input ref={fileInput} type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+                />
                 <Button variant="outline" className="w-full" disabled={uploading} onClick={() => fileInput.current?.click()}>
                   {uploading ? <Spinner /> : <UploadIcon />} Attach receipt
                 </Button>

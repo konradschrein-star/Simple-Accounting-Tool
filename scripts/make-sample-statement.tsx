@@ -5,7 +5,10 @@ import path from "node:path"
 import { Document, Font, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer"
 
 const fonts = path.join(process.cwd(), "assets", "fonts")
-Font.register({ family: "Noto Sans", fonts: [{ src: path.join(fonts, "NotoSans-Regular.ttf") }, { src: path.join(fonts, "NotoSans-Bold.ttf"), fontWeight: 700 }] })
+Font.register({
+  family: "Noto Sans",
+  fonts: [{ src: path.join(fonts, "NotoSans-Regular.ttf") }, { src: path.join(fonts, "NotoSans-Bold.ttf"), fontWeight: 700 }],
+})
 
 const rows: [string, string, string, number][] = [
   ["01.09.2026", "Gutschrift", "Kaffeerösterei Elbe KG · RE INV-2026-0011", 2856.0],

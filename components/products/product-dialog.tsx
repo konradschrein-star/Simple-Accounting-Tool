@@ -15,7 +15,17 @@ export type ProductFormValue = { id: string; name: string; description: string; 
 
 const DEFAULT_RATE = "default"
 
-export function ProductDialog({ product, trigger, taxRatesBp, locale }: { product?: ProductFormValue; trigger: React.ReactNode; taxRatesBp: number[]; locale: string }) {
+export function ProductDialog({
+  product,
+  trigger,
+  taxRatesBp,
+  locale,
+}: {
+  product?: ProductFormValue
+  trigger: React.ReactNode
+  taxRatesBp: number[]
+  locale: string
+}) {
   const [open, setOpen] = useState(false)
   const { pending, run } = useServerAction()
   const [rate, setRate] = useState(product?.taxRateBp === null || product?.taxRateBp === undefined ? DEFAULT_RATE : String(product.taxRateBp))
@@ -51,7 +61,14 @@ export function ProductDialog({ product, trigger, taxRatesBp, locale }: { produc
             </Field>
             <Field>
               <FieldLabel htmlFor="product-price">Unit price (net)</FieldLabel>
-              <Input id="product-price" name="price" inputMode="decimal" required defaultValue={product ? minorToInput(product.unitPriceMinor) : ""} placeholder="0.00" />
+              <Input
+                id="product-price"
+                name="price"
+                inputMode="decimal"
+                required
+                defaultValue={product ? minorToInput(product.unitPriceMinor) : ""}
+                placeholder="0.00"
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="product-unit">Unit (optional)</FieldLabel>

@@ -9,11 +9,24 @@ import type { WorkspaceSettings } from "./workspace"
 /** Output tax from issued invoices and credit notes, input tax from expenses booked in the period. */
 export function vatSummary(db: Db, orgId: string, jurisdiction: Jurisdiction, settings: WorkspaceSettings, period: { from: IsoDate; to: IsoDate }): VatSummary {
   const docs = db
-    .select({ id: invoices.id, kind: invoices.kind, status: invoices.status, issueDate: invoices.issueDate, fxRateMicro: invoices.fxRateMicro, totalMinor: invoices.totalMinor, snapshot: invoices.snapshot, relatedId: invoices.relatedId })
+    .select({
+      id: invoices.id,
+      kind: invoices.kind,
+      status: invoices.status,
+      issueDate: invoices.issueDate,
+      fxRateMicro: invoices.fxRateMicro,
+      totalMinor: invoices.totalMinor,
+      snapshot: invoices.snapshot,
+      relatedId: invoices.relatedId,
+    })
     .from(invoices)
     .where(and(eq(invoices.orgId, orgId), inArray(invoices.kind, ["invoice", "credit_note"]), ne(invoices.status, "draft")))
     .all()
-  const payments = db.select({ invoiceId: invoicePayments.invoiceId, date: invoicePayments.date, amountMinor: invoicePayments.amountMinor }).from(invoicePayments).where(eq(invoicePayments.orgId, orgId)).all()
+  const payments = db
+    .select({ invoiceId: invoicePayments.invoiceId, date: invoicePayments.date, amountMinor: invoicePayments.amountMinor })
+    .from(invoicePayments)
+    .where(eq(invoicePayments.orgId, orgId))
+    .all()
   const paymentsBy = Map.groupBy(payments, (p) => p.invoiceId)
   const sales: VatSalesDoc[] = docs.map((d) => ({
     kind: d.kind as VatSalesDoc["kind"],

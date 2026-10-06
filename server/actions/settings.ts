@@ -15,11 +15,17 @@ import { eraseWorkspace, renameOrganization, updateSettings } from "@/server/rep
 
 const text = textField()
 /** A text field whose content must pass a checksum validator (empty passes). */
-const checked = (problem: (value: string) => string | null) => text.superRefine((value, ctx) => {
-  const message = problem(value)
-  if (message) ctx.addIssue({ code: "custom", message })
-})
-const prefix = z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-_/]+$/, "Prefixes may only contain letters, digits, - _ /")
+const checked = (problem: (value: string) => string | null) =>
+  text.superRefine((value, ctx) => {
+    const message = problem(value)
+    if (message) ctx.addIssue({ code: "custom", message })
+  })
+const prefix = z
+  .string()
+  .trim()
+  .min(1)
+  .max(12)
+  .regex(/^[A-Za-z0-9-_/]+$/, "Prefixes may only contain letters, digits, - _ /")
 
 const profileSchema = z.object({
   businessName: z.string().trim().min(2).max(120),
@@ -45,7 +51,16 @@ const profileSchema = z.object({
   remindersEnabled: checkbox,
   reminderDays: z
     .string()
-    .transform((v) => [...new Set(v.split(/[s,;]+/).filter(Boolean).map(Number))].sort((a, b) => a - b))
+    .transform((v) =>
+      [
+        ...new Set(
+          v
+            .split(/[s,;]+/)
+            .filter(Boolean)
+            .map(Number)
+        ),
+      ].sort((a, b) => a - b)
+    )
     .pipe(z.array(z.number().int().min(1, "Reminder days must be at least 1").max(365)).max(5, "At most 5 reminders")),
   lateFeePercent: z.coerce.number().min(0).max(20, "Late fees above 20 % are not allowed"),
   vatAccounting: z.enum(["accrual", "cash"]),
@@ -64,7 +79,8 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   const ctx = await requireReadyOrg()
   const parsed = profileSchema.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
-  const { businessName, advisoryOptIn, taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist, lateFeePercent, ...profile } = parsed.data
+  const { businessName, advisoryOptIn, taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist, lateFeePercent, ...profile } =
+    parsed.data
   const next = {
     ...profile,
     lateFeeBp: Math.round(lateFeePercent * 100),
@@ -78,7 +94,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   const changed = Object.fromEntries(
     (Object.keys(profile) as (keyof typeof profile)[])
       .filter((k) => JSON.stringify(ctx.settings[k]) !== JSON.stringify(profile[k]))
-      .map((k) => [k, { from: ctx.settings[k], to: profile[k] }]),
+      .map((k) => [k, { from: ctx.settings[k], to: profile[k] }])
   )
   audit(ctx, "settings.updated", "workspace", ctx.orgId, changed)
   evaluateTriggers(db, ctx.orgId)

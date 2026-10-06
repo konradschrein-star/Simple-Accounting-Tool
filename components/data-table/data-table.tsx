@@ -59,7 +59,12 @@ function FacetFilter<T>({ column, title, options }: { column: Column<T>; title: 
             <>
               <Separator orientation="vertical" className="mx-1 h-4" />
               <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                {selected.size > 2 ? `${selected.size} selected` : options.filter((o) => selected.has(o.value)).map((o) => o.label).join(", ")}
+                {selected.size > 2
+                  ? `${selected.size} selected`
+                  : options
+                      .filter((o) => selected.has(o.value))
+                      .map((o) => o.label)
+                      .join(", ")}
               </Badge>
             </>
           ) : null}
@@ -73,11 +78,16 @@ function FacetFilter<T>({ column, title, options }: { column: Column<T>; title: 
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem key={option.value} onSelect={() => toggle(option.value)}>
-                  <div className={cn("flex size-4 items-center justify-center rounded-sm border", selected.has(option.value) ? "bg-primary text-primary-foreground" : "opacity-50")}>
+                  <div
+                    className={cn(
+                      "flex size-4 items-center justify-center rounded-sm border",
+                      selected.has(option.value) ? "bg-primary text-primary-foreground" : "opacity-50"
+                    )}
+                  >
                     {selected.has(option.value) ? <CheckIcon className="size-3" /> : null}
                   </div>
                   {option.label}
-                  <span className="ml-auto text-xs tabular-nums text-muted-foreground">{counts.get(option.value) ?? 0}</span>
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">{counts.get(option.value) ?? 0}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -99,7 +109,8 @@ function FacetFilter<T>({ column, title, options }: { column: Column<T>; title: 
 }
 
 /** Values in `filterValue` (from FacetFilter) — the row passes when its value is one of them. */
-export const facetFilterFn = (row: { getValue: (id: string) => unknown }, columnId: string, filterValue: string[]) => filterValue.includes(String(row.getValue(columnId)))
+export const facetFilterFn = (row: { getValue: (id: string) => unknown }, columnId: string, filterValue: string[]) =>
+  filterValue.includes(String(row.getValue(columnId)))
 
 export function DataTable<T>({
   columns,
@@ -151,7 +162,13 @@ export function DataTable<T>({
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-64">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} placeholder={searchPlaceholder} aria-label="Search" className="h-8 pl-8" />
+          <Input
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label="Search"
+            className="h-8 pl-8"
+          />
         </div>
         {facets.map((f) => {
           const column = table.getColumn(f.columnId)
@@ -183,7 +200,9 @@ export function DataTable<T>({
                 <TableRow
                   key={row.id}
                   className={cn(rowHref && "cursor-pointer")}
-                  onClick={rowHref ? (e) => !(e.target as HTMLElement).closest("button, a, input, [role=checkbox]") && router.push(rowHref(row.original)) : undefined}
+                  onClick={
+                    rowHref ? (e) => !(e.target as HTMLElement).closest("button, a, input, [role=checkbox]") && router.push(rowHref(row.original)) : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell, i, cells) => (
                     <TableCell key={cell.id} className={cn(i === 0 && "pl-6", i === cells.length - 1 && "pr-6")}>

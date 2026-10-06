@@ -24,7 +24,16 @@ describe("receipts", () => {
     const rent = listAccounts(db, orgId).find((a) => a.code === "4210")!
     const txn = db
       .insert(transactions)
-      .values({ orgId, date: "2026-08-03", description: "Miete August", counterparty: "Coworking Mitte GmbH", amountMinor: -119_000, ledgerAccountId: rent.id, reviewStatus: "ok", dedupeHash: createHash("sha256").update("r1").digest("hex") })
+      .values({
+        orgId,
+        date: "2026-08-03",
+        description: "Miete August",
+        counterparty: "Coworking Mitte GmbH",
+        amountMinor: -119_000,
+        ledgerAccountId: rent.id,
+        reviewStatus: "ok",
+        dedupeHash: createHash("sha256").update("r1").digest("hex"),
+      })
       .returning()
       .get()
     const period = { from: "2026-07-01", to: "2026-09-30" }
@@ -49,7 +58,15 @@ describe("receipts", () => {
     createReceipt(db, a, { id: "rcptA", filePath: "uploads/a.pdf", filename: "a.pdf", mimeType: "application/pdf", sizeBytes: 1 })
     const foreign = db
       .insert(transactions)
-      .values({ orgId: b, date: "2026-08-03", description: "x", counterparty: "", amountMinor: -100, reviewStatus: "ok", dedupeHash: createHash("sha256").update("r2").digest("hex") })
+      .values({
+        orgId: b,
+        date: "2026-08-03",
+        description: "x",
+        counterparty: "",
+        amountMinor: -100,
+        reviewStatus: "ok",
+        dedupeHash: createHash("sha256").update("r2").digest("hex"),
+      })
       .returning()
       .get()
     expect(() => matchReceipt(db, a, "rcptA", foreign.id, [1900])).toThrow(/Transaction not found/)

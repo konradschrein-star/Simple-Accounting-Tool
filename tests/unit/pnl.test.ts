@@ -30,14 +30,28 @@ describe("P&L", () => {
     ],
   })
   it("totals income, expenses and net; excludes transfers and owner movements", () => {
-    expect(pnl).toMatchObject({ incomeMinor: 350000, expensesMinor: 125000, netMinor: 225000, priorIncomeMinor: 200000, priorNetMinor: 115000, uncategorizedMinor: -999 })
+    expect(pnl).toMatchObject({
+      incomeMinor: 350000,
+      expensesMinor: 125000,
+      netMinor: 225000,
+      priorIncomeMinor: 200000,
+      priorNetMinor: 115000,
+      uncategorizedMinor: -999,
+    })
     expect(pnl.expenses.map((l) => l.code)).toEqual(["1780", "4210"])
   })
   it("shows unlinked paid invoices as income", () => {
     expect(pnl.income.find((l) => l.accountId === null)?.amountMinor).toBe(50000)
   })
   it("drafts a factual summary with watch items", () => {
-    const s = draftSummary({ monthLabel: "October 2026", pnl, currency: "EUR", locale: "en-GB", overdueMinor: 1000, nextDeadline: { title: "USt-VA", date: "2026-11-10" } })
+    const s = draftSummary({
+      monthLabel: "October 2026",
+      pnl,
+      currency: "EUR",
+      locale: "en-GB",
+      overdueMinor: 1000,
+      nextDeadline: { title: "USt-VA", date: "2026-11-10" },
+    })
     expect(s.headline).toMatch(/^October 2026: net profit/)
     expect(s.watchItems).toHaveLength(2)
   })

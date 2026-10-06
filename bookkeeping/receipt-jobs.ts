@@ -21,7 +21,10 @@ async function receiptContent(file: string, mimeType: string): Promise<{ content
     const [page] = await pdfPageImages(file, 1)
     return { content: [{ type: "text", text: "Read this receipt." }, imagePart(page)], vision: true }
   }
-  return { content: [{ type: "text", text: "Read this receipt." }, imagePart(fs.readFileSync(file), mimeType === "image/png" ? "image/png" : "image/jpeg")], vision: true }
+  return {
+    content: [{ type: "text", text: "Read this receipt." }, imagePart(fs.readFileSync(file), mimeType === "image/png" ? "image/png" : "image/jpeg")],
+    vision: true,
+  }
 }
 
 async function processReceipt(orgId: string, id: string) {

@@ -3,7 +3,23 @@ import type { JurisdictionCode } from "@/jurisdictions/types"
 export type Vendor = { counterparty: string; description: string; amountMinor: number; accountCode: string; day: number; every?: "month" | "quarter" }
 
 export type Persona = {
-  business: { name: string; legalName: string; addressLine1: string; postcode: string; city: string; email: string; phone: string; website: string; taxNumber: string; vatId: string; bankIban: string; bankBic: string; ukSortCode: string; ukAccountNumber: string; usRoutingNumber: string }
+  business: {
+    name: string
+    legalName: string
+    addressLine1: string
+    postcode: string
+    city: string
+    email: string
+    phone: string
+    website: string
+    taxNumber: string
+    vatId: string
+    bankIban: string
+    bankBic: string
+    ukSortCode: string
+    ukAccountNumber: string
+    usRoutingNumber: string
+  }
   owner: string
   clients: { name: string; email: string; addressLine1: string; postcode: string; city: string; country: string }[]
   services: { description: string; unitPriceMinor: number }[]
@@ -16,13 +32,57 @@ export type Persona = {
 
 export const PERSONAS: Record<JurisdictionCode, Persona> = {
   de: {
-    business: { name: "Studio Nord", legalName: "Studio Nord – Lea Hartmann", addressLine1: "Torstraße 112", postcode: "10119", city: "Berlin", email: "hallo@studio-nord.example", phone: "+49 30 1234567", website: "studio-nord.example", taxNumber: "37/123/45678", vatId: "DE312345671", bankIban: "DE89 3704 0044 0532 0130 00", bankBic: "COBADEFFXXX", ukSortCode: "", ukAccountNumber: "", usRoutingNumber: "" },
+    business: {
+      name: "Studio Nord",
+      legalName: "Studio Nord – Lea Hartmann",
+      addressLine1: "Torstraße 112",
+      postcode: "10119",
+      city: "Berlin",
+      email: "hallo@studio-nord.example",
+      phone: "+49 30 1234567",
+      website: "studio-nord.example",
+      taxNumber: "37/123/45678",
+      vatId: "DE312345671",
+      bankIban: "DE89 3704 0044 0532 0130 00",
+      bankBic: "COBADEFFXXX",
+      ukSortCode: "",
+      ukAccountNumber: "",
+      usRoutingNumber: "",
+    },
     owner: "Lea Hartmann",
     clients: [
-      { name: "Bäckerei Müller GmbH", email: "buchhaltung@baeckerei-mueller.example", addressLine1: "Hauptstraße 5", postcode: "80331", city: "München", country: "Deutschland" },
-      { name: "Kaffeerösterei Elbe KG", email: "office@elbe-roestet.example", addressLine1: "Am Sandtorkai 40", postcode: "20457", city: "Hamburg", country: "Deutschland" },
-      { name: "Praxis Dr. Weber", email: "verwaltung@praxis-weber.example", addressLine1: "Königsallee 21", postcode: "40212", city: "Düsseldorf", country: "Deutschland" },
-      { name: "Velo Werk Leipzig UG", email: "hello@velowerk.example", addressLine1: "Karl-Liebknecht-Str. 9", postcode: "04107", city: "Leipzig", country: "Deutschland" },
+      {
+        name: "Bäckerei Müller GmbH",
+        email: "buchhaltung@baeckerei-mueller.example",
+        addressLine1: "Hauptstraße 5",
+        postcode: "80331",
+        city: "München",
+        country: "Deutschland",
+      },
+      {
+        name: "Kaffeerösterei Elbe KG",
+        email: "office@elbe-roestet.example",
+        addressLine1: "Am Sandtorkai 40",
+        postcode: "20457",
+        city: "Hamburg",
+        country: "Deutschland",
+      },
+      {
+        name: "Praxis Dr. Weber",
+        email: "verwaltung@praxis-weber.example",
+        addressLine1: "Königsallee 21",
+        postcode: "40212",
+        city: "Düsseldorf",
+        country: "Deutschland",
+      },
+      {
+        name: "Velo Werk Leipzig UG",
+        email: "hello@velowerk.example",
+        addressLine1: "Karl-Liebknecht-Str. 9",
+        postcode: "04107",
+        city: "Leipzig",
+        country: "Deutschland",
+      },
     ],
     services: [
       { description: "Brand-Workshop (Tagessatz)", unitPriceMinor: 120000 },
@@ -48,13 +108,50 @@ export const PERSONAS: Record<JurisdictionCode, Persona> = {
     ownerCode: "1800",
   },
   uk: {
-    business: { name: "Thornbury Digital", legalName: "Thornbury Digital Ltd", addressLine1: "14 Shoreditch High Street", postcode: "E1 6PG", city: "London", email: "hello@thornbury.example", phone: "+44 20 7946 0000", website: "thornbury.example", taxNumber: "1234567890", vatId: "GB123456727", bankIban: "", bankBic: "", ukSortCode: "20-00-00", ukAccountNumber: "55779911", usRoutingNumber: "" },
+    business: {
+      name: "Thornbury Digital",
+      legalName: "Thornbury Digital Ltd",
+      addressLine1: "14 Shoreditch High Street",
+      postcode: "E1 6PG",
+      city: "London",
+      email: "hello@thornbury.example",
+      phone: "+44 20 7946 0000",
+      website: "thornbury.example",
+      taxNumber: "1234567890",
+      vatId: "GB123456727",
+      bankIban: "",
+      bankBic: "",
+      ukSortCode: "20-00-00",
+      ukAccountNumber: "55779911",
+      usRoutingNumber: "",
+    },
     owner: "Oliver Grant",
     clients: [
-      { name: "Acme Retail Ltd", email: "accounts@acme-retail.example", addressLine1: "1 Market Street", postcode: "M1 1AA", city: "Manchester", country: "United Kingdom" },
-      { name: "Brightwell Dental", email: "admin@brightwell.example", addressLine1: "22 Park Row", postcode: "LS1 5HD", city: "Leeds", country: "United Kingdom" },
+      {
+        name: "Acme Retail Ltd",
+        email: "accounts@acme-retail.example",
+        addressLine1: "1 Market Street",
+        postcode: "M1 1AA",
+        city: "Manchester",
+        country: "United Kingdom",
+      },
+      {
+        name: "Brightwell Dental",
+        email: "admin@brightwell.example",
+        addressLine1: "22 Park Row",
+        postcode: "LS1 5HD",
+        city: "Leeds",
+        country: "United Kingdom",
+      },
       { name: "Cobalt Labs", email: "finance@cobalt.example", addressLine1: "9 Kings Road", postcode: "BN1 1NA", city: "Brighton", country: "United Kingdom" },
-      { name: "Harbour Coffee Co", email: "hello@harbourcoffee.example", addressLine1: "3 Quay Street", postcode: "BS1 4HB", city: "Bristol", country: "United Kingdom" },
+      {
+        name: "Harbour Coffee Co",
+        email: "hello@harbourcoffee.example",
+        addressLine1: "3 Quay Street",
+        postcode: "BS1 4HB",
+        city: "Bristol",
+        country: "United Kingdom",
+      },
     ],
     services: [
       { description: "Discovery workshop (day rate)", unitPriceMinor: 95000 },
@@ -80,13 +177,43 @@ export const PERSONAS: Record<JurisdictionCode, Persona> = {
     ownerCode: "3000",
   },
   us: {
-    business: { name: "Harbor Lane Consulting", legalName: "Harbor Lane Consulting LLC", addressLine1: "88 Pine Street, Suite 400", postcode: "NY 10005", city: "New York", email: "hello@harborlane.example", phone: "+1 212 555 0142", website: "harborlane.example", taxNumber: "12-3456789", vatId: "", bankIban: "", bankBic: "", ukSortCode: "", ukAccountNumber: "000123456789", usRoutingNumber: "021000021" },
+    business: {
+      name: "Harbor Lane Consulting",
+      legalName: "Harbor Lane Consulting LLC",
+      addressLine1: "88 Pine Street, Suite 400",
+      postcode: "NY 10005",
+      city: "New York",
+      email: "hello@harborlane.example",
+      phone: "+1 212 555 0142",
+      website: "harborlane.example",
+      taxNumber: "12-3456789",
+      vatId: "",
+      bankIban: "",
+      bankBic: "",
+      ukSortCode: "",
+      ukAccountNumber: "000123456789",
+      usRoutingNumber: "021000021",
+    },
     owner: "Maya Chen",
     clients: [
-      { name: "Northwind Traders Inc.", email: "ap@northwind.example", addressLine1: "500 Market St", postcode: "CA 94105", city: "San Francisco", country: "USA" },
+      {
+        name: "Northwind Traders Inc.",
+        email: "ap@northwind.example",
+        addressLine1: "500 Market St",
+        postcode: "CA 94105",
+        city: "San Francisco",
+        country: "USA",
+      },
       { name: "Bluebird Health", email: "billing@bluebird.example", addressLine1: "200 Clarendon St", postcode: "MA 02116", city: "Boston", country: "USA" },
       { name: "Summit Outdoor Co.", email: "finance@summit.example", addressLine1: "1600 Glenarm Pl", postcode: "CO 80202", city: "Denver", country: "USA" },
-      { name: "Lakeside Dental Group", email: "office@lakeside.example", addressLine1: "233 S Wacker Dr", postcode: "IL 60606", city: "Chicago", country: "USA" },
+      {
+        name: "Lakeside Dental Group",
+        email: "office@lakeside.example",
+        addressLine1: "233 S Wacker Dr",
+        postcode: "IL 60606",
+        city: "Chicago",
+        country: "USA",
+      },
     ],
     services: [
       { description: "Strategy workshop (day rate)", unitPriceMinor: 180000 },
@@ -112,12 +239,42 @@ export const PERSONAS: Record<JurisdictionCode, Persona> = {
     ownerCode: "3000",
   },
   je: {
-    business: { name: "Granite Bay Consulting", legalName: "Granite Bay Consulting Ltd", addressLine1: "12 Hill Street", postcode: "JE2 4UA", city: "St Helier", email: "hello@granitebay.example", phone: "+44 1534 000000", website: "granitebay.example", taxNumber: "0123456789", vatId: "GST0012345", bankIban: "", bankBic: "", ukSortCode: "60-91-99", ukAccountNumber: "12345678", usRoutingNumber: "" },
+    business: {
+      name: "Granite Bay Consulting",
+      legalName: "Granite Bay Consulting Ltd",
+      addressLine1: "12 Hill Street",
+      postcode: "JE2 4UA",
+      city: "St Helier",
+      email: "hello@granitebay.example",
+      phone: "+44 1534 000000",
+      website: "granitebay.example",
+      taxNumber: "0123456789",
+      vatId: "GST0012345",
+      bankIban: "",
+      bankBic: "",
+      ukSortCode: "60-91-99",
+      ukAccountNumber: "12345678",
+      usRoutingNumber: "",
+    },
     owner: "James Le Brocq",
     clients: [
-      { name: "Island Fiduciary Ltd", email: "accounts@islandfid.example", addressLine1: "4 Esplanade", postcode: "JE1 1BD", city: "St Helier", country: "Jersey" },
+      {
+        name: "Island Fiduciary Ltd",
+        email: "accounts@islandfid.example",
+        addressLine1: "4 Esplanade",
+        postcode: "JE1 1BD",
+        city: "St Helier",
+        country: "Jersey",
+      },
       { name: "Gorey Harbour Hotel", email: "finance@goreyhotel.example", addressLine1: "Gorey Pier", postcode: "JE3 6EW", city: "Gorey", country: "Jersey" },
-      { name: "Channel Wealth Partners", email: "ap@channelwealth.example", addressLine1: "22 Grenville Street", postcode: "JE4 8PX", city: "St Helier", country: "Jersey" },
+      {
+        name: "Channel Wealth Partners",
+        email: "ap@channelwealth.example",
+        addressLine1: "22 Grenville Street",
+        postcode: "JE4 8PX",
+        city: "St Helier",
+        country: "Jersey",
+      },
       { name: "Seaview Dental", email: "office@seaview.example", addressLine1: "9 Bath Street", postcode: "JE2 4ST", city: "St Helier", country: "Jersey" },
     ],
     services: [

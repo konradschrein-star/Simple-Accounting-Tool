@@ -54,11 +54,15 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
           <div className="mt-3 flex gap-2">
             {isRetryable(batch) ? (
               <form action={retryImport.bind(null, batch.id)}>
-                <Button size="sm" variant="outline">Retry</Button>
+                <Button size="sm" variant="outline">
+                  Retry
+                </Button>
               </form>
             ) : null}
             <form action={deleteImport.bind(null, batch.id)}>
-              <Button size="sm" variant="ghost">Delete</Button>
+              <Button size="sm" variant="ghost">
+                Delete
+              </Button>
             </form>
           </div>
         </AlertDescription>
@@ -79,7 +83,11 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
     )
   } else if (batch.status === "staged") {
     const rows = listRows(db, ctx.orgId, batch.id)
-    const numbers = invoiceNumbers(db, ctx.orgId, rows.flatMap((r) => (r.matchedInvoiceId ? [r.matchedInvoiceId] : [])))
+    const numbers = invoiceNumbers(
+      db,
+      ctx.orgId,
+      rows.flatMap((r) => (r.matchedInvoiceId ? [r.matchedInvoiceId] : []))
+    )
     body = (
       <ReviewTable
         key={rows[0]?.id ?? batch.id /* re-staging creates new rows → fresh local state */}
@@ -107,7 +115,9 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
             <CheckCircle2Icon className="text-success" />
           </EmptyMedia>
           <EmptyTitle>Booked</EmptyTitle>
-          <EmptyDescription>{batch.rowCount} lines processed. Categorized lines are on your books; anything uncertain waits in the review queue.</EmptyDescription>
+          <EmptyDescription>
+            {batch.rowCount} lines processed. Categorized lines are on your books; anything uncertain waits in the review queue.
+          </EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="flex-row justify-center">
           <Button asChild>
@@ -144,7 +154,9 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
         actions={
           batch.status === "staged" || batch.status === "needs_mapping" ? (
             <form action={deleteImport.bind(null, batch.id)}>
-              <Button variant="ghost" size="sm">Discard import</Button>
+              <Button variant="ghost" size="sm">
+                Discard import
+              </Button>
             </form>
           ) : null
         }

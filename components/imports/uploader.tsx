@@ -16,8 +16,7 @@ export function StatementUploader({ pdfRemaining }: { pdfRemaining: number }) {
     multiple: false,
     maxSize: 10 * 1024 * 1024,
     accept: { "text/csv": [".csv", ".txt", ".tsv"], "application/pdf": [".pdf"], "application/xml": [".xml"], "application/x-ofx": [".ofx", ".qfx"] },
-    onDropRejected: ([rejection]) =>
-      toast.error(importErrorMessage(rejection?.errors[0]?.code === "file-too-large" ? "FILE_TOO_LARGE" : "UNSUPPORTED_TYPE")),
+    onDropRejected: ([rejection]) => toast.error(importErrorMessage(rejection?.errors[0]?.code === "file-too-large" ? "FILE_TOO_LARGE" : "UNSUPPORTED_TYPE")),
     onDropAccepted: async ([file]) => {
       setUploading(file.name)
       try {
@@ -40,7 +39,7 @@ export function StatementUploader({ pdfRemaining }: { pdfRemaining: number }) {
       {...getRootProps()}
       className={cn(
         "group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed bg-card px-6 py-12 text-center transition-colors hover:border-primary/60",
-        isDragActive && "border-primary bg-primary/5",
+        isDragActive && "border-primary bg-primary/5"
       )}
     >
       <input {...getInputProps()} />

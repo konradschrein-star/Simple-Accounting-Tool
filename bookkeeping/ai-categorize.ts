@@ -8,7 +8,7 @@ const resultSchema = z.object({
       id: z.string(),
       account_code: z.string().nullable().describe("Code from the chart of accounts, or null if unsure"),
       confidence: z.number().min(0).max(1),
-    }),
+    })
   ),
 })
 
@@ -44,7 +44,9 @@ export async function suggestAccounts(input: {
       user: JSON.stringify({
         currency: input.currency,
         chart_of_accounts: input.accounts.map((a) => ({ code: a.code, name: a.name, kind: a.kind, tax_line: a.taxLine })),
-        past_decisions: input.examples.slice(0, 20).map((e) => ({ text: `${e.counterparty} ${e.description}`.trim(), amount: e.amountMinor / 100, code: e.accountCode })),
+        past_decisions: input.examples
+          .slice(0, 20)
+          .map((e) => ({ text: `${e.counterparty} ${e.description}`.trim(), amount: e.amountMinor / 100, code: e.accountCode })),
         transactions: batch.map((t) => ({ id: t.id, text: `${t.counterparty} ${t.description}`.trim(), amount: t.amountMinor / 100 })),
       }),
     })

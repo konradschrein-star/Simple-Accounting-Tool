@@ -87,8 +87,7 @@ export const uk: Jurisdiction = {
   ],
   // Wages, interest, bank charges and premises (rent, rates, insurance) carry no VAT; entertainment VAT is blocked.
   inputTax: { standardBp: 2000, byAccount: { "6000": 0, "6200": 0, "6550": 0, "6600": 0, "6700": 0 } },
-  requiredInvoiceFields: (profile) =>
-    profile.taxRegistered ? ["sellerAddress", "clientAddress", "sellerTaxId"] : ["sellerAddress", "clientAddress"],
+  requiredInvoiceFields: (profile) => (profile.taxRegistered ? ["sellerAddress", "clientAddress", "sellerTaxId"] : ["sellerAddress", "clientAddress"]),
   exemptionNote: (profile) => (profile.taxRegistered ? null : "Not VAT registered."),
   taxDeadlines: (profile, from, to) => collectDeadlines(from, to, (year) => perYear(profile, year)),
 }

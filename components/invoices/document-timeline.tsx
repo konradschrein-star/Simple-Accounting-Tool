@@ -1,4 +1,18 @@
-import { BanIcon, BellIcon, CheckCircle2Icon, CircleDotIcon, EyeIcon, FileCheck2Icon, MailIcon, RepeatIcon, ThumbsDownIcon, ThumbsUpIcon, TriangleAlertIcon, Undo2Icon, type LucideIcon } from "lucide-react"
+import {
+  BanIcon,
+  BellIcon,
+  CheckCircle2Icon,
+  CircleDotIcon,
+  EyeIcon,
+  FileCheck2Icon,
+  MailIcon,
+  RepeatIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  TriangleAlertIcon,
+  Undo2Icon,
+  type LucideIcon,
+} from "lucide-react"
 import { formatMoney, type CurrencyCode } from "@/lib/money"
 
 type TimelineEvent = { id: string; type: string; detail: Record<string, unknown> | null; at: number }
@@ -20,7 +34,10 @@ function describe(e: TimelineEvent, currency: CurrencyCode, locale: string): { i
     case "payments_cleared":
       return { icon: Undo2Icon, text: "Payments removed" }
     case "reminder":
-      return { icon: BellIcon, text: `Payment reminder ${num(d.level)} sent${num(d.feeMinor) ? ` with ${formatMoney(num(d.feeMinor), currency, locale)} late fee` : ""}` }
+      return {
+        icon: BellIcon,
+        text: `Payment reminder ${num(d.level)} sent${num(d.feeMinor) ? ` with ${formatMoney(num(d.feeMinor), currency, locale)} late fee` : ""}`,
+      }
     case "cancelled":
       return { icon: BanIcon, text: `Cancelled by credit note ${str(d.creditNote)}` }
     case "accepted":
@@ -38,7 +55,17 @@ function describe(e: TimelineEvent, currency: CurrencyCode, locale: string): { i
   }
 }
 
-export function DocumentTimeline({ events, currency, locale, timeZone }: { events: TimelineEvent[]; currency: CurrencyCode; locale: string; timeZone: string }) {
+export function DocumentTimeline({
+  events,
+  currency,
+  locale,
+  timeZone,
+}: {
+  events: TimelineEvent[]
+  currency: CurrencyCode
+  locale: string
+  timeZone: string
+}) {
   if (!events.length) return <p className="text-sm text-muted-foreground">Nothing has happened yet.</p>
   const when = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone })
   return (

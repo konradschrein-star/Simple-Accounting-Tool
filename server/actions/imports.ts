@@ -16,8 +16,6 @@ import { audit, requireReadyOrg } from "@/server/context"
 import { deleteBatch, editRows, getBatch, updateBatch } from "@/server/repos/imports"
 import { commitBatch, LedgerError } from "@/server/repos/ledger"
 
-
-
 async function loadBatch(id: string) {
   const ctx = await requireReadyOrg()
   const batch = getBatch(db, ctx.orgId, id)
@@ -30,7 +28,11 @@ export async function saveCsvMapping(id: string, input: unknown): Promise<Action
   const parsed = csvMappingSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Invalid column mapping" }
   if (parsed.data.columns.date === undefined) return { ok: false, error: "Choose the date column" }
-  if (parsed.data.amountMode === "debitCredit" ? parsed.data.columns.debit === undefined && parsed.data.columns.credit === undefined : parsed.data.columns.amount === undefined)
+  if (
+    parsed.data.amountMode === "debitCredit"
+      ? parsed.data.columns.debit === undefined && parsed.data.columns.credit === undefined
+      : parsed.data.columns.amount === undefined
+  )
     return { ok: false, error: "Choose the amount column(s)" }
   if (batch.status === "committed") return { ok: false, error: "This import is already booked" }
   applyCsvMapping({ orgId: ctx.orgId, jurisdiction: ctx.jurisdiction.code, currency: ctx.settings.currency }, batch, parsed.data)
@@ -42,12 +44,15 @@ export async function saveCsvMapping(id: string, input: unknown): Promise<Action
 const editSchema = z.array(
   z.object({
     id: z.string(),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     description: z.string().max(500).optional(),
     amountMinor: z.number().int().optional(),
     include: z.boolean().optional(),
     matchedInvoiceId: z.null().optional(),
-  }),
+  })
 )
 
 export async function saveImportEdits(id: string, edits: unknown): Promise<ActionResult> {

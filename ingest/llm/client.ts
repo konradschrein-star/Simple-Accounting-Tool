@@ -7,7 +7,7 @@ import { env } from "@/lib/env"
 export class LlmError extends Error {
   constructor(
     readonly code: "LLM_UNAVAILABLE" | "LLM_TIMEOUT" | "LLM_INVALID_OUTPUT",
-    message: string,
+    message: string
   ) {
     super(message)
   }
@@ -114,7 +114,11 @@ export const openRouterStructured: LlmPort = async <T>(request: StructuredReques
       } catch (error) {
         lastError = `Response was not JSON: ${String(error)}`
       }
-      if (attempt === 0) messages.push({ role: "assistant", content: text }, { role: "user", content: `That output was invalid:\n${lastError}\nReturn only corrected JSON matching the schema.` })
+      if (attempt === 0)
+        messages.push(
+          { role: "assistant", content: text },
+          { role: "user", content: `That output was invalid:\n${lastError}\nReturn only corrected JSON matching the schema.` }
+        )
     }
   }
   throw new LlmError("LLM_INVALID_OUTPUT", lastError)

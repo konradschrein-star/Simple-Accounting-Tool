@@ -295,14 +295,27 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
             {lines.fields.map((field, index) => (
               <div key={field.id} className="grid grid-cols-[minmax(0,1fr)_2rem] gap-x-2 gap-y-2 rounded-lg border p-3">
                 <Input aria-label="Description" placeholder="What did you deliver?" {...form.register(`lines.${index}.description`)} />
-                <Button type="button" variant="ghost" size="icon" aria-label="Remove line" onClick={() => lines.remove(index)} disabled={lines.fields.length === 1}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove line"
+                  onClick={() => lines.remove(index)}
+                  disabled={lines.fields.length === 1}
+                >
                   <Trash2Icon />
                 </Button>
                 <div className={FIGURES_GRID}>
                   <Input aria-label="Quantity" inputMode="decimal" className="text-right tabular-nums" {...form.register(`lines.${index}.quantity`)} />
                   <Input aria-label="Unit" placeholder="Unit" {...form.register(`lines.${index}.unit`)} />
                   <Input aria-label="Unit price" inputMode="decimal" className="text-right tabular-nums" {...form.register(`lines.${index}.unitPrice`)} />
-                  <Input aria-label="Discount %" inputMode="decimal" placeholder="0" className="text-right tabular-nums" {...form.register(`lines.${index}.discount`)} />
+                  <Input
+                    aria-label="Discount %"
+                    inputMode="decimal"
+                    placeholder="0"
+                    className="text-right tabular-nums"
+                    {...form.register(`lines.${index}.discount`)}
+                  />
                   {rateOptions ? (
                     <Select value={values.lines?.[index]?.taxRate} onValueChange={(v) => form.setValue(`lines.${index}.taxRate`, v)}>
                       <SelectTrigger aria-label="Tax rate" className="w-full">
@@ -322,7 +335,12 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
                 </div>
               </div>
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => lines.append({ description: "", quantity: "1", unit: "", unitPrice: "0.00", discount: "", taxRate: defaultRate() })}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => lines.append({ description: "", quantity: "1", unit: "", unitPrice: "0.00", discount: "", taxRate: defaultRate() })}
+            >
               <PlusIcon /> Add line
             </Button>
 

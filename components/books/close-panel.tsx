@@ -32,12 +32,23 @@ export function ClosePanel({
   const [headline, setHeadline] = useState(summary?.headline ?? "")
   const [bullets, setBullets] = useState(summary?.bullets.join("\n") ?? "")
   const [watch, setWatch] = useState(summary?.watchItems.join("\n") ?? "")
-  const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean)
+  const lines = (s: string) =>
+    s
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
   const items = [
     { ok: checklist.transactions > 0, label: `${checklist.transactions} transactions booked for ${label}` },
-    { ok: checklist.needsReview === 0, label: checklist.needsReview ? `${checklist.needsReview} transactions still need review` : "Every transaction categorized" },
+    {
+      ok: checklist.needsReview === 0,
+      label: checklist.needsReview ? `${checklist.needsReview} transactions still need review` : "Every transaction categorized",
+    },
     { ok: checklist.pendingImports === 0, label: checklist.pendingImports ? `${checklist.pendingImports} imports not yet booked` : "All imports booked" },
-    { ok: checklist.unreconciledImports === 0, label: checklist.unreconciledImports ? `${checklist.unreconciledImports} statements didn’t reconcile` : "Statements reconcile", soft: true },
+    {
+      ok: checklist.unreconciledImports === 0,
+      label: checklist.unreconciledImports ? `${checklist.unreconciledImports} statements didn’t reconcile` : "Statements reconcile",
+      soft: true,
+    },
   ]
   const ready = items.every((i) => i.ok || i.soft)
   const closed = status === "closed"
@@ -47,12 +58,18 @@ export function ClosePanel({
       <Card className="h-fit">
         <CardHeader>
           <CardTitle className="text-base">Checklist</CardTitle>
-          <CardDescription>{closed ? "This month is closed and locked." : ended ? "Complete these to close the month." : "The month is still running."}</CardDescription>
+          <CardDescription>
+            {closed ? "This month is closed and locked." : ended ? "Complete these to close the month." : "The month is still running."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {items.map((i) => (
             <div key={i.label} className="flex items-start gap-2 text-sm">
-              {i.ok ? <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-success" /> : <CircleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
+              {i.ok ? (
+                <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-success" />
+              ) : (
+                <CircleIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              )}
               <span className={i.ok ? "" : "text-muted-foreground"}>{i.label}</span>
             </div>
           ))}
@@ -71,7 +88,14 @@ export function ClosePanel({
             <>
               <Input value={headline} onChange={(e) => setHeadline(e.target.value)} disabled={closed} className="font-medium" aria-label="Headline" />
               <Textarea value={bullets} onChange={(e) => setBullets(e.target.value)} rows={5} disabled={closed} aria-label="Key points (one per line)" />
-              <Textarea value={watch} onChange={(e) => setWatch(e.target.value)} rows={3} disabled={closed} placeholder="Watch items (one per line)" aria-label="Watch items" />
+              <Textarea
+                value={watch}
+                onChange={(e) => setWatch(e.target.value)}
+                rows={3}
+                disabled={closed}
+                placeholder="Watch items (one per line)"
+                aria-label="Watch items"
+              />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">No summary yet. Draft one to see how {label} went.</p>

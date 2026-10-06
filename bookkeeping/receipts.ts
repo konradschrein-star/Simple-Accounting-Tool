@@ -12,7 +12,14 @@ export const receiptExtractionSchema = z.object({
 })
 export type ReceiptExtraction = z.infer<typeof receiptExtractionSchema>
 
-export type ReceiptData = { vendor: string | null; date: IsoDate | null; totalMinor: number | null; vatMinor: number | null; currency: string | null; invoiceNumber?: string | null }
+export type ReceiptData = {
+  vendor: string | null
+  date: IsoDate | null
+  totalMinor: number | null
+  vatMinor: number | null
+  currency: string | null
+  invoiceNumber?: string | null
+}
 
 export const RECEIPT_PROMPT = [
   "You read receipts and supplier invoices for bookkeeping.",
@@ -49,7 +56,15 @@ export function impliedVatRate(totalMinor: number | null, vatMinor: number | nul
 
 export type CandidateTransaction = { id: string; date: IsoDate; amountMinor: number; description: string; counterparty: string }
 
-const words = (text: string) => new Set(text.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter((w) => w.length >= 3))
+const words = (text: string) =>
+  new Set(
+    text
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .split(" ")
+      .filter((w) => w.length >= 3)
+  )
 
 /**
  * Best bank transaction for a receipt: same amount (money out), paid within two weeks of the receipt date

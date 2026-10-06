@@ -20,7 +20,18 @@ export type Assignment = { accountId: string; source: "heuristic" | "rule"; rule
 /** Whole-word match that also works next to umlauts and accents (`\b` is ASCII-only in JS). */
 const words = (alternatives: string[]) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "iu")
 
-const TRANSFER_RE = words(["umbuchung", "übertrag", "uebertrag", "eigenübertrag", "transfer to", "transfer from", "own account", "savings", "sparkonto", "tagesgeld"])
+const TRANSFER_RE = words([
+  "umbuchung",
+  "übertrag",
+  "uebertrag",
+  "eigenübertrag",
+  "transfer to",
+  "transfer from",
+  "own account",
+  "savings",
+  "sparkonto",
+  "tagesgeld",
+])
 const TAX_RE = words(["finanzamt", "hmrc", "irs usataxpymt", "eftps", "revenue jersey", "comptroller of revenue"])
 const LEGAL_FORM_RE = new RegExp(`(?<![\\p{L}\\p{N}])(?:gmbh|ag|ltd|limited|llc|inc|plc|kg|ug)\\.?(?![\\p{L}\\p{N}])`, "giu")
 
@@ -64,7 +75,7 @@ export function categorizeDeterministic(
   txns: Uncategorized[],
   accounts: AccountRef[],
   rules: Rule[],
-  opts: { incomeCode?: string } = {},
+  opts: { incomeCode?: string } = {}
 ): Map<string, Assignment> {
   const sortedRules = [...rules].sort((a, b) => a.priority - b.priority)
   const income = firstOfKind(accounts, "income", opts.incomeCode)
@@ -92,10 +103,18 @@ export function categorizeDeterministic(
 export function suggestRule(txn: Uncategorized, accountId: string): Omit<Rule, "id" | "priority" | "approved"> | null {
   const counterparty = normalizeCounterparty(txn.counterparty)
   if (counterparty.length >= 3)
-    return { matchField: "counterparty", matchType: "equals", pattern: txn.counterparty.trim(), sign: txn.amountMinor < 0 ? "debit" : "credit", ledgerAccountId: accountId }
+    return {
+      matchField: "counterparty",
+      matchType: "equals",
+      pattern: txn.counterparty.trim(),
+      sign: txn.amountMinor < 0 ? "debit" : "credit",
+      ledgerAccountId: accountId,
+    }
   const keyword = txn.description
     .split(/\s+/)
     .filter((w) => /^[a-zäöüß]{4,}$/i.test(w))
     .sort((a, b) => b.length - a.length)[0]
-  return keyword ? { matchField: "description", matchType: "contains", pattern: keyword, sign: txn.amountMinor < 0 ? "debit" : "credit", ledgerAccountId: accountId } : null
+  return keyword
+    ? { matchField: "description", matchType: "contains", pattern: keyword, sign: txn.amountMinor < 0 ? "debit" : "credit", ledgerAccountId: accountId }
+    : null
 }

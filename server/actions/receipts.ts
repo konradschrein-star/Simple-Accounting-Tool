@@ -21,7 +21,10 @@ export async function linkReceipt(id: string, transactionId: string): Promise<Ac
     const { vatRateBp } = matchReceipt(db, ctx.orgId, id, transactionId, ctx.jurisdiction.taxRatesBp)
     audit(ctx, "receipt.matched", "receipt", id, { transactionId, vatRateBp })
     refresh()
-    return { message: vatRateBp === null ? "Receipt attached" : `Receipt attached · ${ctx.jurisdiction.taxLabel} ${formatRate(vatRateBp, ctx.settings.locale)} recorded` }
+    return {
+      message:
+        vatRateBp === null ? "Receipt attached" : `Receipt attached · ${ctx.jurisdiction.taxLabel} ${formatRate(vatRateBp, ctx.settings.locale)} recorded`,
+    }
   })
 }
 

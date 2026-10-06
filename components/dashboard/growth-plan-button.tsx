@@ -14,7 +14,8 @@ export function GrowthPlanButton({ alertId = null, className = "h-auto w-full wh
       disabled={pending}
       onClick={() =>
         run(() => requestGrowthPlan(alertId), {
-          success: (r) => (r.alreadyRequested ? "You already have a request open — pick a time that suits you." : "Request received! Pick a time for your strategy call."),
+          success: (r) =>
+            r.alreadyRequested ? "You already have a request open — pick a time that suits you." : "Request received! Pick a time for your strategy call.",
           onSuccess: (r) => r.bookingUrl && window.open(r.bookingUrl, "_blank", "noopener"),
         })
       }

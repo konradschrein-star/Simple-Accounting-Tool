@@ -101,7 +101,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.createdAt.toLocaleDateString("en-GB")}</TableCell>
                   <TableCell className="pr-6">
-                    {u.id === me.id ? <Badge>admin (you)</Badge> : <InlineSelect label={`Role for ${u.email}`} value={u.role ?? "user"} options={ROLES} action={updateUserRole.bind(null, u.id)} />}
+                    {u.id === me.id ? (
+                      <Badge>admin (you)</Badge>
+                    ) : (
+                      <InlineSelect label={`Role for ${u.email}`} value={u.role ?? "user"} options={ROLES} action={updateUserRole.bind(null, u.id)} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -139,7 +143,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{money(l.lifetimeInvoicedMinor)}</TableCell>
                   <TableCell className="text-right tabular-nums">{money(l.trailing12CashInMinor)}</TableCell>
-                  <TableCell className={cn("text-right tabular-nums", l.trailing12MarginBp !== null && l.trailing12MarginBp < env().MARGIN_ALERT_BP && "text-destructive")}>
+                  <TableCell
+                    className={cn(
+                      "text-right tabular-nums",
+                      l.trailing12MarginBp !== null && l.trailing12MarginBp < env().MARGIN_ALERT_BP && "text-destructive"
+                    )}
+                  >
                     {formatMarginBp(l.trailing12MarginBp, "en-GB")}
                   </TableCell>
                   <TableCell>
@@ -154,7 +163,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                         <Badge className={l.request.kind === "bookkeeping" ? "bg-chart-2/15 text-chart-2" : "bg-primary/15 text-primary"}>
                           {l.request.kind === "bookkeeping" ? "Bookkeeping" : "Growth plan"}
                         </Badge>
-                        <InlineSelect label={`Request status for ${l.orgName}`} value={l.request.status} options={REQUEST_STATUSES} action={updateRequestStatus.bind(null, l.request.id)} className="h-8 w-32" />
+                        <InlineSelect
+                          label={`Request status for ${l.orgName}`}
+                          value={l.request.status}
+                          options={REQUEST_STATUSES}
+                          action={updateRequestStatus.bind(null, l.request.id)}
+                          className="h-8 w-32"
+                        />
                       </div>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -209,4 +224,3 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     </PageBody>
   )
 }
-

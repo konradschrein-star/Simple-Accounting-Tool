@@ -17,8 +17,14 @@ type DocumentEmail = {
 
 const COPY = {
   de: {
-    invoice: { noun: "Rechnung", lead: (d: DocumentEmail) => `anbei erhalten Sie unsere Rechnung ${d.number} über ${d.totalFormatted}, zahlbar bis ${d.dueDateFormatted}.` },
-    quote: { noun: "Angebot", lead: (d: DocumentEmail) => `anbei erhalten Sie unser Angebot ${d.number} über ${d.totalFormatted}, gültig bis ${d.dueDateFormatted}.` },
+    invoice: {
+      noun: "Rechnung",
+      lead: (d: DocumentEmail) => `anbei erhalten Sie unsere Rechnung ${d.number} über ${d.totalFormatted}, zahlbar bis ${d.dueDateFormatted}.`,
+    },
+    quote: {
+      noun: "Angebot",
+      lead: (d: DocumentEmail) => `anbei erhalten Sie unser Angebot ${d.number} über ${d.totalFormatted}, gültig bis ${d.dueDateFormatted}.`,
+    },
     credit_note: { noun: "Stornorechnung", lead: (d: DocumentEmail) => `anbei erhalten Sie die Stornorechnung ${d.number} über ${d.totalFormatted}.` },
     greeting: (name: string) => `Guten Tag ${name},`,
     view: "Online ansehen und bezahlen",
@@ -27,7 +33,10 @@ const COPY = {
   },
   en: {
     invoice: { noun: "Invoice", lead: (d: DocumentEmail) => `please find attached invoice ${d.number} for ${d.totalFormatted}, due on ${d.dueDateFormatted}.` },
-    quote: { noun: "Quote", lead: (d: DocumentEmail) => `please find attached our quote ${d.number} for ${d.totalFormatted}, valid until ${d.dueDateFormatted}.` },
+    quote: {
+      noun: "Quote",
+      lead: (d: DocumentEmail) => `please find attached our quote ${d.number} for ${d.totalFormatted}, valid until ${d.dueDateFormatted}.`,
+    },
     credit_note: { noun: "Credit note", lead: (d: DocumentEmail) => `please find attached credit note ${d.number} for ${d.totalFormatted}.` },
     greeting: (name: string) => `Hello ${name},`,
     view: "View and pay online",
@@ -54,11 +63,26 @@ export function documentEmail(d: DocumentEmail): { subject: string; html: string
   const kind = t[d.kind]
   return {
     subject: `${kind.noun} ${d.number} – ${d.sellerName}`,
-    html: layout([escape(t.greeting(d.clientName)), escape(kind.lead(d))], { label: d.kind === "invoice" ? t.view : t.viewOnly, href: d.link }, t.closing, d.sellerName),
+    html: layout(
+      [escape(t.greeting(d.clientName)), escape(kind.lead(d))],
+      { label: d.kind === "invoice" ? t.view : t.viewOnly, href: d.link },
+      t.closing,
+      d.sellerName
+    ),
   }
 }
 
-type ReminderEmail = { language: Language; level: number; number: string; sellerName: string; clientName: string; openFormatted: string; dueDateFormatted: string; lateFeeFormatted: string | null; link: string }
+type ReminderEmail = {
+  language: Language
+  level: number
+  number: string
+  sellerName: string
+  clientName: string
+  openFormatted: string
+  dueDateFormatted: string
+  lateFeeFormatted: string | null
+  link: string
+}
 
 /** Friendly first nudge, firmer second, formal third (Mahnung). */
 export function reminderEmail(r: ReminderEmail): { subject: string; html: string } {
@@ -76,9 +100,16 @@ export function reminderEmail(r: ReminderEmail): { subject: string; html: string
         `we haven't yet received payment for invoice ${r.number} (due ${r.dueDateFormatted}). ${r.openFormatted} remains outstanding.`,
         `despite our reminders, invoice ${r.number} is still unpaid (${r.openFormatted}). Please settle it within 7 days.`,
       ][level]
-  const fee = r.lateFeeFormatted ? [de ? `Für den Zahlungsverzug berechnen wir eine Gebühr von ${r.lateFeeFormatted}.` : `A late payment fee of ${r.lateFeeFormatted} applies.`] : []
+  const fee = r.lateFeeFormatted
+    ? [de ? `Für den Zahlungsverzug berechnen wir eine Gebühr von ${r.lateFeeFormatted}.` : `A late payment fee of ${r.lateFeeFormatted} applies.`]
+    : []
   return {
     subject: `${subjects[level]}: ${de ? "Rechnung" : "Invoice"} ${r.number} – ${r.sellerName}`,
-    html: layout([escape(COPY[r.language].greeting(r.clientName)), escape(body), ...fee.map(escape)], { label: COPY[r.language].view, href: r.link }, COPY[r.language].closing, r.sellerName),
+    html: layout(
+      [escape(COPY[r.language].greeting(r.clientName)), escape(body), ...fee.map(escape)],
+      { label: COPY[r.language].view, href: r.link },
+      COPY[r.language].closing,
+      r.sellerName
+    ),
   }
 }

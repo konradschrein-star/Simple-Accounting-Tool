@@ -69,7 +69,8 @@ export async function requestBookkeeping(consent: boolean): Promise<CtaResult> {
   const metrics = snapshot(ctx)
   const request = createAdvisoryRequest(db, { orgId: ctx.orgId, userId: ctx.user.id, kind: "bookkeeping", metricsSnapshot: metrics })
   audit(ctx, "bookkeeping.requested", "service_engagement", created, { consent: true })
-  if (!ctx.settings.isDemo) notifyLead({ type: "bookkeeping", workspace: ctx.orgName, name: ctx.user.name, email: ctx.user.email, requestId: request.id, metrics })
+  if (!ctx.settings.isDemo)
+    notifyLead({ type: "bookkeeping", workspace: ctx.orgName, name: ctx.user.name, email: ctx.user.email, requestId: request.id, metrics })
   revalidatePath("/", "layout")
   return { ok: true, bookingUrl: bookingUrl(ctx) }
 }

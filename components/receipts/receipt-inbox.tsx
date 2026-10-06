@@ -54,18 +54,30 @@ export function ReceiptUploader() {
       {...getRootProps()}
       className={cn(
         "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-card px-6 py-8 text-center transition-colors hover:border-primary/60",
-        isDragActive && "border-primary bg-primary/5",
+        isDragActive && "border-primary bg-primary/5"
       )}
     >
       <input {...getInputProps()} />
-      <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">{queue ? <Spinner /> : <UploadCloudIcon className="size-5" />}</div>
+      <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+        {queue ? <Spinner /> : <UploadCloudIcon className="size-5" />}
+      </div>
       <p className="font-medium">{queue ? `Uploading ${queue} receipt${queue === 1 ? "" : "s"}…` : "Drop receipts and supplier invoices here"}</p>
       <p className="text-sm text-muted-foreground">PDF, JPG or PNG — we read the vendor, date, total and VAT, and find the matching bank payment.</p>
     </div>
   )
 }
 
-function TransactionPicker({ candidates, onPick, money, locale }: { candidates: BankRow[]; onPick: (id: string) => void; money: (m: number) => string; locale: string }) {
+function TransactionPicker({
+  candidates,
+  onPick,
+  money,
+  locale,
+}: {
+  candidates: BankRow[]
+  onPick: (id: string) => void
+  money: (m: number) => string
+  locale: string
+}) {
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -144,7 +156,15 @@ export function ReceiptInbox({ receipts, candidates, currency, locale, taxLabel,
                   <div className="min-w-0">
                     <p className="truncate font-medium">{x?.vendor ?? r.filename}</p>
                     <p className="text-xs text-muted-foreground">
-                      {r.status === "processing" ? "Reading…" : x?.date ? formatDate(x.date, locale) : r.status === "failed" ? (aiEnabled ? "Couldn’t read this one — match it by hand" : "Automatic reading is off — match it by hand") : "No date found"}
+                      {r.status === "processing"
+                        ? "Reading…"
+                        : x?.date
+                          ? formatDate(x.date, locale)
+                          : r.status === "failed"
+                            ? aiEnabled
+                              ? "Couldn’t read this one — match it by hand"
+                              : "Automatic reading is off — match it by hand"
+                            : "No date found"}
                     </p>
                   </div>
                   <div className="text-right">
@@ -166,7 +186,12 @@ export function ReceiptInbox({ receipts, candidates, currency, locale, taxLabel,
                 </div>
 
                 {linked ? (
-                  <div className={cn("rounded-md border px-2.5 py-1.5 text-xs", r.status === "matched" ? "border-success/30 bg-success/5" : "border-primary/30 bg-primary/5")}>
+                  <div
+                    className={cn(
+                      "rounded-md border px-2.5 py-1.5 text-xs",
+                      r.status === "matched" ? "border-success/30 bg-success/5" : "border-primary/30 bg-primary/5"
+                    )}
+                  >
                     <div className="flex items-center gap-1.5 font-medium">
                       {r.status === "matched" ? <CheckIcon className="size-3 text-success" /> : <LinkIcon className="size-3 text-primary" />}
                       {r.status === "matched" ? "Attached to" : "Looks like"} {linked.counterparty || linked.description}
@@ -184,10 +209,19 @@ export function ReceiptInbox({ receipts, candidates, currency, locale, taxLabel,
                     </Button>
                   ) : (
                     <>
-                      <Button size="icon" variant="ghost" className="size-8" aria-label="Delete receipt" disabled={pending} onClick={() => run(() => removeReceipt(r.id))}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8"
+                        aria-label="Delete receipt"
+                        disabled={pending}
+                        onClick={() => run(() => removeReceipt(r.id))}
+                      >
                         <Trash2Icon />
                       </Button>
-                      {r.status !== "processing" ? <TransactionPicker candidates={candidates} money={(m) => money(m)} locale={locale} onPick={(id) => run(() => linkReceipt(r.id, id))} /> : null}
+                      {r.status !== "processing" ? (
+                        <TransactionPicker candidates={candidates} money={(m) => money(m)} locale={locale} onPick={(id) => run(() => linkReceipt(r.id, id))} />
+                      ) : null}
                       {r.suggestion ? (
                         <Button size="sm" disabled={pending} onClick={() => run(() => linkReceipt(r.id, r.suggestion!.id))}>
                           <CheckIcon /> Match

@@ -41,7 +41,13 @@ export function eInvoiceReadiness(ctx: Preview, jurisdiction: Jurisdiction): Rec
   return { zugferd: eInvoiceProblems(input, "en16931"), xrechnung: eInvoiceProblems(input, "xrechnung") }
 }
 
-export async function eInvoiceFile(db: Db, orgId: string, ctx: Preview, jurisdiction: Jurisdiction, format: EInvoiceFormat): Promise<{ filename: string; contentType: string; body: Uint8Array }> {
+export async function eInvoiceFile(
+  db: Db,
+  orgId: string,
+  ctx: Preview,
+  jurisdiction: Jurisdiction,
+  format: EInvoiceFormat
+): Promise<{ filename: string; contentType: string; body: Uint8Array }> {
   const input = eInvoiceInput(ctx, jurisdiction)
   if (!input) throw new DomainError("Only issued invoices and credit notes can be exported as e-invoices.")
   const problems = eInvoiceProblems(input, PROFILE[format])

@@ -21,7 +21,13 @@ export function evaluateTriggers(db: Db, orgId: string): void {
   persistAlerts(
     db,
     orgId,
-    evaluateAlerts({ metrics, jurisdiction: getJurisdiction(settings.jurisdiction), profile: taxProfileOf(settings), today, marginThresholdBp: env().MARGIN_ALERT_BP }),
+    evaluateAlerts({
+      metrics,
+      jurisdiction: getJurisdiction(settings.jurisdiction),
+      profile: taxProfileOf(settings),
+      today,
+      marginThresholdBp: env().MARGIN_ALERT_BP,
+    })
   )
   expireTaxAlerts(db, orgId, today)
 }

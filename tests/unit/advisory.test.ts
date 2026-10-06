@@ -5,7 +5,13 @@ import { JURISDICTIONS, type TaxProfile } from "@/jurisdictions"
 
 const TODAY = "2026-10-06"
 const profile: TaxProfile = { taxRegistered: true, smallBusinessExempt: false, vatFilingFrequency: "quarterly", vatPeriodEndMonth: 3, deDauerfrist: false }
-const inv = (id: string, totalMinor: number, issueDate: string, status: MetricInvoice["status"] = "finalized", kind: MetricInvoice["kind"] = "invoice"): MetricInvoice => ({
+const inv = (
+  id: string,
+  totalMinor: number,
+  issueDate: string,
+  status: MetricInvoice["status"] = "finalized",
+  kind: MetricInvoice["kind"] = "invoice"
+): MetricInvoice => ({
   id,
   kind,
   status,
@@ -14,7 +20,12 @@ const inv = (id: string, totalMinor: number, issueDate: string, status: MetricIn
   totalMinor,
 })
 const txn = (date: string, amountMinor: number, kind: MetricTransaction["kind"]): MetricTransaction => ({ date, amountMinor, kind })
-const pay = (invoiceId: string, date: string, amountMinor: number, transactionId: string | null = null): MetricPayment => ({ invoiceId, date, amountMinor, transactionId })
+const pay = (invoiceId: string, date: string, amountMinor: number, transactionId: string | null = null): MetricPayment => ({
+  invoiceId,
+  date,
+  amountMinor,
+  transactionId,
+})
 
 describe("metrics", () => {
   const invoices = [

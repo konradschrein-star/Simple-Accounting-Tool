@@ -75,12 +75,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <Button asChild variant="outline" className="h-auto justify-start gap-3 py-3">
               <Link href="/invoices">
-                <FileTextIcon /> <span className="text-left">Create your first invoice<br /><span className="text-xs text-muted-foreground">Compliant PDF in 60 seconds</span></span>
+                <FileTextIcon />{" "}
+                <span className="text-left">
+                  Create your first invoice
+                  <br />
+                  <span className="text-xs text-muted-foreground">Compliant PDF in 60 seconds</span>
+                </span>
               </Link>
             </Button>
             <Button asChild variant="outline" className="h-auto justify-start gap-3 py-3">
               <Link href="/imports">
-                <UploadIcon /> <span className="text-left">Import a bank statement<br /><span className="text-xs text-muted-foreground">CSV or PDF — no bank login</span></span>
+                <UploadIcon />{" "}
+                <span className="text-left">
+                  Import a bank statement
+                  <br />
+                  <span className="text-xs text-muted-foreground">CSV or PDF — no bank login</span>
+                </span>
               </Link>
             </Button>
           </CardContent>
@@ -88,7 +98,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : null}
 
       <AlertCards alerts={alerts.map((a) => ({ id: a.id, type: a.type, payload: a.payload }) satisfies AlertView)} currency={currency} locale={locale} />
-      {hiddenAlerts ? <p className="-mt-2 text-xs text-muted-foreground">+ {hiddenAlerts} more insight{hiddenAlerts > 1 ? "s" : ""} — dismiss one to see the next.</p> : null}
+      {hiddenAlerts ? (
+        <p className="-mt-2 text-xs text-muted-foreground">
+          + {hiddenAlerts} more insight{hiddenAlerts > 1 ? "s" : ""} — dismiss one to see the next.
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {tiles.map((t) => (
@@ -120,7 +134,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {metrics.uncategorizedCount ? (
               <p className="mt-3 text-xs text-muted-foreground">
                 {metrics.uncategorizedCount} transactions not yet categorized are counted by sign.{" "}
-                <Link href="/review" className="underline underline-offset-4">Review them</Link>
+                <Link href="/review" className="underline underline-offset-4">
+                  Review them
+                </Link>
               </p>
             ) : null}
           </CardContent>

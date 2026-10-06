@@ -7,7 +7,10 @@ const CREDIT_SUFFIX = /\s*(H|CR|Haben|C)$/i
 export type PrintedAmount = { magnitudeMinor: number | null; sign: -1 | 1 | null }
 
 export function parsePrintedAmount(text: string, decimal: "." | ","): PrintedAmount {
-  let t = text.replace(/−/g, "-").replace(/[€£$]|EUR|GBP|USD/g, "").trim()
+  let t = text
+    .replace(/−/g, "-")
+    .replace(/[€£$]|EUR|GBP|USD/g, "")
+    .trim()
   let sign: -1 | 1 | null = null
   if (DEBIT_SUFFIX.test(t)) {
     sign = -1
@@ -25,7 +28,10 @@ export function parsePrintedAmount(text: string, decimal: "." | ","): PrintedAmo
 
 /** Decimal separator for a whole statement, inferred from all printed amounts at once. */
 export function statementDecimal(texts: string[]): "." | "," {
-  return inferDecimal(texts.map((t) => t.replace(/\s*(S|H|DR|CR|Soll|Haben)$/i, "")), ",")
+  return inferDecimal(
+    texts.map((t) => t.replace(/\s*(S|H|DR|CR|Soll|Haben)$/i, "")),
+    ","
+  )
 }
 
 const SYMBOLS: Record<string, string> = { "€": "EUR", "£": "GBP", $: "USD" }

@@ -31,7 +31,7 @@ function owners(db: Db, orgIds: string[]) {
       .innerJoin(user, eq(user.id, member.userId))
       .where(and(inArray(member.organizationId, orgIds), eq(member.role, "owner")))
       .all()
-      .map((r) => [r.orgId, { name: r.name, email: r.email }]),
+      .map((r) => [r.orgId, { name: r.name, email: r.email }])
   )
 }
 
@@ -46,7 +46,10 @@ export function leadRows(db: Db): LeadRow[] {
     .innerJoin(organization, eq(organization.id, workspaceSettings.orgId))
     .all()
     .filter((w) => w.settings.jurisdiction && (w.settings.advisoryOptIn || latestRequest.has(w.orgId)))
-  const ownerMap = owners(db, workspaces.map((w) => w.orgId))
+  const ownerMap = owners(
+    db,
+    workspaces.map((w) => w.orgId)
+  )
   const alertCounts = new Map(
     db
       .select({ orgId: advisoryAlerts.orgId, n: count() })
@@ -54,7 +57,7 @@ export function leadRows(db: Db): LeadRow[] {
       .where(eq(advisoryAlerts.status, "active"))
       .groupBy(advisoryAlerts.orgId)
       .all()
-      .map((r) => [r.orgId, r.n]),
+      .map((r) => [r.orgId, r.n])
   )
   return workspaces
     .map((w) => {
@@ -79,7 +82,12 @@ export function leadRows(db: Db): LeadRow[] {
         request: req ? { id: req.id, kind: req.kind, status: req.status, createdAt: req.createdAt } : null,
       }
     })
-    .sort((a, b) => Number(b.request?.status === "new") - Number(a.request?.status === "new") || (b.request?.createdAt.getTime() ?? 0) - (a.request?.createdAt.getTime() ?? 0) || b.createdAt.getTime() - a.createdAt.getTime())
+    .sort(
+      (a, b) =>
+        Number(b.request?.status === "new") - Number(a.request?.status === "new") ||
+        (b.request?.createdAt.getTime() ?? 0) - (a.request?.createdAt.getTime() ?? 0) ||
+        b.createdAt.getTime() - a.createdAt.getTime()
+    )
 }
 
 export function platformTotals(db: Db) {
@@ -97,7 +105,11 @@ export function setRequestStatus(db: Db, id: string, status: "new" | "contacted"
 }
 
 export function listUsers(db: Db) {
-  return db.select({ id: user.id, name: user.name, email: user.email, role: user.role, isAnonymous: user.isAnonymous, createdAt: user.createdAt }).from(user).orderBy(asc(user.createdAt)).all()
+  return db
+    .select({ id: user.id, name: user.name, email: user.email, role: user.role, isAnonymous: user.isAnonymous, createdAt: user.createdAt })
+    .from(user)
+    .orderBy(asc(user.createdAt))
+    .all()
 }
 
 export function setUserRole(db: Db, userId: string, role: "user" | "staff" | "admin") {
@@ -106,7 +118,8 @@ export function setUserRole(db: Db, userId: string, role: "user" | "staff" | "ad
 
 /** Work signals per client for the bookkeeper console. */
 export function consoleSignals(db: Db, orgIds: string[], currentMonth: string, lastMonth: string) {
-  if (!orgIds.length) return new Map<string, { needsReview: number; lastImport: Date | null; failedRecon: number; lastClose: string | null; lastMonthClosed: boolean }>()
+  if (!orgIds.length)
+    return new Map<string, { needsReview: number; lastImport: Date | null; failedRecon: number; lastClose: string | null; lastMonthClosed: boolean }>()
   const needsReview = new Map(
     db
       .select({ orgId: transactions.orgId, n: count() })
@@ -114,16 +127,20 @@ export function consoleSignals(db: Db, orgIds: string[], currentMonth: string, l
       .where(and(inArray(transactions.orgId, orgIds), eq(transactions.reviewStatus, "needs_review")))
       .groupBy(transactions.orgId)
       .all()
-      .map((r) => [r.orgId, r.n]),
+      .map((r) => [r.orgId, r.n])
   )
   const imports = new Map(
     db
-      .select({ orgId: importBatches.orgId, last: max(importBatches.createdAt), failed: sql<number>`sum(case when json_extract(${importBatches.reconciliation}, '$.ok') = 0 then 1 else 0 end)` })
+      .select({
+        orgId: importBatches.orgId,
+        last: max(importBatches.createdAt),
+        failed: sql<number>`sum(case when json_extract(${importBatches.reconciliation}, '$.ok') = 0 then 1 else 0 end)`,
+      })
       .from(importBatches)
       .where(inArray(importBatches.orgId, orgIds))
       .groupBy(importBatches.orgId)
       .all()
-      .map((r) => [r.orgId, r]),
+      .map((r) => [r.orgId, r])
   )
   const closes = db
     .select({ orgId: periodCloses.orgId, period: periodCloses.period })
@@ -145,6 +162,6 @@ export function consoleSignals(db: Db, orgIds: string[], currentMonth: string, l
           lastMonthClosed: orgCloses.includes(lastMonth) || orgCloses.includes(currentMonth),
         },
       ]
-    }),
+    })
   )
 }

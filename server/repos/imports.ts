@@ -21,19 +21,38 @@ export function listBatches(db: Db, orgId: string) {
 }
 
 export function getBatch(db: Db, orgId: string, id: string): ImportBatch | null {
-  return db.select().from(importBatches).where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id))).get() ?? null
+  return (
+    db
+      .select()
+      .from(importBatches)
+      .where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id)))
+      .get() ?? null
+  )
 }
 
 export function findBatchBySha(db: Db, orgId: string, sha: string): ImportBatch | null {
-  return db.select().from(importBatches).where(and(eq(importBatches.orgId, orgId), eq(importBatches.fileSha256, sha))).get() ?? null
+  return (
+    db
+      .select()
+      .from(importBatches)
+      .where(and(eq(importBatches.orgId, orgId), eq(importBatches.fileSha256, sha)))
+      .get() ?? null
+  )
 }
 
 export function createBatch(db: Db, orgId: string, values: Omit<typeof importBatches.$inferInsert, "orgId">): ImportBatch {
-  return db.insert(importBatches).values({ ...values, orgId }).returning().get()
+  return db
+    .insert(importBatches)
+    .values({ ...values, orgId })
+    .returning()
+    .get()
 }
 
 export function updateBatch(db: Db, orgId: string, id: string, patch: Partial<typeof importBatches.$inferInsert>) {
-  db.update(importBatches).set(patch).where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id))).run()
+  db.update(importBatches)
+    .set(patch)
+    .where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id)))
+    .run()
 }
 
 export function listRows(db: Db, orgId: string, batchId: string): ImportRow[] {
@@ -70,7 +89,11 @@ function openInvoicesForMatching(db: Db, orgId: string): OpenInvoice[] {
     .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, "invoice"), eq(invoices.status, "finalized"), eq(invoices.currency, currency ?? "EUR")))
     .orderBy(asc(invoices.issueDate))
     .all()
-  const paid = paidAmounts(db, orgId, open.map((i) => i.id))
+  const paid = paidAmounts(
+    db,
+    orgId,
+    open.map((i) => i.id)
+  )
   return open.map((i) => ({ id: i.id, number: i.number ?? "", issueDate: i.issueDate, openMinor: openAmount(i.total, paid.get(i.id) ?? 0) }))
 }
 
@@ -79,7 +102,7 @@ export function stageRows(
   orgId: string,
   batchId: string,
   rows: NormalizedRow[],
-  extra: { reconciliation?: Reconciliation | null; status?: ImportBatch["status"]; parser?: ImportBatch["parser"]; modelUsed?: string | null } = {},
+  extra: { reconciliation?: Reconciliation | null; status?: ImportBatch["status"]; parser?: ImportBatch["parser"]; modelUsed?: string | null } = {}
 ) {
   if (!getBatch(db, orgId, batchId)) throw new ImportError("Import not found")
   const hashByRow = hashBankRows(rows)
@@ -92,7 +115,7 @@ export function stageRows(
           .where(and(eq(transactions.orgId, orgId), inArray(transactions.dedupeHash, hashes)))
           .all()
           .map((r) => r.h)
-      : [],
+      : []
   )
   const openInvoices = openInvoicesForMatching(db, orgId)
   const claimed = new Set<string>()
@@ -104,7 +127,10 @@ export function stageRows(
       const hash = hashByRow.get(row)
       const duplicate = hash ? existing.has(hash) : false
       if (duplicate) issues.push("possible_duplicate")
-      const match = row.amountMinor && row.date ? matchPayment({ date: row.date, amountMinor: row.amountMinor, text: `${row.description} ${row.counterparty}` }, openInvoices, claimed) : null
+      const match =
+        row.amountMinor && row.date
+          ? matchPayment({ date: row.date, amountMinor: row.amountMinor, text: `${row.description} ${row.counterparty}` }, openInvoices, claimed)
+          : null
       if (match) claimed.add(match.id)
       tx.insert(importRows)
         .values({
@@ -123,7 +149,13 @@ export function stageRows(
         .run()
     }
     tx.update(importBatches)
-      .set({ status: extra.status ?? "staged", rowCount: rows.length, reconciliation: extra.reconciliation ?? null, parser: extra.parser, modelUsed: extra.modelUsed })
+      .set({
+        status: extra.status ?? "staged",
+        rowCount: rows.length,
+        reconciliation: extra.reconciliation ?? null,
+        parser: extra.parser,
+        modelUsed: extra.modelUsed,
+      })
       .where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, batchId)))
       .run()
   })
@@ -137,11 +169,16 @@ export function editRows(db: Db, orgId: string, batchId: string, edits: RowEdit[
   if (!batch || batch.status !== "staged") throw new ImportError("This import can no longer be edited")
   db.transaction((tx) => {
     for (const { id, ...patch } of edits) {
-      tx.update(importRows).set(patch).where(and(eq(importRows.batchId, batchId), eq(importRows.id, id))).run()
+      tx.update(importRows)
+        .set(patch)
+        .where(and(eq(importRows.batchId, batchId), eq(importRows.id, id)))
+        .run()
     }
   })
 }
 
 export function deleteBatch(db: Db, orgId: string, id: string) {
-  db.delete(importBatches).where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id))).run()
+  db.delete(importBatches)
+    .where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id)))
+    .run()
 }

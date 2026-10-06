@@ -9,7 +9,15 @@ const config = {
   expenses: { label: "Expenses", color: "var(--chart-2)" },
 } satisfies ChartConfig
 
-export function CashflowChart({ data, currency, locale }: { data: { month: string; cashIn: number; expenses: number }[]; currency: CurrencyCode; locale: string }) {
+export function CashflowChart({
+  data,
+  currency,
+  locale,
+}: {
+  data: { month: string; cashIn: number; expenses: number }[]
+  currency: CurrencyCode
+  locale: string
+}) {
   const compact = new Intl.NumberFormat(locale, { notation: "compact", style: "currency", currency, maximumFractionDigits: 0 })
   const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" })
   return (

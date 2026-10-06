@@ -20,7 +20,7 @@ export function PageTabs<K extends string>({ basePath, tabs, current }: { basePa
           aria-current={current === key ? "page" : undefined}
           className={cn(
             "-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap",
-            current === key ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground",
+            current === key ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
           {label}
@@ -31,7 +31,15 @@ export function PageTabs<K extends string>({ basePath, tabs, current }: { basePa
 }
 
 /** A row of link "chips" for filters such as status, range or month. */
-export function FilterLinks({ items, current, className }: { items: { key: string; href: string; label: React.ReactNode }[]; current: string; className?: string }) {
+export function FilterLinks({
+  items,
+  current,
+  className,
+}: {
+  items: { key: string; href: string; label: React.ReactNode }[]
+  current: string
+  className?: string
+}) {
   return (
     <div className={cn("flex flex-wrap items-center gap-1", className)}>
       {items.map((item) => (

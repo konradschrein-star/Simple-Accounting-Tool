@@ -43,9 +43,22 @@ export function VatTab({ ctx, period: periodKey }: { ctx: ReadyOrgContext; perio
   const deadline = jurisdiction.taxDeadlines(taxProfileOf(settings), addDays(period.to, 1), addDays(period.to, 75)).find((d) => /vat|ust|gst/i.test(d.id))
   const open = period.to >= ctx.today
   const stats = [
-    { label: jurisdiction.code === "us" ? "Sales tax collected" : "Output tax", value: summary.outputTaxMinor, hint: `${summary.documentCount} document${summary.documentCount === 1 ? "" : "s"}` },
-    ...(jurisdiction.code === "us" ? [] : [{ label: "Input tax", value: summary.inputTaxMinor, hint: `${summary.purchaseCount} expense${summary.purchaseCount === 1 ? "" : "s"} from the bank` }]),
-    { label: summary.netTaxMinor >= 0 ? "To pay" : "Refund due", value: Math.abs(summary.netTaxMinor), hint: deadline ? `Due ${formatDate(deadline.date, settings.locale)}` : open ? "Period still running" : "", tone: summary.netTaxMinor >= 0 ? "" : "text-success" },
+    {
+      label: jurisdiction.code === "us" ? "Sales tax collected" : "Output tax",
+      value: summary.outputTaxMinor,
+      hint: `${summary.documentCount} document${summary.documentCount === 1 ? "" : "s"}`,
+    },
+    ...(jurisdiction.code === "us"
+      ? []
+      : [
+          { label: "Input tax", value: summary.inputTaxMinor, hint: `${summary.purchaseCount} expense${summary.purchaseCount === 1 ? "" : "s"} from the bank` },
+        ]),
+    {
+      label: summary.netTaxMinor >= 0 ? "To pay" : "Refund due",
+      value: Math.abs(summary.netTaxMinor),
+      hint: deadline ? `Due ${formatDate(deadline.date, settings.locale)}` : open ? "Period still running" : "",
+      tone: summary.netTaxMinor >= 0 ? "" : "text-success",
+    },
   ]
 
   return (
@@ -100,8 +113,10 @@ export function VatTab({ ctx, period: periodKey }: { ctx: ReadyOrgContext; perio
       </Card>
       <p className="text-xs text-muted-foreground">
         Prepared from your issued invoices and the expenses booked from your bank
-        {jurisdiction.code === "us" ? "" : `; input tax uses each expense account's usual ${jurisdiction.taxLabel} rate unless a receipt says otherwise`}. Check the figures before you file
-        {jurisdiction.code === "de" ? " via ELSTER" : jurisdiction.code === "uk" ? " through MTD-compatible software" : ""} — or let our bookkeepers file it for you.
+        {jurisdiction.code === "us" ? "" : `; input tax uses each expense account's usual ${jurisdiction.taxLabel} rate unless a receipt says otherwise`}. Check
+        the figures before you file
+        {jurisdiction.code === "de" ? " via ELSTER" : jurisdiction.code === "uk" ? " through MTD-compatible software" : ""} — or let our bookkeepers file it for
+        you.
       </p>
     </>
   )

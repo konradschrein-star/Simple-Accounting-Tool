@@ -73,7 +73,9 @@ export function computeMetrics(invoices: MetricInvoice[], payments: MetricPaymen
   }
   const paidById = new Map<string, number>()
   for (const p of payments) paidById.set(p.invoiceId, (paidById.get(p.invoiceId) ?? 0) + p.amountMinor)
-  const open = invoices.filter((i) => i.kind === "invoice" && i.status === "finalized").map((i) => ({ ...i, openMinor: Math.max(0, i.totalMinor - (paidById.get(i.id) ?? 0)) }))
+  const open = invoices
+    .filter((i) => i.kind === "invoice" && i.status === "finalized")
+    .map((i) => ({ ...i, openMinor: Math.max(0, i.totalMinor - (paidById.get(i.id) ?? 0)) }))
   const overdue = open.filter((i) => i.dueDate < today)
   const dates = [...txns.map((t) => t.date), ...invoices.filter(countsAsInvoiced).map((i) => i.issueDate)].sort()
   return {

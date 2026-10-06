@@ -28,7 +28,13 @@ export function normalizeRows(rows: string[][], mapping: CsvMapping, expectedCur
       } else {
         const value = amount(cell(row, columns.amount))
         amountMinor =
-          value === null ? null : mapping.amountMode === "indicator" ? (isDebitIndicator(cell(row, columns.indicator)) ? -Math.abs(value) : Math.abs(value)) : value
+          value === null
+            ? null
+            : mapping.amountMode === "indicator"
+              ? isDebitIndicator(cell(row, columns.indicator))
+                ? -Math.abs(value)
+                : Math.abs(value)
+              : value
       }
       if (amountMinor === null) issues.push("unparseable_amount")
       else if (mapping.flipSign) amountMinor = -amountMinor

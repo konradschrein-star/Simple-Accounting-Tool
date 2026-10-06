@@ -44,16 +44,30 @@ export function listClients(db: Db, orgId: string) {
 }
 
 export function createClient(db: Db, orgId: string, input: z.input<typeof clientInputSchema>): Client {
-  return db.insert(clients).values({ orgId, ...clientInputSchema.parse(input) }).returning().get()
+  return db
+    .insert(clients)
+    .values({ orgId, ...clientInputSchema.parse(input) })
+    .returning()
+    .get()
 }
 
 export function updateClient(db: Db, orgId: string, id: string, input: ClientInput) {
-  db.update(clients).set(input).where(and(eq(clients.orgId, orgId), eq(clients.id, id))).run()
+  db.update(clients)
+    .set(input)
+    .where(and(eq(clients.orgId, orgId), eq(clients.id, id)))
+    .run()
 }
 
 export function deleteClient(db: Db, orgId: string, id: string): boolean {
-  const used = db.select({ n: count() }).from(invoices).where(and(eq(invoices.orgId, orgId), eq(invoices.clientId, id))).get()?.n ?? 0
+  const used =
+    db
+      .select({ n: count() })
+      .from(invoices)
+      .where(and(eq(invoices.orgId, orgId), eq(invoices.clientId, id)))
+      .get()?.n ?? 0
   if (used) return false
-  db.delete(clients).where(and(eq(clients.orgId, orgId), eq(clients.id, id))).run()
+  db.delete(clients)
+    .where(and(eq(clients.orgId, orgId), eq(clients.id, id)))
+    .run()
   return true
 }

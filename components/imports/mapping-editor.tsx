@@ -57,7 +57,12 @@ export function MappingEditor({
     setMapping((m) => {
       const columns = Object.fromEntries(Object.entries(m.columns).filter(([r, c]) => c !== col && r !== role)) as CsvMapping["columns"]
       if (role !== "ignore") columns[role] = col
-      const amountMode = columns.debit !== undefined || columns.credit !== undefined ? "debitCredit" : columns.indicator !== undefined && m.amountMode === "indicator" ? "indicator" : "signed"
+      const amountMode =
+        columns.debit !== undefined || columns.credit !== undefined
+          ? "debitCredit"
+          : columns.indicator !== undefined && m.amountMode === "indicator"
+            ? "indicator"
+            : "signed"
       return { ...m, columns, amountMode }
     })
   }
@@ -145,7 +150,8 @@ export function MappingEditor({
       <Card className="py-0">
         <CardHeader className="pt-6">
           <CardTitle className="flex items-center gap-2 text-base">
-            Preview {failures ? <Badge variant="destructive">{failures} rows can’t be read</Badge> : <Badge className="bg-success/15 text-success">Looks good</Badge>}
+            Preview{" "}
+            {failures ? <Badge variant="destructive">{failures} rows can’t be read</Badge> : <Badge className="bg-success/15 text-success">Looks good</Badge>}
           </CardTitle>
         </CardHeader>
         <Table>

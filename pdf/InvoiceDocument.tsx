@@ -47,13 +47,55 @@ const s = StyleSheet.create({
   cAmt: { width: "16%", textAlign: "right" },
   totals: { marginTop: 10, marginLeft: "45%" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
-  grandTotal: { flexDirection: "row", justifyContent: "space-between", marginTop: 4, paddingTop: 6, borderTopWidth: 1.5, borderTopColor: INK, fontSize: 11, fontWeight: 700 },
+  grandTotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+    paddingTop: 6,
+    borderTopWidth: 1.5,
+    borderTopColor: INK,
+    fontSize: 11,
+    fontWeight: 700,
+  },
   section: { marginTop: 22 },
   note: { color: MUTED },
-  payButton: { marginTop: 10, alignSelf: "flex-start", backgroundColor: ACCENT, color: "#ffffff", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 4, fontWeight: 700, textDecoration: "none" },
-  footer: { position: "absolute", bottom: 32, left: 48, right: 48, flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: LINE, paddingTop: 8, fontSize: 7, color: MUTED },
+  payButton: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    backgroundColor: ACCENT,
+    color: "#ffffff",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    fontWeight: 700,
+    textDecoration: "none",
+  },
+  footer: {
+    position: "absolute",
+    bottom: 32,
+    left: 48,
+    right: 48,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: LINE,
+    paddingTop: 8,
+    fontSize: 7,
+    color: MUTED,
+  },
   footerCol: { width: "32%" },
-  watermark: { position: "absolute", top: 330, left: 0, right: 0, textAlign: "center", fontSize: 96, fontWeight: 700, color: "#ef4444", opacity: 0.12, transform: "rotate(-30deg)" },
+  watermark: {
+    position: "absolute",
+    top: 330,
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 96,
+    fontWeight: 700,
+    color: "#ef4444",
+    opacity: 0.12,
+    transform: "rotate(-30deg)",
+  },
 })
 
 export function InvoiceDocument(props: InvoiceDocumentProps) {
@@ -81,7 +123,11 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
   return (
     <Document title={`${title} ${props.number ?? ""}`.trim()} author={seller.name}>
       <Page size="A4" style={s.page}>
-        {props.watermark ? <Text style={s.watermark} fixed>{props.watermark === "void" ? t.void : props.watermark === "cancelled" ? t.cancelled : t.draft}</Text> : null}
+        {props.watermark ? (
+          <Text style={s.watermark} fixed>
+            {props.watermark === "void" ? t.void : props.watermark === "cancelled" ? t.cancelled : t.draft}
+          </Text>
+        ) : null}
 
         <View style={s.header}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt */}
@@ -97,7 +143,9 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
           <View style={s.addressBlock}>
             <Text style={s.senderLine}>{[seller.legalName || seller.name, ...sellerAddress.slice(0, 3)].join(" · ")}</Text>
             <Text style={s.bold}>{client.name}</Text>
-            {clientAddress.map((line) => <Text key={line}>{line}</Text>)}
+            {clientAddress.map((line) => (
+              <Text key={line}>{line}</Text>
+            ))}
           </View>
           <View style={s.meta}>
             {props.number ? <MetaRow label={t.number[kind]} value={props.number} /> : null}
@@ -127,7 +175,11 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
               </Text>
               <View style={s.cUnit}>
                 <Text>{money(item.unitPriceMinor)}</Text>
-                {item.discountBp ? <Text style={s.sub}>−{formatRate(item.discountBp, snap.locale)} {t.discount}</Text> : null}
+                {item.discountBp ? (
+                  <Text style={s.sub}>
+                    −{formatRate(item.discountBp, snap.locale)} {t.discount}
+                  </Text>
+                ) : null}
               </View>
               <Text style={s.cTax}>{formatRate(item.taxRateBp, snap.locale)}</Text>
               <Text style={s.cAmt}>{money(item.netMinor)}</Text>
@@ -176,18 +228,30 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
         <View style={s.footer} fixed>
           <View style={s.footerCol}>
             <Text style={s.bold}>{seller.legalName || seller.name}</Text>
-            {sellerAddress.map((line) => <Text key={line}>{line}</Text>)}
+            {sellerAddress.map((line) => (
+              <Text key={line}>{line}</Text>
+            ))}
           </View>
           <View style={s.footerCol}>
             {seller.email ? <Text>{seller.email}</Text> : null}
             {seller.phone ? <Text>{seller.phone}</Text> : null}
             {seller.website ? <Text>{seller.website}</Text> : null}
-            {seller.taxNumber ? <Text>{t.taxNumber}: {seller.taxNumber}</Text> : null}
-            {seller.vatId ? <Text>{t.vatId}: {seller.vatId}</Text> : null}
+            {seller.taxNumber ? (
+              <Text>
+                {t.taxNumber}: {seller.taxNumber}
+              </Text>
+            ) : null}
+            {seller.vatId ? (
+              <Text>
+                {t.vatId}: {seller.vatId}
+              </Text>
+            ) : null}
           </View>
           <View style={s.footerCol}>
             {bankLines.length ? <Text style={s.bold}>{t.bankDetails}</Text> : null}
-            {bankLines.map((line) => <Text key={line}>{line}</Text>)}
+            {bankLines.map((line) => (
+              <Text key={line}>{line}</Text>
+            ))}
           </View>
         </View>
       </Page>

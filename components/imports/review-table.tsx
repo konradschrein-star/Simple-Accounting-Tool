@@ -91,7 +91,8 @@ export function ReviewTable({
           <CheckCircle2Icon className="text-success" />
           <AlertTitle>Statement reconciles</AlertTitle>
           <AlertDescription>
-            Opening {money(reconciliation.openingMinor!)} + movements {money(reconciliation.computedDeltaMinor)} = closing {money(reconciliation.closingMinor!)}. Every line is accounted for.
+            Opening {money(reconciliation.openingMinor!)} + movements {money(reconciliation.computedDeltaMinor)} = closing {money(reconciliation.closingMinor!)}
+            . Every line is accounted for.
           </AlertDescription>
         </Alert>
       ) : reconciliation?.ok === false ? (
@@ -99,8 +100,9 @@ export function ReviewTable({
           <CircleAlertIcon />
           <AlertTitle>Balances don’t reconcile yet</AlertTitle>
           <AlertDescription>
-            Opening {money(reconciliation.openingMinor!)} + movements {money(reconciliation.computedDeltaMinor)} ≠ closing {money(reconciliation.closingMinor!)} (difference{" "}
-            {money(reconciliation.closingMinor! - reconciliation.openingMinor! - reconciliation.computedDeltaMinor)}). Check the flagged rows before booking.
+            Opening {money(reconciliation.openingMinor!)} + movements {money(reconciliation.computedDeltaMinor)} ≠ closing {money(reconciliation.closingMinor!)}{" "}
+            (difference {money(reconciliation.closingMinor! - reconciliation.openingMinor! - reconciliation.computedDeltaMinor)}). Check the flagged rows before
+            booking.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -132,7 +134,11 @@ export function ReviewTable({
             {visible.map((r) => (
               <TableRow key={r.id} className={cn(!r.include && "opacity-50")}>
                 <TableCell className="pl-4">
-                  <Checkbox checked={r.include} aria-label="Include row" onCheckedChange={(v) => update(r.id, { include: v === true }, { include: v === true })} />
+                  <Checkbox
+                    checked={r.include}
+                    aria-label="Include row"
+                    onCheckedChange={(v) => update(r.id, { include: v === true }, { include: v === true })}
+                  />
                 </TableCell>
                 <TableCell>
                   <Input
@@ -140,7 +146,11 @@ export function ReviewTable({
                     aria-label="Booking date"
                     defaultValue={r.date ?? ""}
                     className="h-8"
-                    onBlur={(e) => e.target.value && e.target.value !== r.date && update(r.id, { date: e.target.value, issues: r.issues.filter((i) => i !== "unparseable_date") }, { date: e.target.value })}
+                    onBlur={(e) =>
+                      e.target.value &&
+                      e.target.value !== r.date &&
+                      update(r.id, { date: e.target.value, issues: r.issues.filter((i) => i !== "unparseable_date") }, { date: e.target.value })
+                    }
                   />
                 </TableCell>
                 <TableCell>
@@ -168,7 +178,11 @@ export function ReviewTable({
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {r.issues.map((issue) => (
-                      <Badge key={issue} variant="outline" className={issue === "possible_duplicate" ? "text-muted-foreground" : "border-warning/50 text-foreground"}>
+                      <Badge
+                        key={issue}
+                        variant="outline"
+                        className={issue === "possible_duplicate" ? "text-muted-foreground" : "border-warning/50 text-foreground"}
+                      >
                         {ISSUE_LABELS[issue]}
                       </Badge>
                     ))}
@@ -190,7 +204,9 @@ export function ReviewTable({
       </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <span className="text-sm text-muted-foreground">{included.length} of {rows.length} lines will be booked</span>
+        <span className="text-sm text-muted-foreground">
+          {included.length} of {rows.length} lines will be booked
+        </span>
         <Button size="lg" onClick={commit} disabled={committing || !included.length}>
           {committing ? <Spinner /> : null} Book {included.length} transactions
         </Button>

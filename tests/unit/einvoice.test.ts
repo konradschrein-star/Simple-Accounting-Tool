@@ -15,8 +15,33 @@ const lines = [
 function snapshot(overrides: Partial<InvoiceSnapshot> = {}, items = lines): InvoiceSnapshot {
   return {
     kind: "invoice",
-    seller: { name: "Studio Nord", legalName: "Studio Nord – Lea Hartmann", addressLine1: "Torstraße 112", addressLine2: "", postcode: "10119", city: "Berlin", country: "Deutschland", email: "hallo@studio-nord.example", phone: "+49 30 1234567", website: "", taxNumber: "37/123/45678", vatId: "DE312345671", bankIban: "DE89 3704 0044 0532 0130 00", bankBic: "COBADEFFXXX" },
-    client: { name: "Bäckerei Müller GmbH", email: "buchhaltung@mueller.example", addressLine1: "Hauptstraße 5", addressLine2: "", postcode: "80331", city: "München", country: "", vatId: "", buyerReference: "04011000-12345-34" },
+    seller: {
+      name: "Studio Nord",
+      legalName: "Studio Nord – Lea Hartmann",
+      addressLine1: "Torstraße 112",
+      addressLine2: "",
+      postcode: "10119",
+      city: "Berlin",
+      country: "Deutschland",
+      email: "hallo@studio-nord.example",
+      phone: "+49 30 1234567",
+      website: "",
+      taxNumber: "37/123/45678",
+      vatId: "DE312345671",
+      bankIban: "DE89 3704 0044 0532 0130 00",
+      bankBic: "COBADEFFXXX",
+    },
+    client: {
+      name: "Bäckerei Müller GmbH",
+      email: "buchhaltung@mueller.example",
+      addressLine1: "Hauptstraße 5",
+      addressLine2: "",
+      postcode: "80331",
+      city: "München",
+      country: "",
+      vatId: "",
+      buyerReference: "04011000-12345-34",
+    },
     jurisdiction: "de",
     language: "de",
     currency: "EUR",
@@ -79,7 +104,10 @@ describe("e-invoice (EN 16931 CII)", () => {
 
   it("issues credit notes as TypeCode 381 with positive amounts and the corrected invoice", async () => {
     const reversed = lines.map((l) => ({ ...l, quantityMilli: -l.quantityMilli }))
-    const xml = buildCiiXml(input(snapshot({ kind: "credit_note" }, reversed), { kind: "credit_note", number: "CN-2026-0001", relatedNumber: "INV-2026-0042" }), "en16931")
+    const xml = buildCiiXml(
+      input(snapshot({ kind: "credit_note" }, reversed), { kind: "credit_note", number: "CN-2026-0001", relatedNumber: "INV-2026-0042" }),
+      "en16931"
+    )
     expect(xml).toContain("<ram:TypeCode>381</ram:TypeCode>")
     expect(xml).toContain("<ram:IssuerAssignedID>INV-2026-0042</ram:IssuerAssignedID>")
     expect(xml).not.toMatch(/<ram:GrandTotalAmount>-/)
@@ -88,7 +116,10 @@ describe("e-invoice (EN 16931 CII)", () => {
 
   it("marks §19 UStG invoices as VAT-exempt with the reason", async () => {
     const exempt = lines.map((l) => ({ ...l, taxRateBp: 0 }))
-    const xml = buildCiiXml(input(snapshot({ exemptionNote: "Gemäß §19 UStG wird keine Umsatzsteuer berechnet.", taxGroups: computeTotals(exempt).taxGroups }, exempt)), "en16931")
+    const xml = buildCiiXml(
+      input(snapshot({ exemptionNote: "Gemäß §19 UStG wird keine Umsatzsteuer berechnet.", taxGroups: computeTotals(exempt).taxGroups }, exempt)),
+      "en16931"
+    )
     expect(xml).toContain("<ram:CategoryCode>E</ram:CategoryCode>")
     expect(await validate(xml)).toEqual([])
   }, 60_000)

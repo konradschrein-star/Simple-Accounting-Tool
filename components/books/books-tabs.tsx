@@ -68,7 +68,13 @@ export async function CloseTab({ ctx, month }: { ctx: ReadyOrgContext; month?: s
             label: (
               <>
                 {monthLabel(m)}
-                {status === "closed" ? <LockIcon className="size-3" aria-label="closed" /> : status === "in_review" ? <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">draft</Badge> : null}
+                {status === "closed" ? (
+                  <LockIcon className="size-3" aria-label="closed" />
+                ) : status === "in_review" ? (
+                  <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
+                    draft
+                  </Badge>
+                ) : null}
               </>
             ),
           }

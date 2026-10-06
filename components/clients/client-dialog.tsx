@@ -25,15 +25,7 @@ const FIELDS: { name: keyof Omit<Client, "id" | "orgId" | "createdAt" | "languag
 
 const DEFAULT = "default"
 
-export function ClientDialog({
-  client,
-  trigger,
-  onSaved,
-}: {
-  client?: Client
-  trigger: React.ReactNode
-  onSaved?: (client: Client | undefined) => void
-}) {
+export function ClientDialog({ client, trigger, onSaved }: { client?: Client; trigger: React.ReactNode; onSaved?: (client: Client | undefined) => void }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 

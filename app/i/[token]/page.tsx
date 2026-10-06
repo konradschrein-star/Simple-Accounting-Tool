@@ -57,7 +57,13 @@ export default async function PublicDocumentPage({ params }: { params: Promise<{
           <Card>
             <CardHeader>
               <CardDescription className="flex items-center justify-between gap-2">
-                {invoice.kind === "quote" ? "Quoted amount" : invoice.kind === "credit_note" ? "Credited amount" : status === "partial" ? "Still to pay" : "Amount"}
+                {invoice.kind === "quote"
+                  ? "Quoted amount"
+                  : invoice.kind === "credit_note"
+                    ? "Credited amount"
+                    : status === "partial"
+                      ? "Still to pay"
+                      : "Amount"}
                 <InvoiceStatusBadge status={status} />
               </CardDescription>
               <CardTitle className="text-3xl tabular-nums">{money(status === "partial" ? open : invoice.totalMinor)}</CardTitle>

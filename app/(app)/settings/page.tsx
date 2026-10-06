@@ -26,7 +26,10 @@ export default async function SettingsPage() {
   const ctx = await requireReadyOrg()
   return (
     <PageBody className="max-w-4xl">
-      <PageHeader title="Settings" description={`${ctx.jurisdiction.name} workspace · ${ctx.settings.currency}${ctx.settings.currencyLocked ? " (locked after first invoice)" : ""}`} />
+      <PageHeader
+        title="Settings"
+        description={`${ctx.jurisdiction.name} workspace · ${ctx.settings.currency}${ctx.settings.currencyLocked ? " (locked after first invoice)" : ""}`}
+      />
       <Card>
         <CardHeader>
           <CardTitle>Logo</CardTitle>
@@ -66,8 +69,8 @@ export default async function SettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete this workspace permanently?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  All invoices, imports, transactions and files are erased immediately and cannot be recovered (backups expire within 14 days). Export your
-                  data first if you need it for your tax records.
+                  All invoices, imports, transactions and files are erased immediately and cannot be recovered (backups expire within 14 days). Export your data
+                  first if you need it for your tax records.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

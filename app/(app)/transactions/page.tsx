@@ -37,7 +37,14 @@ function transactionDetail(ctx: ReadyOrgContext, id: string, accounts: ReturnTyp
     locked: closed.has(monthKey(txn.date)),
     invoice: txn.invoiceId ? { id: txn.invoiceId, number: invoiceNumbers(db, ctx.orgId, [txn.invoiceId]).get(txn.invoiceId) ?? null } : null,
     receipt: receipt
-      ? { id: receipt.id, filename: receipt.filename, mimeType: receipt.mimeType, vendor: receipt.extracted?.vendor ?? (receipt.status === "processing" ? null : receipt.filename), totalMinor: receipt.extracted?.totalMinor ?? null, currency: receipt.extracted?.currency ?? null }
+      ? {
+          id: receipt.id,
+          filename: receipt.filename,
+          mimeType: receipt.mimeType,
+          vendor: receipt.extracted?.vendor ?? (receipt.status === "processing" ? null : receipt.filename),
+          totalMinor: receipt.extracted?.totalMinor ?? null,
+          currency: receipt.extracted?.currency ?? null,
+        }
       : null,
   }
 }

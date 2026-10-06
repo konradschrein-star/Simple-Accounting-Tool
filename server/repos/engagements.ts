@@ -48,5 +48,8 @@ export function listEngagements(db: Db, opts: { staffUserId?: string; statuses?:
 
 export function updateEngagement(db: Db, id: string, patch: Partial<Pick<Engagement, "status" | "assignedStaffUserId" | "planLabel" | "notes">>) {
   const extra = patch.status === "active" ? { startedAt: new Date() } : patch.status === "ended" ? { endedAt: new Date() } : {}
-  db.update(serviceEngagements).set({ ...patch, ...extra }).where(eq(serviceEngagements.id, id)).run()
+  db.update(serviceEngagements)
+    .set({ ...patch, ...extra })
+    .where(eq(serviceEngagements.id, id))
+    .run()
 }

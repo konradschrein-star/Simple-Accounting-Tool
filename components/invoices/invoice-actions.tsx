@@ -1,6 +1,20 @@
 "use client"
 
-import { BanIcon, CheckIcon, CopyIcon, DownloadIcon, FileCode2Icon, LinkIcon, MailIcon, MoreHorizontalIcon, ReceiptIcon, RepeatIcon, ThumbsDownIcon, ThumbsUpIcon, Undo2Icon } from "lucide-react"
+import {
+  BanIcon,
+  CheckIcon,
+  CopyIcon,
+  DownloadIcon,
+  FileCode2Icon,
+  LinkIcon,
+  MailIcon,
+  MoreHorizontalIcon,
+  ReceiptIcon,
+  RepeatIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  Undo2Icon,
+} from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -24,7 +38,16 @@ import { Switch } from "@/components/ui/switch"
 import { useServerAction } from "@/components/use-server-action"
 import type { DisplayStatus, DocumentKind } from "@/invoicing/documents"
 import { minorToInput, parseAmountInput } from "@/lib/money"
-import { addPayment, cancelWithCreditNote, convertToInvoice, duplicate, makeRecurring, quoteOutcome, sendByEmail, undoPayments } from "@/server/actions/invoices"
+import {
+  addPayment,
+  cancelWithCreditNote,
+  convertToInvoice,
+  duplicate,
+  makeRecurring,
+  quoteOutcome,
+  sendByEmail,
+  undoPayments,
+} from "@/server/actions/invoices"
 
 type Props = {
   id: string
@@ -161,7 +184,9 @@ export function InvoiceActions(props: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Send by email</DialogTitle>
-            <DialogDescription>The PDF is attached and the email links to the online version{kind === "invoice" ? " where it can be paid" : ""}.</DialogDescription>
+            <DialogDescription>
+              The PDF is attached and the email links to the online version{kind === "invoice" ? " where it can be paid" : ""}.
+            </DialogDescription>
           </DialogHeader>
           <Field>
             <FieldLabel htmlFor="send-to">Recipient</FieldLabel>
@@ -194,7 +219,9 @@ export function InvoiceActions(props: Props) {
           <DialogFooter>
             <Button
               disabled={pending}
-              onClick={() => run(() => addPayment(id, { date: paidDate, amountMinor: parseAmountInput(amount) ?? 0 }), { success: "Payment recorded", onSuccess: close })}
+              onClick={() =>
+                run(() => addPayment(id, { date: paidDate, amountMinor: parseAmountInput(amount) ?? 0 }), { success: "Payment recorded", onSuccess: close })
+              }
             >
               Record payment
             </Button>
@@ -229,7 +256,13 @@ export function InvoiceActions(props: Props) {
             </Field>
             <Field className="sm:col-span-2">
               <FieldLabel htmlFor="rec-count">Number of invoices</FieldLabel>
-              <Input id="rec-count" inputMode="numeric" placeholder="Until cancelled" value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))} />
+              <Input
+                id="rec-count"
+                inputMode="numeric"
+                placeholder="Until cancelled"
+                value={count}
+                onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))}
+              />
             </Field>
             <Field orientation="horizontal" className="sm:col-span-2">
               <Switch id="rec-send" checked={autoSend} onCheckedChange={setAutoSend} disabled={!props.emailEnabled} />
@@ -240,7 +273,10 @@ export function InvoiceActions(props: Props) {
             </Field>
           </div>
           <DialogFooter>
-            <Button disabled={pending} onClick={() => run(() => makeRecurring(id, { frequency, startDate, count: count ? Number(count) : null, autoSend }), { onSuccess: close })}>
+            <Button
+              disabled={pending}
+              onClick={() => run(() => makeRecurring(id, { frequency, startDate, count: count ? Number(count) : null, autoSend }), { onSuccess: close })}
+            >
               <RepeatIcon /> Schedule
             </Button>
           </DialogFooter>

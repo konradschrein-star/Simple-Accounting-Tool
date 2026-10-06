@@ -14,7 +14,7 @@ export function PnlTable({ pnl, currency, locale }: { pnl: Pnl; currency: Curren
   const section = (title: string, lines: PnlLine[], total: number, priorTotal: number) => (
     <>
       <TableRow className="bg-muted/40 hover:bg-muted/40">
-        <TableCell colSpan={5} className="pl-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <TableCell colSpan={5} className="pl-6 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {title}
         </TableCell>
       </TableRow>

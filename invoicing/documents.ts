@@ -6,21 +6,13 @@ export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number]
 
 /** What the user sees. Derived from stored status + dates + payments, never stored, so it can't go stale. */
 export type DisplayStatus =
-  | "draft"
-  | "open"
-  | "partial"
-  | "overdue"
-  | "paid"
-  | "void"
-  | "cancelled"
-  | "sent"
-  | "accepted"
-  | "declined"
-  | "converted"
-  | "expired"
-  | "issued"
+  "draft" | "open" | "partial" | "overdue" | "paid" | "void" | "cancelled" | "sent" | "accepted" | "declined" | "converted" | "expired" | "issued"
 
-export function displayStatus(doc: { kind: DocumentKind; status: DocumentStatus; dueDate: IsoDate; totalMinor: number }, today: IsoDate, paidMinor = 0): DisplayStatus {
+export function displayStatus(
+  doc: { kind: DocumentKind; status: DocumentStatus; dueDate: IsoDate; totalMinor: number },
+  today: IsoDate,
+  paidMinor = 0
+): DisplayStatus {
   if (doc.status === "draft") return "draft"
   if (doc.kind === "credit_note") return "issued"
   if (doc.kind === "quote") {

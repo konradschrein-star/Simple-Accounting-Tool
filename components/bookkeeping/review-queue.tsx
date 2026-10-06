@@ -78,7 +78,14 @@ export function ReviewQueue({ rows, accounts, currency, locale }: { rows: QueueR
         {selected.size ? (
           <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-1">
             <span className="text-sm">{selected.size} selected →</span>
-            <AccountSelect label="Assign selected transactions to account" accounts={accounts} value={null} onChange={(accountId) => assign([...selected], accountId)} placeholder="Assign account" className="w-64" />
+            <AccountSelect
+              label="Assign selected transactions to account"
+              accounts={accounts}
+              value={null}
+              onChange={(accountId) => assign([...selected], accountId)}
+              placeholder="Assign account"
+              className="w-64"
+            />
           </div>
         ) : null}
         <span className="ml-auto hidden items-center gap-1 text-xs text-muted-foreground md:flex">
@@ -90,7 +97,11 @@ export function ReviewQueue({ rows, accounts, currency, locale }: { rows: QueueR
           <TableHeader>
             <TableRow>
               <TableHead className="w-10 pl-4">
-                <Checkbox aria-label="Select all" checked={selected.size > 0 && selected.size === rows.length} onCheckedChange={(v) => setSelected(v ? new Set(rows.map((r) => r.id)) : new Set())} />
+                <Checkbox
+                  aria-label="Select all"
+                  checked={selected.size > 0 && selected.size === rows.length}
+                  onCheckedChange={(v) => setSelected(v ? new Set(rows.map((r) => r.id)) : new Set())}
+                />
               </TableHead>
               <TableHead className="w-28">Date</TableHead>
               <TableHead>Transaction</TableHead>

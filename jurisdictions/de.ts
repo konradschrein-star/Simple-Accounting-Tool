@@ -52,7 +52,15 @@ export const de: Jurisdiction = {
   csvSynonyms: {
     date: ["buchungstag", "buchungsdatum", "datum", "valuta", "wertstellung", "valutadatum"],
     description: ["verwendungszweck", "buchungstext", "beschreibung", "vorgang"],
-    counterparty: ["beguenstigter/zahlungspflichtiger", "begünstigter/zahlungspflichtiger", "empfänger", "empfaenger", "auftraggeber", "zahlungsempfänger", "name"],
+    counterparty: [
+      "beguenstigter/zahlungspflichtiger",
+      "begünstigter/zahlungspflichtiger",
+      "empfänger",
+      "empfaenger",
+      "auftraggeber",
+      "zahlungsempfänger",
+      "name",
+    ],
     amount: ["betrag", "umsatz", "betrag (eur)", "betrag (€)"],
     debit: ["soll", "ausgang", "belastung"],
     credit: ["haben", "eingang", "gutschrift"],
@@ -93,7 +101,6 @@ export const de: Jurisdiction = {
   // Rent is usually VAT-free unless the landlord opted in; books carry 7 %.
   inputTax: { standardBp: 1900, byAccount: { "4120": 0, "4210": 0, "4360": 0, "4380": 0, "4970": 0, "4940": 700 } },
   requiredInvoiceFields: () => ["sellerAddress", "clientAddress", "sellerTaxId", "serviceDate"],
-  exemptionNote: (profile) =>
-    profile.smallBusinessExempt ? "Gemäß §19 UStG wird keine Umsatzsteuer berechnet." : null,
+  exemptionNote: (profile) => (profile.smallBusinessExempt ? "Gemäß §19 UStG wird keine Umsatzsteuer berechnet." : null),
   taxDeadlines: (profile, from, to) => collectDeadlines(from, to, (year) => perYear(profile, year)),
 }

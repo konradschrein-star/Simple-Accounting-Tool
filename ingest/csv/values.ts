@@ -86,11 +86,7 @@ export function parseBankAmount(value: string, decimal: "." | ","): number | nul
 }
 
 export function normalizeHeader(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/["*]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
+  return value.toLowerCase().replace(/["*]/g, "").replace(/\s+/g, " ").trim()
 }
 
 const DEBIT_TOKENS = new Set(["s", "soll", "dr", "debit", "d", "-", "out"])

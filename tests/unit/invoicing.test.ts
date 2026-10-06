@@ -5,7 +5,25 @@ import { JURISDICTIONS, type TaxProfile } from "@/jurisdictions"
 import { computeTotals, lineNetMinor, parseAmountInput, parseQuantityInput, toBaseMinor } from "@/lib/money"
 
 const profile: TaxProfile = { taxRegistered: true, smallBusinessExempt: false, vatFilingFrequency: "quarterly", vatPeriodEndMonth: 3, deDauerfrist: false }
-const seller = { name: "Acme", legalName: "", addressLine1: "Hauptstr. 1", addressLine2: "", postcode: "10115", city: "Berlin", country: "Germany", email: "", phone: "", website: "", taxNumber: "", vatId: "", bankIban: "", bankBic: "", ukSortCode: "", ukAccountNumber: "", usRoutingNumber: "" }
+const seller = {
+  name: "Acme",
+  legalName: "",
+  addressLine1: "Hauptstr. 1",
+  addressLine2: "",
+  postcode: "10115",
+  city: "Berlin",
+  country: "Germany",
+  email: "",
+  phone: "",
+  website: "",
+  taxNumber: "",
+  vatId: "",
+  bankIban: "",
+  bankBic: "",
+  ukSortCode: "",
+  ukAccountNumber: "",
+  usRoutingNumber: "",
+}
 const client = { name: "Client GmbH", email: "", addressLine1: "Weg 2", addressLine2: "", postcode: "80331", city: "München", country: "Germany", vatId: "" }
 const lines = [{ description: "Consulting", quantityMilli: 1000, unitPriceMinor: 10000, taxRateBp: 1900 }]
 
@@ -20,10 +38,19 @@ describe("invoice rules", () => {
     const blockers = finalizeBlockers({ jurisdiction: JURISDICTIONS.de, profile, seller, client, serviceDate: null, lines })
     expect(blockers.join(" ")).toMatch(/Steuernummer/)
     expect(blockers.join(" ")).toMatch(/Leistungsdatum/)
-    expect(finalizeBlockers({ jurisdiction: JURISDICTIONS.de, profile, seller: { ...seller, taxNumber: "12/345/67890" }, client, serviceDate: "2026-10-01", lines })).toEqual([])
+    expect(
+      finalizeBlockers({ jurisdiction: JURISDICTIONS.de, profile, seller: { ...seller, taxNumber: "12/345/67890" }, client, serviceDate: "2026-10-01", lines })
+    ).toEqual([])
   })
   it("blocks USt on §19 invoices", () => {
-    const blockers = finalizeBlockers({ jurisdiction: JURISDICTIONS.de, profile: { ...profile, smallBusinessExempt: true }, seller: { ...seller, taxNumber: "x" }, client, serviceDate: "2026-10-01", lines })
+    const blockers = finalizeBlockers({
+      jurisdiction: JURISDICTIONS.de,
+      profile: { ...profile, smallBusinessExempt: true },
+      seller: { ...seller, taxNumber: "x" },
+      client,
+      serviceDate: "2026-10-01",
+      lines,
+    })
     expect(blockers).toContain("§19 UStG invoices cannot charge USt.")
   })
   it("US invoices only need addresses", () => {
@@ -49,7 +76,12 @@ describe("lenient number input", () => {
 })
 
 describe("document lifecycle", () => {
-  const doc = (kind: "invoice" | "quote" | "credit_note", status: Parameters<typeof displayStatus>[0]["status"], dueDate = "2026-10-10") => ({ kind, status, dueDate, totalMinor: 10000 })
+  const doc = (kind: "invoice" | "quote" | "credit_note", status: Parameters<typeof displayStatus>[0]["status"], dueDate = "2026-10-10") => ({
+    kind,
+    status,
+    dueDate,
+    totalMinor: 10000,
+  })
   const TODAY = "2026-10-06"
 
   it("derives invoice status from due date and payments", () => {

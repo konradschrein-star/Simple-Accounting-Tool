@@ -5,11 +5,7 @@ import type { TaxDeadline } from "./types"
  * Runs a per-year generator over every year that can produce a deadline inside [from, to]
  * (deadlines can fall in the year after their period), then filters, de-duplicates and sorts.
  */
-export function collectDeadlines(
-  from: IsoDate,
-  to: IsoDate,
-  perYear: (year: number) => TaxDeadline[],
-): TaxDeadline[] {
+export function collectDeadlines(from: IsoDate, to: IsoDate, perYear: (year: number) => TaxDeadline[]): TaxDeadline[] {
   const firstYear = Number(from.slice(0, 4)) - 1
   const lastYear = Number(to.slice(0, 4))
   const byId = new Map<string, TaxDeadline>()

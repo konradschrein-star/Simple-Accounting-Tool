@@ -5,7 +5,23 @@ import { leadRows } from "@/server/repos/admin"
 
 export async function GET() {
   await requireAdmin()
-  const header = ["Workspace", "Owner", "Email", "Country", "Currency", "Opted in", "Demo", "Lifetime invoiced", "12m cash in", "12m expenses", "12m margin %", "Active alerts", "Request", "Request status", "Requested at"]
+  const header = [
+    "Workspace",
+    "Owner",
+    "Email",
+    "Country",
+    "Currency",
+    "Opted in",
+    "Demo",
+    "Lifetime invoiced",
+    "12m cash in",
+    "12m expenses",
+    "12m margin %",
+    "Active alerts",
+    "Request",
+    "Request status",
+    "Requested at",
+  ]
   const rows = leadRows(db).map((l) => [
     l.orgName,
     l.ownerName,

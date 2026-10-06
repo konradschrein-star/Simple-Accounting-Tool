@@ -32,7 +32,14 @@ export async function draftCloseSummary(input: {
   const pnl = monthPnl(db, orgId, month)
   const metrics = workspaceMetrics(db, orgId, input.today)
   const next = jurisdiction.taxDeadlines(taxProfileOf(settings), input.today, addDays(input.today, 45))[0] ?? null
-  const draft = draftSummary({ monthLabel: monthLabel(month), pnl, currency: settings.currency, locale: settings.locale, overdueMinor: metrics.overdueMinor, nextDeadline: next })
+  const draft = draftSummary({
+    monthLabel: monthLabel(month),
+    pnl,
+    currency: settings.currency,
+    locale: settings.locale,
+    overdueMinor: metrics.overdueMinor,
+    nextDeadline: next,
+  })
   const { llm } = input
   if (!llm) return draft
   try {

@@ -23,7 +23,7 @@ class ImportFailure extends Error {
   constructor(
     readonly code: "NO_TRANSACTIONS_FOUND" | "CURRENCY_MISMATCH",
     message: string,
-    readonly detectedCurrency: string | null = null,
+    readonly detectedCurrency: string | null = null
   ) {
     super(message)
   }
@@ -54,7 +54,11 @@ async function runPdfImport(orgId: string, batchId: string) {
     })
     if (!extraction.rows.length) throw new ImportFailure("NO_TRANSACTIONS_FOUND", "No transactions were found in this PDF.")
     if (extraction.currency && extraction.currency !== settings.currency)
-      throw new ImportFailure("CURRENCY_MISMATCH", `This statement is in ${extraction.currency}, but your workspace uses ${settings.currency}.`, extraction.currency)
+      throw new ImportFailure(
+        "CURRENCY_MISMATCH",
+        `This statement is in ${extraction.currency}, but your workspace uses ${settings.currency}.`,
+        extraction.currency
+      )
 
     updateBatch(db, orgId, batchId, { detectedCurrency: extraction.currency })
     stageRows(db, orgId, batchId, extraction.rows, { reconciliation: extraction.reconciliation, parser: extraction.parser, modelUsed: extraction.model })

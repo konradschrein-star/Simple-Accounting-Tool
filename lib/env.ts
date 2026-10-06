@@ -9,7 +9,15 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-  ADMIN_EMAILS: z.string().default("").transform((s) => s.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)),
+  ADMIN_EMAILS: z
+    .string()
+    .default("")
+    .transform((s) =>
+      s
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean)
+    ),
   BRAND_NAME: z.string().default("Cashflow Compass"),
   BOOKING_URL: z.string().url().optional(),
   LEAD_WEBHOOK_URL: z.string().url().optional(),

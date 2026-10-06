@@ -10,7 +10,15 @@ export type AdvisoryAlert = typeof advisoryAlerts.$inferSelect
 /** Everything the metrics need, converted to the workspace currency with each document's locked rate. */
 export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]; payments: MetricPayment[]; transactions: MetricTransaction[] } {
   const docs = db
-    .select({ id: invoices.id, kind: invoices.kind, status: invoices.status, issueDate: invoices.issueDate, dueDate: invoices.dueDate, totalMinor: invoices.totalMinor, fx: invoices.fxRateMicro })
+    .select({
+      id: invoices.id,
+      kind: invoices.kind,
+      status: invoices.status,
+      issueDate: invoices.issueDate,
+      dueDate: invoices.dueDate,
+      totalMinor: invoices.totalMinor,
+      fx: invoices.fxRateMicro,
+    })
     .from(invoices)
     .where(eq(invoices.orgId, orgId))
     .all()
@@ -18,7 +26,12 @@ export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]
   return {
     invoices: docs.map(({ fx, ...d }) => ({ ...d, totalMinor: toBaseMinor(d.totalMinor, fx) })),
     payments: db
-      .select({ invoiceId: invoicePayments.invoiceId, date: invoicePayments.date, amountMinor: invoicePayments.amountMinor, transactionId: invoicePayments.transactionId })
+      .select({
+        invoiceId: invoicePayments.invoiceId,
+        date: invoicePayments.date,
+        amountMinor: invoicePayments.amountMinor,
+        transactionId: invoicePayments.transactionId,
+      })
       .from(invoicePayments)
       .where(eq(invoicePayments.orgId, orgId))
       .all()
@@ -63,11 +76,20 @@ export function activeAlerts(db: Db, orgId: string): AdvisoryAlert[] {
 }
 
 export function getAlert(db: Db, orgId: string, id: string): AdvisoryAlert | null {
-  return db.select().from(advisoryAlerts).where(and(eq(advisoryAlerts.orgId, orgId), eq(advisoryAlerts.id, id))).get() ?? null
+  return (
+    db
+      .select()
+      .from(advisoryAlerts)
+      .where(and(eq(advisoryAlerts.orgId, orgId), eq(advisoryAlerts.id, id)))
+      .get() ?? null
+  )
 }
 
 export function setAlertStatus(db: Db, orgId: string, id: string, status: AdvisoryAlert["status"]) {
-  db.update(advisoryAlerts).set({ status }).where(and(eq(advisoryAlerts.orgId, orgId), eq(advisoryAlerts.id, id))).run()
+  db.update(advisoryAlerts)
+    .set({ status })
+    .where(and(eq(advisoryAlerts.orgId, orgId), eq(advisoryAlerts.id, id)))
+    .run()
 }
 
 export function createAdvisoryRequest(db: Db, values: typeof advisoryRequests.$inferInsert) {

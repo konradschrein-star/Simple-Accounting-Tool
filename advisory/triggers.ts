@@ -24,11 +24,19 @@ export function evaluateAlerts(input: {
   const alerts: TriggeredAlert[] = []
 
   if (metrics.lifetime.invoicedMinor >= threshold)
-    alerts.push({ type: "milestone_lifetime", dedupeKey: "milestone:lifetime", payload: { invoicedMinor: metrics.lifetime.invoicedMinor, thresholdMinor: threshold } })
+    alerts.push({
+      type: "milestone_lifetime",
+      dedupeKey: "milestone:lifetime",
+      payload: { invoicedMinor: metrics.lifetime.invoicedMinor, thresholdMinor: threshold },
+    })
 
   for (const m of metrics.months.slice(-2)) {
     if (m.invoicedMinor >= threshold)
-      alerts.push({ type: "milestone_month", dedupeKey: `milestone:month:${m.month}`, payload: { month: m.month, invoicedMinor: m.invoicedMinor, thresholdMinor: threshold } })
+      alerts.push({
+        type: "milestone_month",
+        dedupeKey: `milestone:month:${m.month}`,
+        payload: { month: m.month, invoicedMinor: m.invoicedMinor, thresholdMinor: threshold },
+      })
   }
 
   const t90 = metrics.trailing90

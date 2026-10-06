@@ -77,7 +77,11 @@ function assignRoles(header: string[], data: string[][]): { columns: CsvMapping[
   const usedCols = new Set<number>()
   for (const c of candidates) {
     if (columns[c.role] !== undefined || usedCols.has(c.col)) continue
-    if ((c.role === "date" && rate(data, c.col, looksLikeDate) < 0.6) || (["amount", "debit", "credit", "balance"].includes(c.role) && rate(data, c.col, looksNumeric) < 0.5)) continue
+    if (
+      (c.role === "date" && rate(data, c.col, looksLikeDate) < 0.6) ||
+      (["amount", "debit", "credit", "balance"].includes(c.role) && rate(data, c.col, looksNumeric) < 0.5)
+    )
+      continue
     columns[c.role] = c.col
     usedCols.add(c.col)
   }
@@ -127,8 +131,9 @@ export function detectCsv(text: string, jurisdiction: JurisdictionCode): CsvDete
   const amountMode = chooseAmountMode(columns, sample)
   const dateValues = columns.date === undefined ? [] : data.map((r) => r[columns.date!] ?? "")
   const { format, ambiguous } = inferDateFormat(dateValues, jurisdiction === "us" ? "mdy" : "dmy")
-  const numberValues = (["amount", "debit", "credit", "balance"] as const)
-    .flatMap((role) => (columns[role] === undefined ? [] : sample.map((r) => r[columns[role]!] ?? "")))
+  const numberValues = (["amount", "debit", "credit", "balance"] as const).flatMap((role) =>
+    columns[role] === undefined ? [] : sample.map((r) => r[columns[role]!] ?? "")
+  )
   const decimal = inferDecimal(numberValues, jurisdiction === "de" ? "," : ".")
   const hasAmount = amountMode === "debitCredit" ? columns.debit !== undefined || columns.credit !== undefined : columns.amount !== undefined
   return {

@@ -43,7 +43,7 @@ export function LogoUpload({ hasLogo }: { hasLogo: boolean }) {
         {...getRootProps()}
         className={cn(
           "flex h-28 flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-sm text-muted-foreground transition-colors",
-          isDragActive && "border-primary bg-primary/5",
+          isDragActive && "border-primary bg-primary/5"
         )}
       >
         <input {...getInputProps()} />

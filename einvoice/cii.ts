@@ -35,12 +35,39 @@ const KLEINUNTERNEHMER = "Kleinunternehmer gemäß § 19 UStG"
 
 /** UN/ECE Recommendation 20 codes for the units people type. */
 const UNIT_CODES: Record<string, string> = {
-  h: "HUR", hr: "HUR", hrs: "HUR", hour: "HUR", hours: "HUR", std: "HUR", stunde: "HUR", stunden: "HUR",
-  d: "DAY", day: "DAY", days: "DAY", tag: "DAY", tage: "DAY", pt: "DAY",
-  month: "MON", months: "MON", monat: "MON", monate: "MON", mo: "MON",
-  week: "WEE", weeks: "WEE", woche: "WEE", wochen: "WEE",
-  pcs: "H87", pc: "H87", piece: "H87", pieces: "H87", stk: "H87", stück: "H87",
-  km: "KMT", kg: "KGM", m: "MTR", l: "LTR",
+  h: "HUR",
+  hr: "HUR",
+  hrs: "HUR",
+  hour: "HUR",
+  hours: "HUR",
+  std: "HUR",
+  stunde: "HUR",
+  stunden: "HUR",
+  d: "DAY",
+  day: "DAY",
+  days: "DAY",
+  tag: "DAY",
+  tage: "DAY",
+  pt: "DAY",
+  month: "MON",
+  months: "MON",
+  monat: "MON",
+  monate: "MON",
+  mo: "MON",
+  week: "WEE",
+  weeks: "WEE",
+  woche: "WEE",
+  wochen: "WEE",
+  pcs: "H87",
+  pc: "H87",
+  piece: "H87",
+  pieces: "H87",
+  stk: "H87",
+  stück: "H87",
+  km: "KMT",
+  kg: "KGM",
+  m: "MTR",
+  l: "LTR",
 }
 
 const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
@@ -57,7 +84,9 @@ export function decimalAmount(minor: number): string {
 function decimalQuantity(milli: number): string {
   const sign = milli < 0 ? "-" : ""
   const abs = Math.abs(milli)
-  const fraction = String(abs % 1000).padStart(3, "0").replace(/0+$/, "")
+  const fraction = String(abs % 1000)
+    .padStart(3, "0")
+    .replace(/0+$/, "")
   return `${sign}${Math.trunc(abs / 1000)}${fraction ? `.${fraction}` : ""}`
 }
 
@@ -74,7 +103,8 @@ function address(party: Record<string, string>, homeCountry: string): string {
   return `<ram:PostalTradeAddress>${tag("PostcodeCode", party.postcode)}${tag("LineOne", party.addressLine1)}${tag("LineTwo", party.addressLine2)}${tag("CityName", party.city)}<ram:CountryID>${countryCode(party.country ?? "", homeCountry)}</ram:CountryID></ram:PostalTradeAddress>`
 }
 
-const email = (value: string | undefined) => (value ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(value)}</ram:URIID></ram:URIUniversalCommunication>` : "")
+const email = (value: string | undefined) =>
+  value ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(value)}</ram:URIID></ram:URIUniversalCommunication>` : ""
 
 /** What stops this document from being a valid e-invoice in the chosen profile (empty = ready). */
 export function eInvoiceProblems(input: EInvoiceInput, profile: EInvoiceProfile): string[] {
@@ -140,7 +170,10 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
     seller.phone || seller.email
       ? `<ram:DefinedTradeContact>${tag("PersonName", seller.legalName || seller.name)}${seller.phone ? `<ram:TelephoneUniversalCommunication><ram:CompleteNumber>${esc(seller.phone)}</ram:CompleteNumber></ram:TelephoneUniversalCommunication>` : ""}${seller.email ? `<ram:EmailURIUniversalCommunication><ram:URIID>${esc(seller.email)}</ram:URIID></ram:EmailURIUniversalCommunication>` : ""}</ram:DefinedTradeContact>`
       : ""
-  const sellerTax = [seller.vatId && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(seller.vatId.replace(/\s+/g, ""))}</ram:ID></ram:SpecifiedTaxRegistration>`, seller.taxNumber && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${esc(seller.taxNumber)}</ram:ID></ram:SpecifiedTaxRegistration>`]
+  const sellerTax = [
+    seller.vatId && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(seller.vatId.replace(/\s+/g, ""))}</ram:ID></ram:SpecifiedTaxRegistration>`,
+    seller.taxNumber && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${esc(seller.taxNumber)}</ram:ID></ram:SpecifiedTaxRegistration>`,
+  ]
     .filter(Boolean)
     .join("")
 
@@ -148,7 +181,9 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">`,
     "<rsm:ExchangedDocumentContext>",
-    profile === "xrechnung" ? `<ram:BusinessProcessSpecifiedDocumentContextParameter><ram:ID>${PEPPOL_BILLING}</ram:ID></ram:BusinessProcessSpecifiedDocumentContextParameter>` : "",
+    profile === "xrechnung"
+      ? `<ram:BusinessProcessSpecifiedDocumentContextParameter><ram:ID>${PEPPOL_BILLING}</ram:ID></ram:BusinessProcessSpecifiedDocumentContextParameter>`
+      : "",
     `<ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>${GUIDELINE[profile]}</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter>`,
     "</rsm:ExchangedDocumentContext>",
     "<rsm:ExchangedDocument>",
@@ -178,7 +213,9 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
     `<ram:GrandTotalAmount>${money(lineTotal + taxTotal)}</ram:GrandTotalAmount>`,
     `<ram:DuePayableAmount>${money(lineTotal + taxTotal)}</ram:DuePayableAmount>`,
     "</ram:SpecifiedTradeSettlementHeaderMonetarySummation>",
-    input.relatedNumber ? `<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>${esc(input.relatedNumber)}</ram:IssuerAssignedID></ram:InvoiceReferencedDocument>` : "",
+    input.relatedNumber
+      ? `<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>${esc(input.relatedNumber)}</ram:IssuerAssignedID></ram:InvoiceReferencedDocument>`
+      : "",
     "</ram:ApplicableHeaderTradeSettlement>",
     "</rsm:SupplyChainTradeTransaction>",
     "</rsm:CrossIndustryInvoice>",

@@ -57,12 +57,9 @@ export function finalizeBlockers(input: {
   if (!lines.some((l) => l.description.trim() && l.quantityMilli !== 0)) problems.push("Add at least one line item.")
   if (lines.some((l) => !l.description.trim() && l.unitPriceMinor !== 0)) problems.push("Every priced line needs a description.")
   for (const requirement of requirements) {
-    if (requirement === "sellerAddress" && !(seller.addressLine1 && seller.city))
-      problems.push("Add your business address in Settings.")
-    if (requirement === "clientAddress" && client && !(client.addressLine1 && client.city))
-      problems.push(`Add an address for ${client.name}.`)
-    if (requirement === "sellerTaxId" && !(seller.taxNumber || seller.vatId))
-      problems.push(`Add your ${jurisdiction.taxIdLabel} in Settings.`)
+    if (requirement === "sellerAddress" && !(seller.addressLine1 && seller.city)) problems.push("Add your business address in Settings.")
+    if (requirement === "clientAddress" && client && !(client.addressLine1 && client.city)) problems.push(`Add an address for ${client.name}.`)
+    if (requirement === "sellerTaxId" && !(seller.taxNumber || seller.vatId)) problems.push(`Add your ${jurisdiction.taxIdLabel} in Settings.`)
     if (requirement === "serviceDate" && !serviceDate)
       problems.push(jurisdiction.code === "de" ? "Set the Leistungsdatum (service date)." : "Set the date of supply.")
   }

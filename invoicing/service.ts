@@ -48,7 +48,13 @@ export async function sendDocument(db: Db, orgId: string, jurisdiction: Jurisdic
     link: publicLink(ctx.invoice.publicToken),
   })
   const pdf = await invoicePdf(db, orgId, ctx)
-  const messageId = await sendEmail({ to: recipient, subject, html, replyTo: settings.email || undefined, attachments: [{ filename: `${ctx.invoice.number}.pdf`, content: pdf }] })
+  const messageId = await sendEmail({
+    to: recipient,
+    subject,
+    html,
+    replyTo: settings.email || undefined,
+    attachments: [{ filename: `${ctx.invoice.number}.pdf`, content: pdf }],
+  })
   markSent(db, orgId, id, { to: recipient, messageId })
   return recipient
 }
@@ -74,7 +80,9 @@ export async function runRecurringInvoices(db: Db): Promise<number> {
         logEvent(db, series.orgId, id, "generated", { seriesId: series.id })
         const generatedId = id
         if (series.autoSend && emailConfigured())
-          await sendDocument(db, series.orgId, jurisdiction, generatedId).catch((e) => logEvent(db, series.orgId, generatedId, "send_failed", { error: String(e?.message ?? e) }))
+          await sendDocument(db, series.orgId, jurisdiction, generatedId).catch((e) =>
+            logEvent(db, series.orgId, generatedId, "send_failed", { error: String(e?.message ?? e) })
+          )
         generated++
       } catch (error) {
         // Most likely the template lost required data (e.g. client address); pause rather than retry hourly.
@@ -110,7 +118,19 @@ export async function runPaymentReminders(db: Db): Promise<number> {
       .filter((r) => r.invoice.dueDate < today && r.client.email && r.invoice.publicToken)
     if (!overdue.length) continue
     const levels = new Map<string, number>()
-    for (const e of db.select().from(invoiceEvents).where(and(eq(invoiceEvents.type, "reminder"), inArray(invoiceEvents.invoiceId, overdue.map((r) => r.invoice.id)))).all())
+    for (const e of db
+      .select()
+      .from(invoiceEvents)
+      .where(
+        and(
+          eq(invoiceEvents.type, "reminder"),
+          inArray(
+            invoiceEvents.invoiceId,
+            overdue.map((r) => r.invoice.id)
+          )
+        )
+      )
+      .all())
       levels.set(e.invoiceId, Math.max(levels.get(e.invoiceId) ?? 0, Number(e.detail?.level ?? 0)))
     for (const { invoice, client } of overdue) {
       const level = dueReminderLevel(invoice.dueDate, today, settings.reminderDays, levels.get(invoice.id) ?? 0)

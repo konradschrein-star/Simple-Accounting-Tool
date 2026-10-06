@@ -17,7 +17,11 @@ describe("CSV detection across real bank formats", () => {
   it("Sparkasse: semicolons, 2-digit years, decimal comma", () => {
     const { detection, rows } = load("sparkasse.csv", "de")
     expect(detection.confident).toBe(true)
-    expect(summary(rows)).toEqual([["2026-10-01", 148750, 0], ["2026-10-02", -85000, 0], ["2026-10-15", -6645, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-01", 148750, 0],
+      ["2026-10-02", -85000, 0],
+      ["2026-10-15", -6645, 0],
+    ])
     expect(rows[1].counterparty).toBe("Hausverwaltung Schmidt")
     expect(rows[1].description).toBe("Miete Oktober Buero")
   })
@@ -25,31 +29,47 @@ describe("CSV detection across real bank formats", () => {
   it("DKB: skips the account preamble and parses thousands separators", () => {
     const { detection, rows } = load("dkb.csv", "de")
     expect(detection.header[0]).toBe("Buchungsdatum")
-    expect(summary(rows)).toEqual([["2026-10-30", -4999, 0], ["2026-10-28", 238000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-30", -4999, 0],
+      ["2026-10-28", 238000, 0],
+    ])
   })
 
   it("N26: ISO dates and decimal dots", () => {
     const { rows } = load("n26.csv", "de")
-    expect(summary(rows)).toEqual([["2026-10-01", -3868, 0], ["2026-10-03", 120000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-01", -3868, 0],
+      ["2026-10-03", 120000, 0],
+    ])
     expect(rows[0].counterparty).toBe("Hetzner Online GmbH")
   })
 
   it("Monzo: dd/mm/yyyy, signed amounts", () => {
     const { detection, rows } = load("monzo.csv", "uk")
     expect(detection.mapping.dateFormat).toBe("dmy")
-    expect(summary(rows)).toEqual([["2026-10-01", -645, 0], ["2026-10-13", 240000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-01", -645, 0],
+      ["2026-10-13", 240000, 0],
+    ])
   })
 
   it("Barclays: memo as description", () => {
     const { rows } = load("barclays.csv", "uk")
-    expect(summary(rows)).toEqual([["2026-10-02", -12000, 0], ["2026-10-14", 95000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-02", -12000, 0],
+      ["2026-10-14", 95000, 0],
+    ])
     expect(rows[0].description).toContain("BRITISH GAS")
   })
 
   it("Chase: mm/dd/yyyy and the wordy Description column wins over Details", () => {
     const { detection, rows } = load("chase.csv", "us")
     expect(detection.mapping.dateFormat).toBe("mdy")
-    expect(summary(rows)).toEqual([["2026-10-02", -5499, 0], ["2026-10-14", 320000, 0], ["2026-10-20", -180000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-02", -5499, 0],
+      ["2026-10-14", 320000, 0],
+      ["2026-10-20", -180000, 0],
+    ])
     expect(rows[0].description).toContain("ADOBE")
     expect(rows[0].balanceMinor).toBe(1024501)
   })
@@ -57,13 +77,19 @@ describe("CSV detection across real bank formats", () => {
   it("Paid out / paid in split columns", () => {
     const { detection, rows } = load("paid-in-out.csv", "uk")
     expect(detection.mapping.amountMode).toBe("debitCredit")
-    expect(summary(rows)).toEqual([["2026-10-03", -2340, 0], ["2026-10-05", 150000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-03", -2340, 0],
+      ["2026-10-05", 150000, 0],
+    ])
   })
 
   it("Windows-1252 exports decode umlauts", () => {
     const { rows } = load("cp1252.csv", "de")
     expect(rows[0].description).toBe("Bürobedarf März")
-    expect(summary(rows)).toEqual([["2026-10-05", -2390, 0], ["2026-10-06", 100000, 0]])
+    expect(summary(rows)).toEqual([
+      ["2026-10-05", -2390, 0],
+      ["2026-10-06", 100000, 0],
+    ])
   })
 
   it("flags ambiguous date orders and keeps unparseable rows", () => {

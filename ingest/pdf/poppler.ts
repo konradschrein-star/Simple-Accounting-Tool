@@ -9,7 +9,7 @@ const run = promisify(execFile)
 export class PdfError extends Error {
   constructor(
     readonly code: "ENCRYPTED_PDF" | "TOO_MANY_PAGES" | "UNSUPPORTED_TYPE" | "PDF_TOOLING_UNAVAILABLE",
-    message: string,
+    message: string
   ) {
     super(message)
   }
@@ -35,7 +35,10 @@ export async function pdfInfo(file: string): Promise<{ pages: number; encrypted:
 /** Text layer per page (pdftotext separates pages with form feeds). */
 export async function pdfPageTexts(file: string): Promise<string[]> {
   const out = await tool("pdftotext", ["-layout", "-enc", "UTF-8", file, "-"])
-  return out.split("\f").slice(0, -1).map((page) => page.replace(/[ \t]+$/gm, ""))
+  return out
+    .split("\f")
+    .slice(0, -1)
+    .map((page) => page.replace(/[ \t]+$/gm, ""))
 }
 
 export async function pdfPageImages(file: string, pages: number, dpi = 150): Promise<Buffer[]> {
@@ -51,4 +54,3 @@ export async function pdfPageImages(file: string, pages: number, dpi = 150): Pro
     fs.rmSync(dir, { recursive: true, force: true })
   }
 }
-

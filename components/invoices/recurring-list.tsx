@@ -51,7 +51,11 @@ export function RecurringList({ ctx }: { ctx: ReadyOrgContext }) {
               <TableCell>
                 {EVERY[s.frequency]}
                 {s.remaining !== null ? <span className="text-muted-foreground"> · {s.remaining} left</span> : null}
-                {s.autoSend ? <Badge variant="outline" className="ml-2">auto-send</Badge> : null}
+                {s.autoSend ? (
+                  <Badge variant="outline" className="ml-2">
+                    auto-send
+                  </Badge>
+                ) : null}
               </TableCell>
               <TableCell className="text-muted-foreground">{s.active ? formatDate(s.nextIssueDate, ctx.settings.locale) : "—"}</TableCell>
               <TableCell className="text-right tabular-nums">{formatMoney(template.totalMinor, template.currency, ctx.settings.locale)}</TableCell>

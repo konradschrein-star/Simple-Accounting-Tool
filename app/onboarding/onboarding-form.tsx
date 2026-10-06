@@ -45,7 +45,9 @@ export function OnboardingForm({ defaultName, defaultEmail }: { defaultName: str
             {OPTIONS.map((o) => (
               <FieldLabel key={o.code} htmlFor={`j-${o.code}`} className="cursor-pointer">
                 <Field orientation="horizontal">
-                  <span className="text-2xl" aria-hidden>{o.flag}</span>
+                  <span className="text-2xl" aria-hidden>
+                    {o.flag}
+                  </span>
                   <div className="flex-1">
                     <div className="font-medium">{o.name}</div>
                     <FieldDescription>{o.detail}</FieldDescription>
@@ -117,7 +119,9 @@ export function OnboardingForm({ defaultName, defaultEmail }: { defaultName: str
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="taxNumber">{jurisdiction === "de" ? "Steuernummer" : jurisdiction === "us" ? "EIN (optional)" : "UTR / tax reference (optional)"}</FieldLabel>
+                <FieldLabel htmlFor="taxNumber">
+                  {jurisdiction === "de" ? "Steuernummer" : jurisdiction === "us" ? "EIN (optional)" : "UTR / tax reference (optional)"}
+                </FieldLabel>
                 <Input id="taxNumber" name="taxNumber" />
               </Field>
               {jurisdiction !== "us" ? (

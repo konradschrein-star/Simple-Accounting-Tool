@@ -1,6 +1,16 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import { categorizationRules, importBatches, importRows, invoiceEvents, invoicePayments, invoices, ledgerAccounts, periodCloses, transactions } from "@/db/schema"
+import {
+  categorizationRules,
+  importBatches,
+  importRows,
+  invoiceEvents,
+  invoicePayments,
+  invoices,
+  ledgerAccounts,
+  periodCloses,
+  transactions,
+} from "@/db/schema"
 import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
 import { hashBankRows } from "@/ingest/dedupe"
 import { DomainError } from "@/lib/action-result"
@@ -30,7 +40,7 @@ export function closedPeriods(db: Db, orgId: string): Set<string> {
       .from(periodCloses)
       .where(and(eq(periodCloses.orgId, orgId), eq(periodCloses.status, "closed")))
       .all()
-      .map((p) => p.period),
+      .map((p) => p.period)
   )
 }
 
@@ -45,12 +55,20 @@ function assertOpen(db: Db, orgId: string, dates: string[]) {
  * re-commits no-ops. Accepted invoice matches mark the invoice paid on the bank date.
  */
 export function commitBatch(db: Db, orgId: string, batchId: string): { inserted: number; invoicesPaid: number } {
-  const batch = db.select().from(importBatches).where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, batchId))).get()
+  const batch = db
+    .select()
+    .from(importBatches)
+    .where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, batchId)))
+    .get()
   if (!batch) throw new LedgerError("Import not found")
   if (batch.status !== "staged") throw new LedgerError("This import is not ready to commit")
   const rows = db.select().from(importRows).where(eq(importRows.batchId, batchId)).orderBy(asc(importRows.rowIndex)).all()
   const included = [...hashBankRows(rows)].map(([row, hash]) => ({ row, hash })).filter(({ row }) => row.include)
-  assertOpen(db, orgId, included.map(({ row }) => row.date!))
+  assertOpen(
+    db,
+    orgId,
+    included.map(({ row }) => row.date!)
+  )
 
   return db.transaction((tx) => {
     let inserted = 0
@@ -76,15 +94,27 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
       inserted++
       if (row.matchedInvoiceId) {
         // The bank line *is* the payment: record it linked, so cash is never counted twice.
-        const invoice = tx.select().from(invoices).where(and(eq(invoices.orgId, orgId), eq(invoices.id, row.matchedInvoiceId), eq(invoices.status, "finalized"))).get()
+        const invoice = tx
+          .select()
+          .from(invoices)
+          .where(and(eq(invoices.orgId, orgId), eq(invoices.id, row.matchedInvoiceId), eq(invoices.status, "finalized")))
+          .get()
         if (!invoice) continue
-        tx.insert(invoicePayments).values({ orgId, invoiceId: invoice.id, date: row.date!, amountMinor: row.amountMinor!, method: "bank", transactionId: booked.id }).run()
-        const paid = tx.select({ paid: sql<number>`coalesce(sum(${invoicePayments.amountMinor}), 0)` }).from(invoicePayments).where(eq(invoicePayments.invoiceId, invoice.id)).get()!.paid
+        tx.insert(invoicePayments)
+          .values({ orgId, invoiceId: invoice.id, date: row.date!, amountMinor: row.amountMinor!, method: "bank", transactionId: booked.id })
+          .run()
+        const paid = tx
+          .select({ paid: sql<number>`coalesce(sum(${invoicePayments.amountMinor}), 0)` })
+          .from(invoicePayments)
+          .where(eq(invoicePayments.invoiceId, invoice.id))
+          .get()!.paid
         if (paid >= invoice.totalMinor) {
           tx.update(invoices).set({ status: "paid", paidDate: row.date }).where(eq(invoices.id, invoice.id)).run()
           invoicesPaid++
         }
-        tx.insert(invoiceEvents).values({ orgId, invoiceId: invoice.id, type: "payment", detail: { amountMinor: row.amountMinor, date: row.date, method: "bank" } }).run()
+        tx.insert(invoiceEvents)
+          .values({ orgId, invoiceId: invoice.id, type: "payment", detail: { amountMinor: row.amountMinor, date: row.date, method: "bank" } })
+          .run()
       }
     }
     tx.update(importBatches).set({ status: "committed", committedAt: new Date() }).where(eq(importBatches.id, batchId)).run()
@@ -94,7 +124,13 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
 
 export function uncategorized(db: Db, orgId: string) {
   return db
-    .select({ id: transactions.id, description: transactions.description, counterparty: transactions.counterparty, amountMinor: transactions.amountMinor, invoiceId: transactions.invoiceId })
+    .select({
+      id: transactions.id,
+      description: transactions.description,
+      counterparty: transactions.counterparty,
+      amountMinor: transactions.amountMinor,
+      invoiceId: transactions.invoiceId,
+    })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), isNull(transactions.ledgerAccountId), eq(transactions.reviewStatus, "needs_review")))
     .all()
@@ -107,7 +143,11 @@ export function applyAssignments(db: Db, orgId: string, assignments: Map<string,
         .set({ ledgerAccountId: a.accountId, categorizationSource: a.source, reviewStatus: "ok" })
         .where(and(eq(transactions.orgId, orgId), eq(transactions.id, id)))
         .run()
-      if (a.ruleId) tx.update(categorizationRules).set({ hitCount: sql`${categorizationRules.hitCount} + 1` }).where(eq(categorizationRules.id, a.ruleId)).run()
+      if (a.ruleId)
+        tx.update(categorizationRules)
+          .set({ hitCount: sql`${categorizationRules.hitCount} + 1` })
+          .where(eq(categorizationRules.id, a.ruleId))
+          .run()
     }
   })
 }
@@ -131,7 +171,12 @@ export function applyAiSuggestions(db: Db, orgId: string, suggestions: Map<strin
 
 export function humanExamples(db: Db, orgId: string) {
   return db
-    .select({ description: transactions.description, counterparty: transactions.counterparty, amountMinor: transactions.amountMinor, accountCode: ledgerAccounts.code })
+    .select({
+      description: transactions.description,
+      counterparty: transactions.counterparty,
+      amountMinor: transactions.amountMinor,
+      accountCode: ledgerAccounts.code,
+    })
     .from(transactions)
     .innerJoin(ledgerAccounts, eq(ledgerAccounts.id, transactions.ledgerAccountId))
     .where(and(eq(transactions.orgId, orgId), eq(transactions.categorizationSource, "human")))
@@ -150,8 +195,16 @@ export function setAccounts(db: Db, orgId: string, decisions: Map<string, string
     .where(and(eq(ledgerAccounts.orgId, orgId), inArray(ledgerAccounts.id, [...accountIds])))
     .all()
   if (owned.length !== accountIds.size) throw new LedgerError("Unknown account")
-  const rows = db.select({ date: transactions.date }).from(transactions).where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids))).all()
-  assertOpen(db, orgId, rows.map((r) => r.date))
+  const rows = db
+    .select({ date: transactions.date })
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids)))
+    .all()
+  assertOpen(
+    db,
+    orgId,
+    rows.map((r) => r.date)
+  )
   db.transaction((tx) => {
     for (const [id, accountId] of decisions)
       tx.update(transactions)
@@ -166,11 +219,20 @@ export function updateTransactionDetails(db: Db, orgId: string, id: string, patc
   const txn = getTransaction(db, orgId, id)
   if (!txn) throw new LedgerError("Transaction not found")
   assertOpen(db, orgId, [txn.date])
-  db.update(transactions).set(patch).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).run()
+  db.update(transactions)
+    .set(patch)
+    .where(and(eq(transactions.orgId, orgId), eq(transactions.id, id)))
+    .run()
 }
 
 export function getTransaction(db: Db, orgId: string, id: string): Transaction | null {
-  return db.select().from(transactions).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).get() ?? null
+  return (
+    db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.orgId, orgId), eq(transactions.id, id)))
+      .get() ?? null
+  )
 }
 
 /** The account currently suggested (by AI or rules) for each of the given transactions. */
@@ -181,15 +243,21 @@ export function suggestedAccounts(db: Db, orgId: string, ids: string[]): Map<str
       .from(transactions)
       .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids)))
       .all()
-      .flatMap((r) => (r.accountId ? [[r.id, r.accountId] as const] : [])),
+      .flatMap((r) => (r.accountId ? [[r.id, r.accountId] as const] : []))
   )
 }
 
 export function deleteTransaction(db: Db, orgId: string, id: string) {
-  const row = db.select({ date: transactions.date }).from(transactions).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).get()
+  const row = db
+    .select({ date: transactions.date })
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), eq(transactions.id, id)))
+    .get()
   if (!row) return
   assertOpen(db, orgId, [row.date])
-  db.delete(transactions).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).run()
+  db.delete(transactions)
+    .where(and(eq(transactions.orgId, orgId), eq(transactions.id, id)))
+    .run()
 }
 
 export function createRule(db: Db, orgId: string, rule: Omit<Rule, "id" | "priority" | "approved">, createdBy: "user" | "ai_suggested" = "user") {
@@ -201,7 +269,9 @@ export function createRule(db: Db, orgId: string, rule: Omit<Rule, "id" | "prior
 }
 
 export function deleteRule(db: Db, orgId: string, id: string) {
-  db.delete(categorizationRules).where(and(eq(categorizationRules.orgId, orgId), eq(categorizationRules.id, id))).run()
+  db.delete(categorizationRules)
+    .where(and(eq(categorizationRules.orgId, orgId), eq(categorizationRules.id, id)))
+    .run()
 }
 
 export function reviewQueue(db: Db, orgId: string): Transaction[] {

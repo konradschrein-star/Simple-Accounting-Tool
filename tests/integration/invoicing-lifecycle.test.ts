@@ -113,7 +113,14 @@ describe("document lifecycle", () => {
 describe("recurring invoices", () => {
   it("catches up missed periods from the anchor and stops after the last one", async () => {
     const template = document("invoice")
-    const seriesId = createSeries(db, orgId, { templateInvoiceId: template, frequency: "monthly", nextIssueDate: "2026-07-31", endDate: null, remaining: 3, autoSend: false })
+    const seriesId = createSeries(db, orgId, {
+      templateInvoiceId: template,
+      frequency: "monthly",
+      nextIssueDate: "2026-07-31",
+      endDate: null,
+      remaining: 3,
+      autoSend: false,
+    })
     // Templates never show up as documents of their own.
     expect(listDocuments(db, orgId, "invoice")).toHaveLength(0)
     await runRecurringInvoices(db)
@@ -128,7 +135,14 @@ describe("recurring invoices", () => {
   it("pauses a series whose template can no longer be finalized", async () => {
     const template = document("invoice")
     updateSettings(db, orgId, { addressLine1: "" }) // seller address is required
-    const seriesId = createSeries(db, orgId, { templateInvoiceId: template, frequency: "weekly", nextIssueDate: "2026-09-01", endDate: null, remaining: null, autoSend: false })
+    const seriesId = createSeries(db, orgId, {
+      templateInvoiceId: template,
+      frequency: "weekly",
+      nextIssueDate: "2026-09-01",
+      endDate: null,
+      remaining: null,
+      autoSend: false,
+    })
     await runRecurringInvoices(db)
     expect(getSeries(db, orgId, seriesId)).toMatchObject({ active: false, generatedCount: 0 })
     expect(listDocuments(db, orgId, "invoice")).toHaveLength(0) // the half-made draft is cleaned up

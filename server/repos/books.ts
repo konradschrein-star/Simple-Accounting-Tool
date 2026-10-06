@@ -27,7 +27,12 @@ export function pnlInputs(db: Db, orgId: string): { txns: PnlTransaction[]; unli
 
 export function monthChecklist(db: Db, orgId: string, month: string): CloseChecklist {
   const inMonth = sql`substr(${transactions.date}, 1, 7) = ${month}`
-  const count = (where: ReturnType<typeof and>) => db.select({ n: sql<number>`count(*)` }).from(transactions).where(where).get()?.n ?? 0
+  const count = (where: ReturnType<typeof and>) =>
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(transactions)
+      .where(where)
+      .get()?.n ?? 0
   const batches = db
     .select({ id: importBatches.id, status: importBatches.status, reconciliation: importBatches.reconciliation })
     .from(importBatches)
@@ -38,10 +43,18 @@ export function monthChecklist(db: Db, orgId: string, month: string): CloseCheck
       ? db
           .select({ batchId: importRows.batchId })
           .from(importRows)
-          .where(and(inArray(importRows.batchId, batches.map((b) => b.id)), sql`substr(${importRows.date}, 1, 7) = ${month}`))
+          .where(
+            and(
+              inArray(
+                importRows.batchId,
+                batches.map((b) => b.id)
+              ),
+              sql`substr(${importRows.date}, 1, 7) = ${month}`
+            )
+          )
           .all()
           .map((r) => r.batchId)
-      : [],
+      : []
   )
   const relevant = batches.filter((b) => touching.has(b.id))
   return {
@@ -57,13 +70,22 @@ export function listCloses(db: Db, orgId: string): PeriodClose[] {
 }
 
 export function getClose(db: Db, orgId: string, period: string): PeriodClose | null {
-  return db.select().from(periodCloses).where(and(eq(periodCloses.orgId, orgId), eq(periodCloses.period, period))).get() ?? null
+  return (
+    db
+      .select()
+      .from(periodCloses)
+      .where(and(eq(periodCloses.orgId, orgId), eq(periodCloses.period, period)))
+      .get() ?? null
+  )
 }
 
 export function saveCloseDraft(db: Db, orgId: string, period: string, values: { checklist: CloseChecklist; aiSummary: CloseSummary }) {
   db.insert(periodCloses)
     .values({ orgId, period, status: "in_review", ...values })
-    .onConflictDoUpdate({ target: [periodCloses.orgId, periodCloses.period], set: { ...values, status: sql`case when ${periodCloses.status} = 'closed' then 'closed' else 'in_review' end` } })
+    .onConflictDoUpdate({
+      target: [periodCloses.orgId, periodCloses.period],
+      set: { ...values, status: sql`case when ${periodCloses.status} = 'closed' then 'closed' else 'in_review' end` },
+    })
     .run()
 }
 
@@ -83,7 +105,6 @@ export function reopenPeriod(db: Db, orgId: string, period: string) {
     .where(and(eq(periodCloses.orgId, orgId), eq(periodCloses.period, period)))
     .run()
 }
-
 
 export function monthPnl(db: Db, orgId: string, month: string): Pnl {
   return computePnl({ ...pnlInputs(db, orgId), accounts: listAccounts(db, orgId), period: monthRange(month), prior: monthRange(priorMonth(month)) })

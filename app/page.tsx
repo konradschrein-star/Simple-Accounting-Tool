@@ -28,12 +28,36 @@ const DEMOS = [
 ] as const
 
 const FEATURES = [
-  { icon: FileTextIcon, title: "Invoices that pass the tax office", body: "§14 UStG, UK VAT, Jersey GST and US layouts — numbering, tax breakdown and service dates handled. Live PDF preview while you type." },
-  { icon: UploadCloudIcon, title: "Bank imports without a bank login", body: "Drop the CSV or PDF from online banking. Columns are detected automatically; PDFs are read by AI and checked against the statement’s own balances." },
-  { icon: SparklesIcon, title: "Bookkeeping that runs itself", body: "Rules and AI categorize every line into a tax-ready chart of accounts. You only confirm the uncertain ones — and teach it once." },
-  { icon: BellRingIcon, title: "Know before it hurts", body: "Margin dropping, a record month, a VAT payment in nine days — you get a heads-up with the numbers, not after the fact." },
-  { icon: BookOpenCheckIcon, title: "Month closed, in plain English", body: "A real P&L mapped to your tax return lines, a monthly close with a written summary, and an export your accountant will thank you for." },
-  { icon: BriefcaseBusinessIcon, title: "Or hand it over completely", body: "Our bookkeepers take over the review queue and close your month — AI-first, human-checked, with every change audited." },
+  {
+    icon: FileTextIcon,
+    title: "Invoices that pass the tax office",
+    body: "§14 UStG, UK VAT, Jersey GST and US layouts — numbering, tax breakdown and service dates handled. Live PDF preview while you type.",
+  },
+  {
+    icon: UploadCloudIcon,
+    title: "Bank imports without a bank login",
+    body: "Drop the CSV or PDF from online banking. Columns are detected automatically; PDFs are read by AI and checked against the statement’s own balances.",
+  },
+  {
+    icon: SparklesIcon,
+    title: "Bookkeeping that runs itself",
+    body: "Rules and AI categorize every line into a tax-ready chart of accounts. You only confirm the uncertain ones — and teach it once.",
+  },
+  {
+    icon: BellRingIcon,
+    title: "Know before it hurts",
+    body: "Margin dropping, a record month, a VAT payment in nine days — you get a heads-up with the numbers, not after the fact.",
+  },
+  {
+    icon: BookOpenCheckIcon,
+    title: "Month closed, in plain English",
+    body: "A real P&L mapped to your tax return lines, a monthly close with a written summary, and an export your accountant will thank you for.",
+  },
+  {
+    icon: BriefcaseBusinessIcon,
+    title: "Or hand it over completely",
+    body: "Our bookkeepers take over the review queue and close your month — AI-first, human-checked, with every change audited.",
+  },
 ]
 
 export default async function LandingPage({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
@@ -68,9 +92,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
                 <ShieldCheckIcon className="size-3.5 text-primary" /> Built for Germany, the UK, the US and Jersey
               </Badge>
               <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">Know your cash. Get paid faster. Close every month.</h1>
-              <p className="mt-5 max-w-xl text-lg text-muted-foreground text-pretty">
-                Invoicing, bank-statement imports and AI bookkeeping in one calm place — free for small businesses, with expert help one click away when
-                you need it.
+              <p className="mt-5 max-w-xl text-lg text-pretty text-muted-foreground">
+                Invoicing, bank-statement imports and AI bookkeeping in one calm place — free for small businesses, with expert help one click away when you
+                need it.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg">
@@ -82,7 +106,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
               {env().DEMO_ENABLED ? (
                 <div className="mt-8">
                   <p className="mb-2 text-sm font-medium">Or explore a live demo business — no sign-up:</p>
-                  {demoBusy ? <p className="mb-2 text-sm text-destructive">Demos are busy right now — please try again in a little while, or start free.</p> : null}
+                  {demoBusy ? (
+                    <p className="mb-2 text-sm text-destructive">Demos are busy right now — please try again in a little while, or start free.</p>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     {DEMOS.map((d) => (
                       <form key={d.code} action={startDemo.bind(null, d.code)}>
@@ -137,7 +163,12 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
 
         <section className="border-t bg-muted/30">
           <div className="mx-auto grid max-w-6xl gap-4 px-4 py-20 md:grid-cols-3">
-            <Offer title="Free" price="€0 / forever" points={["Unlimited invoices & clients", "Unlimited CSV imports", "10 AI PDF imports per month", "Dashboard, P&L and alerts"]} cta={<Link href="/signin">Start free</Link>} />
+            <Offer
+              title="Free"
+              price="€0 / forever"
+              points={["Unlimited invoices & clients", "Unlimited CSV imports", "10 AI PDF imports per month", "Dashboard, P&L and alerts"]}
+              cta={<Link href="/signin">Start free</Link>}
+            />
             <Offer
               highlight
               title="Done-for-you bookkeeping"
@@ -145,7 +176,12 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
               points={["Named bookkeeper", "Review queue handled for you", "Monthly close with written summary", "Year-end pack for your accountant"]}
               cta={<Link href="/signin">Get started</Link>}
             />
-            <Offer title="Strategic Cash-Flow & Growth Plan" price="Personal session" points={["Based on your real numbers", "Pricing, tax reserves, hiring", "12-month cash-flow forecast", "Concrete next steps"]} cta={<Link href="/signin">Request a plan</Link>} />
+            <Offer
+              title="Strategic Cash-Flow & Growth Plan"
+              price="Personal session"
+              points={["Based on your real numbers", "Pricing, tax reserves, hiring", "12-month cash-flow forecast", "Concrete next steps"]}
+              cta={<Link href="/signin">Request a plan</Link>}
+            />
           </div>
         </section>
       </main>
@@ -156,8 +192,12 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
             <CompassIcon className="size-4" /> © {new Date().getFullYear()} {brand}
           </span>
           <nav className="flex gap-4">
-            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link href="/impressum" className="hover:text-foreground">Impressum</Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/impressum" className="hover:text-foreground">
+              Impressum
+            </Link>
           </nav>
         </div>
       </footer>

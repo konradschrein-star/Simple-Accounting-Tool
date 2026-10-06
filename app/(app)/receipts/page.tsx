@@ -38,7 +38,14 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Pro
       <ReceiptUploader />
       <PageTabs basePath="/receipts" tabs={TABS} current={tab} />
       {receipts.length ? (
-        <ReceiptInbox receipts={receipts} candidates={unreceiptedExpenses(db, ctx.orgId)} currency={ctx.settings.currency} locale={ctx.settings.locale} taxLabel={ctx.jurisdiction.taxLabel} aiEnabled={!!env().OPENROUTER_API_KEY} />
+        <ReceiptInbox
+          receipts={receipts}
+          candidates={unreceiptedExpenses(db, ctx.orgId)}
+          currency={ctx.settings.currency}
+          locale={ctx.settings.locale}
+          taxLabel={ctx.jurisdiction.taxLabel}
+          aiEnabled={!!env().OPENROUTER_API_KEY}
+        />
       ) : (
         <Empty className="border">
           <EmptyHeader>
@@ -47,7 +54,9 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Pro
             </EmptyMedia>
             <EmptyTitle>{tab === "inbox" ? "Inbox zero" : "Nothing matched yet"}</EmptyTitle>
             <EmptyDescription>
-              {tab === "inbox" ? "Upload receipts above — each one is read automatically and paired with its bank payment." : "Matched receipts show up here, attached to their transactions."}
+              {tab === "inbox"
+                ? "Upload receipts above — each one is read automatically and paired with its bank payment."
+                : "Matched receipts show up here, attached to their transactions."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

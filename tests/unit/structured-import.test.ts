@@ -29,7 +29,7 @@ describe("CAMT.053", () => {
 
   it("proves completeness with the opening and closing booked balances", () => {
     expect(parseCamt(xml, "EUR").reconciliation).toMatchObject({ openingMinor: 1250000, closingMinor: 1301710, ok: true })
-    const tampered = xml.replace("<Amt Ccy=\"EUR\">66.45</Amt>", "<Amt Ccy=\"EUR\">76.45</Amt>")
+    const tampered = xml.replace('<Amt Ccy="EUR">66.45</Amt>', '<Amt Ccy="EUR">76.45</Amt>')
     expect(parseCamt(tampered, "EUR").reconciliation?.ok).toBe(false)
   })
 

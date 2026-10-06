@@ -56,7 +56,13 @@ export function computePnl(input: {
   for (const inv of input.unlinkedPaid) {
     const current = inRange(inv.paidDate, input.period.from, input.period.to)
     const prior = inRange(inv.paidDate, input.prior.from, input.prior.to)
-    if (current || prior) add("invoices", { accountId: null, code: "—", name: "Invoices paid (not on imported statements)", taxLine: null }, current ? inv.totalMinor : 0, prior ? inv.totalMinor : 0)
+    if (current || prior)
+      add(
+        "invoices",
+        { accountId: null, code: "—", name: "Invoices paid (not on imported statements)", taxLine: null },
+        current ? inv.totalMinor : 0,
+        prior ? inv.totalMinor : 0
+      )
   }
   const all = [...lines.values()].filter((l) => l.amountMinor || l.priorMinor).sort((a, b) => a.code.localeCompare(b.code))
   const isIncome = (l: PnlLine) => l.accountId === null || byId.get(l.accountId)?.kind === "income"
@@ -87,7 +93,14 @@ export function closeReady(c: CloseChecklist): boolean {
 /**
  * Deterministic month summary — used when no LLM is configured and as the factual skeleton the LLM rewrites.
  */
-export function draftSummary(input: { monthLabel: string; pnl: Pnl; currency: CurrencyCode; locale: string; overdueMinor: number; nextDeadline: { title: string; date: string } | null }): CloseSummary {
+export function draftSummary(input: {
+  monthLabel: string
+  pnl: Pnl
+  currency: CurrencyCode
+  locale: string
+  overdueMinor: number
+  nextDeadline: { title: string; date: string } | null
+}): CloseSummary {
   const { pnl } = input
   const money = (m: number) => formatMoney(m, input.currency, input.locale)
   const margin = pnl.incomeMinor > 0 ? Math.round((pnl.netMinor / pnl.incomeMinor) * 100) : null

@@ -25,12 +25,21 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const metrics = workspaceMetrics(db, ctx.orgId, ctx.today)
   const stats = [
     { label: "Outstanding", value: metrics.outstandingMinor, hint: "Finalized, not yet paid" },
-    { label: "Overdue", value: metrics.overdueMinor, hint: `${metrics.overdueCount} invoice${metrics.overdueCount === 1 ? "" : "s"} past due`, tone: "text-destructive" },
+    {
+      label: "Overdue",
+      value: metrics.overdueMinor,
+      hint: `${metrics.overdueCount} invoice${metrics.overdueCount === 1 ? "" : "s"} past due`,
+      tone: "text-destructive",
+    },
     { label: "Collected this month", value: metrics.thisMonth.cashInMinor, hint: "Payments and bank income", tone: "text-success" },
   ]
   return (
     <PageBody>
-      <PageHeader title="Invoices" description="Create, send and get paid — with credit notes and recurring billing built in." actions={<NewDocumentButton kind="invoice" />} />
+      <PageHeader
+        title="Invoices"
+        description="Create, send and get paid — with credit notes and recurring billing built in."
+        actions={<NewDocumentButton kind="invoice" />}
+      />
       <div className="grid gap-4 sm:grid-cols-3">
         {stats.map((s) => (
           <Card key={s.label}>
@@ -43,7 +52,13 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
         ))}
       </div>
       <PageTabs basePath="/invoices" tabs={TABS} current={tab} />
-      {tab === "invoices" ? <DocumentList ctx={ctx} kind="invoice" /> : tab === "credit-notes" ? <DocumentList ctx={ctx} kind="credit_note" /> : <RecurringList ctx={ctx} />}
+      {tab === "invoices" ? (
+        <DocumentList ctx={ctx} kind="invoice" />
+      ) : tab === "credit-notes" ? (
+        <DocumentList ctx={ctx} kind="credit_note" />
+      ) : (
+        <RecurringList ctx={ctx} />
+      )}
     </PageBody>
   )
 }

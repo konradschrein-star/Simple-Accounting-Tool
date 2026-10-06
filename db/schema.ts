@@ -6,8 +6,14 @@ import { organization, user } from "./auth-schema"
 
 export * from "./auth-schema"
 
-const id = () => text("id").primaryKey().$defaultFn(() => nanoid())
-const orgId = () => text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" })
+const id = () =>
+  text("id")
+    .primaryKey()
+    .$defaultFn(() => nanoid())
+const orgId = () =>
+  text("org_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" })
 const createdAt = () =>
   integer("created_at", { mode: "timestamp_ms" })
     .notNull()
@@ -22,7 +28,9 @@ export const DOCUMENT_STATUSES = ["draft", "finalized", "paid", "void", "cancell
 // ─── Workspace ────────────────────────────────────────────────────────────────
 
 export const workspaceSettings = sqliteTable("workspace_settings", {
-  orgId: text("org_id").primaryKey().references(() => organization.id, { onDelete: "cascade" }),
+  orgId: text("org_id")
+    .primaryKey()
+    .references(() => organization.id, { onDelete: "cascade" }),
   jurisdiction: text("jurisdiction", { enum: ["de", "uk", "us", "je"] }),
   legalName: text("legal_name").notNull().default(""),
   addressLine1: text("address_line1").notNull().default(""),
@@ -46,7 +54,9 @@ export const workspaceSettings = sqliteTable("workspace_settings", {
   timezone: text("timezone").notNull().default("Europe/London"),
   taxRegistered: bool("tax_registered"),
   smallBusinessExempt: bool("small_business_exempt"),
-  vatFilingFrequency: text("vat_filing_frequency", { enum: ["monthly", "quarterly", "none"] }).notNull().default("quarterly"),
+  vatFilingFrequency: text("vat_filing_frequency", { enum: ["monthly", "quarterly", "none"] })
+    .notNull()
+    .default("quarterly"),
   vatPeriodEndMonth: integer("vat_period_end_month").notNull().default(3),
   deDauerfrist: bool("de_dauerfrist"),
   defaultTaxRateBp: integer("default_tax_rate_bp").notNull().default(0),
@@ -63,7 +73,9 @@ export const workspaceSettings = sqliteTable("workspace_settings", {
   /** Late fee added from the 2nd reminder on, in basis points of the open amount (0 = none). */
   lateFeeBp: integer("late_fee_bp").notNull().default(0),
   /** VAT on issued invoices is due when invoiced (accrual / Soll) or when paid (cash / Ist). */
-  vatAccounting: text("vat_accounting", { enum: ["accrual", "cash"] }).notNull().default("accrual"),
+  vatAccounting: text("vat_accounting", { enum: ["accrual", "cash"] })
+    .notNull()
+    .default("accrual"),
   currencyLocked: bool("currency_locked"),
   advisoryOptIn: bool("advisory_opt_in"),
   advisoryOptInAt: integer("advisory_opt_in_at", { mode: "timestamp_ms" }),
@@ -93,7 +105,7 @@ export const clients = sqliteTable(
     currency: text("currency", { enum: CURRENCIES }),
     createdAt: createdAt(),
   },
-  (t) => [index("clients_org_name").on(t.orgId, t.name)],
+  (t) => [index("clients_org_name").on(t.orgId, t.name)]
 )
 
 /** Reusable products & services for the invoice editor's autocomplete. */
@@ -111,7 +123,7 @@ export const products = sqliteTable(
     usageCount: integer("usage_count").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [index("products_org_name").on(t.orgId, t.name)],
+  (t) => [index("products_org_name").on(t.orgId, t.name)]
 )
 
 export type InvoiceSnapshot = {
@@ -138,7 +150,9 @@ export const invoices = sqliteTable(
     orgId: orgId(),
     clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
     /** One table, three document kinds: they share editor, PDF and numbering machinery. */
-    kind: text("kind", { enum: ["invoice", "quote", "credit_note"] }).notNull().default("invoice"),
+    kind: text("kind", { enum: ["invoice", "quote", "credit_note"] })
+      .notNull()
+      .default("invoice"),
     number: text("number"),
     status: text("status", { enum: DOCUMENT_STATUSES }).notNull().default("draft"),
     issueDate: text("issue_date").notNull(),
@@ -174,7 +188,7 @@ export const invoices = sqliteTable(
     index("invoices_org_status_due").on(t.orgId, t.status, t.dueDate),
     index("invoices_org_issue").on(t.orgId, t.issueDate),
     index("invoices_org_kind").on(t.orgId, t.kind),
-  ],
+  ]
 )
 
 /** Money received against an invoice (bank match, manual entry, or online payment). */
@@ -183,14 +197,18 @@ export const invoicePayments = sqliteTable(
   {
     id: id(),
     orgId: orgId(),
-    invoiceId: text("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
     date: text("date").notNull(),
     amountMinor: integer("amount_minor").notNull(),
-    method: text("method", { enum: ["bank", "manual", "online"] }).notNull().default("manual"),
+    method: text("method", { enum: ["bank", "manual", "online"] })
+      .notNull()
+      .default("manual"),
     transactionId: text("transaction_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("payments_invoice").on(t.invoiceId)],
+  (t) => [index("payments_invoice").on(t.invoiceId)]
 )
 
 /** Activity timeline per document: created, finalized, sent, viewed, reminder, payment, cancelled… */
@@ -199,12 +217,14 @@ export const invoiceEvents = sqliteTable(
   {
     id: id(),
     orgId: orgId(),
-    invoiceId: text("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     detail: json<Record<string, unknown>>("detail"),
     at: createdAt(),
   },
-  (t) => [index("events_invoice").on(t.invoiceId, t.at)],
+  (t) => [index("events_invoice").on(t.invoiceId, t.at)]
 )
 
 export const recurringSeries = sqliteTable(
@@ -213,7 +233,9 @@ export const recurringSeries = sqliteTable(
     id: id(),
     orgId: orgId(),
     /** The draft-like invoice used as the template for every generated invoice. */
-    templateInvoiceId: text("template_invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    templateInvoiceId: text("template_invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
     frequency: text("frequency", { enum: ["weekly", "monthly", "quarterly", "yearly"] }).notNull(),
     /** First issue date; the n-th invoice is anchor + n periods, so month-end dates never drift. */
     anchorDate: text("anchor_date").notNull(),
@@ -225,7 +247,7 @@ export const recurringSeries = sqliteTable(
     generatedCount: integer("generated_count").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [index("recurring_org_next").on(t.orgId, t.active, t.nextIssueDate)],
+  (t) => [index("recurring_org_next").on(t.orgId, t.active, t.nextIssueDate)]
 )
 
 /** Daily reference rates (ECB via Frankfurter), quoted per 1 EUR. */
@@ -236,14 +258,16 @@ export const fxRates = sqliteTable(
     currency: text("currency").notNull(),
     ratePerEurMicro: integer("rate_per_eur_micro").notNull(),
   },
-  (t) => [primaryKey({ columns: [t.date, t.currency] })],
+  (t) => [primaryKey({ columns: [t.date, t.currency] })]
 )
 
 export const invoiceItems = sqliteTable(
   "invoice_items",
   {
     id: id(),
-    invoiceId: text("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
     description: text("description").notNull().default(""),
     quantityMilli: integer("quantity_milli").notNull().default(1000),
@@ -253,7 +277,7 @@ export const invoiceItems = sqliteTable(
     unit: text("unit").notNull().default(""),
     netMinor: integer("net_minor").notNull().default(0),
   },
-  (t) => [index("invoice_items_invoice").on(t.invoiceId, t.position)],
+  (t) => [index("invoice_items_invoice").on(t.invoiceId, t.position)]
 )
 
 // ─── Ingestion & ledger ───────────────────────────────────────────────────────
@@ -266,13 +290,7 @@ export type Reconciliation = {
 }
 
 export type RowIssue =
-  | "unparseable_date"
-  | "unparseable_amount"
-  | "balance_mismatch"
-  | "possible_duplicate"
-  | "low_confidence"
-  | "out_of_period"
-  | "foreign_currency"
+  "unparseable_date" | "unparseable_amount" | "balance_mismatch" | "possible_duplicate" | "low_confidence" | "out_of_period" | "foreign_currency"
 
 export const importBatches = sqliteTable(
   "import_batches",
@@ -299,14 +317,16 @@ export const importBatches = sqliteTable(
     createdAt: createdAt(),
     committedAt: integer("committed_at", { mode: "timestamp_ms" }),
   },
-  (t) => [uniqueIndex("import_batches_org_sha").on(t.orgId, t.fileSha256), index("import_batches_org_created").on(t.orgId, t.createdAt)],
+  (t) => [uniqueIndex("import_batches_org_sha").on(t.orgId, t.fileSha256), index("import_batches_org_created").on(t.orgId, t.createdAt)]
 )
 
 export const importRows = sqliteTable(
   "import_rows",
   {
     id: id(),
-    batchId: text("batch_id").notNull().references(() => importBatches.id, { onDelete: "cascade" }),
+    batchId: text("batch_id")
+      .notNull()
+      .references(() => importBatches.id, { onDelete: "cascade" }),
     rowIndex: integer("row_index").notNull(),
     date: text("date"),
     description: text("description").notNull().default(""),
@@ -318,7 +338,7 @@ export const importRows = sqliteTable(
     include: integer("include", { mode: "boolean" }).notNull().default(true),
     matchedInvoiceId: text("matched_invoice_id").references(() => invoices.id, { onDelete: "set null" }),
   },
-  (t) => [index("import_rows_batch").on(t.batchId, t.rowIndex)],
+  (t) => [index("import_rows_batch").on(t.batchId, t.rowIndex)]
 )
 
 export const ledgerAccounts = sqliteTable(
@@ -332,7 +352,7 @@ export const ledgerAccounts = sqliteTable(
     taxLine: text("tax_line"),
     archived: bool("archived"),
   },
-  (t) => [uniqueIndex("ledger_accounts_org_code").on(t.orgId, t.code)],
+  (t) => [uniqueIndex("ledger_accounts_org_code").on(t.orgId, t.code)]
 )
 
 export const transactions = sqliteTable(
@@ -348,7 +368,9 @@ export const transactions = sqliteTable(
     ledgerAccountId: text("ledger_account_id").references(() => ledgerAccounts.id, { onDelete: "set null" }),
     categorizationSource: text("categorization_source", { enum: ["rule", "ai", "human", "heuristic"] }),
     aiConfidenceBp: integer("ai_confidence_bp"),
-    reviewStatus: text("review_status", { enum: ["ok", "needs_review"] }).notNull().default("needs_review"),
+    reviewStatus: text("review_status", { enum: ["ok", "needs_review"] })
+      .notNull()
+      .default("needs_review"),
     dedupeHash: text("dedupe_hash").notNull(),
     invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     /** Input VAT rate contained in this (gross) purchase; null = account default. */
@@ -360,7 +382,7 @@ export const transactions = sqliteTable(
     uniqueIndex("transactions_org_dedupe").on(t.orgId, t.dedupeHash),
     index("transactions_org_date").on(t.orgId, t.date),
     index("transactions_org_review").on(t.orgId, t.reviewStatus),
-  ],
+  ]
 )
 
 export const csvMappingProfiles = sqliteTable(
@@ -372,7 +394,7 @@ export const csvMappingProfiles = sqliteTable(
     mapping: json<CsvMapping>("mapping").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("csv_profiles_org_fp").on(t.orgId, t.headerFingerprint)],
+  (t) => [uniqueIndex("csv_profiles_org_fp").on(t.orgId, t.headerFingerprint)]
 )
 
 // ─── Bookkeeping service ──────────────────────────────────────────────────────
@@ -385,15 +407,21 @@ export const categorizationRules = sqliteTable(
     matchField: text("match_field", { enum: ["description", "counterparty"] }).notNull(),
     matchType: text("match_type", { enum: ["contains", "equals", "regex"] }).notNull(),
     pattern: text("pattern").notNull(),
-    sign: text("sign", { enum: ["credit", "debit", "any"] }).notNull().default("any"),
-    ledgerAccountId: text("ledger_account_id").notNull().references(() => ledgerAccounts.id, { onDelete: "cascade" }),
+    sign: text("sign", { enum: ["credit", "debit", "any"] })
+      .notNull()
+      .default("any"),
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .references(() => ledgerAccounts.id, { onDelete: "cascade" }),
     priority: integer("priority").notNull().default(100),
-    createdBy: text("created_by", { enum: ["user", "ai_suggested"] }).notNull().default("user"),
+    createdBy: text("created_by", { enum: ["user", "ai_suggested"] })
+      .notNull()
+      .default("user"),
     approved: integer("approved", { mode: "boolean" }).notNull().default(true),
     hitCount: integer("hit_count").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [index("rules_org_priority").on(t.orgId, t.priority)],
+  (t) => [index("rules_org_priority").on(t.orgId, t.priority)]
 )
 
 export const serviceEngagements = sqliteTable(
@@ -401,7 +429,9 @@ export const serviceEngagements = sqliteTable(
   {
     id: id(),
     orgId: orgId(),
-    status: text("status", { enum: ["requested", "active", "paused", "ended"] }).notNull().default("requested"),
+    status: text("status", { enum: ["requested", "active", "paused", "ended"] })
+      .notNull()
+      .default("requested"),
     assignedStaffUserId: text("assigned_staff_user_id").references(() => user.id, { onDelete: "set null" }),
     clientConsentAt: integer("client_consent_at", { mode: "timestamp_ms" }),
     planLabel: text("plan_label").notNull().default(""),
@@ -410,7 +440,7 @@ export const serviceEngagements = sqliteTable(
     endedAt: integer("ended_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
   },
-  (t) => [index("engagements_org_status").on(t.orgId, t.status)],
+  (t) => [index("engagements_org_status").on(t.orgId, t.status)]
 )
 
 export type CloseChecklist = { transactions: number; needsReview: number; pendingImports: number; unreconciledImports: number }
@@ -423,14 +453,16 @@ export const periodCloses = sqliteTable(
     id: id(),
     orgId: orgId(),
     period: text("period").notNull(),
-    status: text("status", { enum: ["open", "in_review", "closed"] }).notNull().default("open"),
+    status: text("status", { enum: ["open", "in_review", "closed"] })
+      .notNull()
+      .default("open"),
     checklist: json<CloseChecklist>("checklist"),
     aiSummary: json<CloseSummary>("ai_summary"),
     closedBy: text("closed_by").references(() => user.id, { onDelete: "set null" }),
     closedAt: integer("closed_at", { mode: "timestamp_ms" }),
     reopenedAt: integer("reopened_at", { mode: "timestamp_ms" }),
   },
-  (t) => [uniqueIndex("period_closes_org_period").on(t.orgId, t.period)],
+  (t) => [uniqueIndex("period_closes_org_period").on(t.orgId, t.period)]
 )
 
 export const auditLog = sqliteTable(
@@ -446,7 +478,7 @@ export const auditLog = sqliteTable(
     diff: json<unknown>("diff"),
     at: createdAt(),
   },
-  (t) => [index("audit_org_at").on(t.orgId, t.at)],
+  (t) => [index("audit_org_at").on(t.orgId, t.at)]
 )
 
 // ─── Advisory ─────────────────────────────────────────────────────────────────
@@ -459,10 +491,12 @@ export const advisoryAlerts = sqliteTable(
     type: text("type", { enum: ["milestone_lifetime", "milestone_month", "margin_low", "tax_deadline"] }).notNull(),
     dedupeKey: text("dedupe_key").notNull(),
     payload: json<Record<string, unknown>>("payload").notNull(),
-    status: text("status", { enum: ["active", "dismissed", "converted"] }).notNull().default("active"),
+    status: text("status", { enum: ["active", "dismissed", "converted"] })
+      .notNull()
+      .default("active"),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("alerts_org_key").on(t.orgId, t.dedupeKey)],
+  (t) => [uniqueIndex("alerts_org_key").on(t.orgId, t.dedupeKey)]
 )
 
 export const advisoryRequests = sqliteTable(
@@ -471,16 +505,19 @@ export const advisoryRequests = sqliteTable(
     id: id(),
     orgId: orgId(),
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-    kind: text("kind", { enum: ["growth_plan", "bookkeeping"] }).notNull().default("growth_plan"),
+    kind: text("kind", { enum: ["growth_plan", "bookkeeping"] })
+      .notNull()
+      .default("growth_plan"),
     alertId: text("alert_id").references(() => advisoryAlerts.id, { onDelete: "set null" }),
     metricsSnapshot: json<Record<string, unknown>>("metrics_snapshot").notNull(),
     message: text("message").notNull().default(""),
-    status: text("status", { enum: ["new", "contacted", "booked", "closed"] }).notNull().default("new"),
+    status: text("status", { enum: ["new", "contacted", "booked", "closed"] })
+      .notNull()
+      .default("new"),
     createdAt: createdAt(),
   },
-  (t) => [index("requests_org").on(t.orgId, t.createdAt)],
+  (t) => [index("requests_org").on(t.orgId, t.createdAt)]
 )
-
 
 /** Receipts & documents. Uploaded to the inbox, then matched (by AI + amount/date) to a bank transaction. */
 export const attachments = sqliteTable(
@@ -494,11 +531,20 @@ export const attachments = sqliteTable(
     mimeType: text("mime_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     /** What the AI read off the receipt (vendor, date, total, VAT). */
-    extracted: json<{ vendor: string | null; date: string | null; totalMinor: number | null; vatMinor: number | null; currency: string | null; invoiceNumber?: string | null }>("extracted"),
+    extracted: json<{
+      vendor: string | null
+      date: string | null
+      totalMinor: number | null
+      vatMinor: number | null
+      currency: string | null
+      invoiceNumber?: string | null
+    }>("extracted"),
     /** processing → (AI read it) suggested | unmatched → matched. `failed`: unreadable, can still be linked by hand. */
-    status: text("status", { enum: ["processing", "unmatched", "suggested", "matched", "failed"] }).notNull().default("processing"),
+    status: text("status", { enum: ["processing", "unmatched", "suggested", "matched", "failed"] })
+      .notNull()
+      .default("processing"),
     suggestedTransactionId: text("suggested_transaction_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("attachments_org_status").on(t.orgId, t.status), index("attachments_txn").on(t.transactionId)],
+  (t) => [index("attachments_org_status").on(t.orgId, t.status), index("attachments_txn").on(t.transactionId)]
 )

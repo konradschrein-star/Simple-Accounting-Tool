@@ -90,7 +90,13 @@ export function TransactionsTable({ rows, accounts, currency, locale }: { rows: 
               </TableCell>
               <TableCell className="pr-6">
                 {!r.locked ? (
-                  <Button size="icon" variant="ghost" aria-label="Delete transaction" disabled={pending} onClick={() => run(() => removeTransaction(r.id), { success: "Transaction deleted" })}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Delete transaction"
+                    disabled={pending}
+                    onClick={() => run(() => removeTransaction(r.id), { success: "Transaction deleted" })}
+                  >
                     <Trash2Icon />
                   </Button>
                 ) : null}

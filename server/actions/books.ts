@@ -18,12 +18,19 @@ const summarySchema = z.object({
   watchItems: z.array(z.string().trim().max(400)).max(6),
 })
 
-
 export async function prepareClose(period: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   if (!month.safeParse(period).success) return { ok: false, error: "Invalid month" }
   const checklist = monthChecklist(db, ctx.orgId, period)
-  const aiSummary = await draftCloseSummary({ db, orgId: ctx.orgId, month: period, settings: ctx.settings, jurisdiction: ctx.jurisdiction, today: ctx.today, llm: limits.llm(ctx.orgId) ? defaultLlm() : null })
+  const aiSummary = await draftCloseSummary({
+    db,
+    orgId: ctx.orgId,
+    month: period,
+    settings: ctx.settings,
+    jurisdiction: ctx.jurisdiction,
+    today: ctx.today,
+    llm: limits.llm(ctx.orgId) ? defaultLlm() : null,
+  })
   saveCloseDraft(db, ctx.orgId, period, { checklist, aiSummary })
   audit(ctx, "close.drafted", "period_close", period)
   revalidatePath("/books")

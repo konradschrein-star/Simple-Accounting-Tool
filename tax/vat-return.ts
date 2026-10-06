@@ -68,7 +68,12 @@ export type VatSummary = {
 
 const issued = (d: VatSalesDoc) => (d.kind === "invoice" ? ["finalized", "paid", "cancelled"].includes(d.status) : d.status === "finalized")
 
-export function summarizeVat(docs: VatSalesDoc[], purchases: VatPurchase[], period: { from: IsoDate; to: IsoDate }, accounting: "accrual" | "cash"): VatSummary {
+export function summarizeVat(
+  docs: VatSalesDoc[],
+  purchases: VatPurchase[],
+  period: { from: IsoDate; to: IsoDate },
+  accounting: "accrual" | "cash"
+): VatSummary {
   const inPeriod = (date: IsoDate) => date >= period.from && date <= period.to
   const groups = new Map<number, TaxGroup>()
   const add = (rateBp: number, netMinor: number, taxMinor: number) => {
@@ -142,11 +147,28 @@ export function returnLines(code: JurisdictionCode, s: VatSummary): ReturnLine[]
         { key: "81", box: "81", label: "Steuerpflichtige Umsätze zu 19 %", baseMinor: whole(standard.netMinor), taxMinor: standard.taxMinor },
         { key: "86", box: "86", label: "Steuerpflichtige Umsätze zu 7 %", baseMinor: whole(reduced.netMinor), taxMinor: reduced.taxMinor },
         ...(other.length
-          ? [{ key: "35", box: "35/36", label: "Umsätze zu anderen Steuersätzen", baseMinor: whole(other.reduce((t, g) => t + g.netMinor, 0)), taxMinor: other.reduce((t, g) => t + g.taxMinor, 0) }]
+          ? [
+              {
+                key: "35",
+                box: "35/36",
+                label: "Umsätze zu anderen Steuersätzen",
+                baseMinor: whole(other.reduce((t, g) => t + g.netMinor, 0)),
+                taxMinor: other.reduce((t, g) => t + g.taxMinor, 0),
+              },
+            ]
           : []),
-        ...(zero.netMinor ? [{ key: "45", box: "45", label: "Nicht steuerbare / steuerfreie Umsätze (prüfen)", baseMinor: whole(zero.netMinor), taxMinor: null }] : []),
+        ...(zero.netMinor
+          ? [{ key: "45", box: "45", label: "Nicht steuerbare / steuerfreie Umsätze (prüfen)", baseMinor: whole(zero.netMinor), taxMinor: null }]
+          : []),
         { key: "66", box: "66", label: "Vorsteuerbeträge aus Rechnungen von anderen Unternehmern", baseMinor: null, taxMinor: s.inputTaxMinor },
-        { key: "83", box: "83", label: s.netTaxMinor >= 0 ? "Verbleibende Umsatzsteuer-Vorauszahlung" : "Verbleibender Überschuss (Erstattung)", baseMinor: null, taxMinor: s.netTaxMinor, total: true },
+        {
+          key: "83",
+          box: "83",
+          label: s.netTaxMinor >= 0 ? "Verbleibende Umsatzsteuer-Vorauszahlung" : "Verbleibender Überschuss (Erstattung)",
+          baseMinor: null,
+          taxMinor: s.netTaxMinor,
+          total: true,
+        },
       ]
     }
     case "uk":
@@ -155,7 +177,14 @@ export function returnLines(code: JurisdictionCode, s: VatSummary): ReturnLine[]
         { key: "2", box: "2", label: "VAT due on acquisitions from the EU (Northern Ireland only)", baseMinor: null, taxMinor: 0 },
         { key: "3", box: "3", label: "Total VAT due (boxes 1 + 2)", baseMinor: null, taxMinor: s.outputTaxMinor },
         { key: "4", box: "4", label: "VAT reclaimed on purchases and other inputs", baseMinor: null, taxMinor: s.inputTaxMinor },
-        { key: "5", box: "5", label: s.netTaxMinor >= 0 ? "Net VAT to pay to HMRC" : "Net VAT to reclaim from HMRC", baseMinor: null, taxMinor: Math.abs(s.netTaxMinor), total: true },
+        {
+          key: "5",
+          box: "5",
+          label: s.netTaxMinor >= 0 ? "Net VAT to pay to HMRC" : "Net VAT to reclaim from HMRC",
+          baseMinor: null,
+          taxMinor: Math.abs(s.netTaxMinor),
+          total: true,
+        },
         { key: "6", box: "6", label: "Total value of sales and outputs, excluding VAT", baseMinor: whole(s.salesNetMinor), taxMinor: null },
         { key: "7", box: "7", label: "Total value of purchases and inputs, excluding VAT", baseMinor: whole(s.purchasesNetMinor), taxMinor: null },
         { key: "8", box: "8", label: "Supplies of goods to the EU (Northern Ireland only)", baseMinor: 0, taxMinor: null },
@@ -167,12 +196,32 @@ export function returnLines(code: JurisdictionCode, s: VatSummary): ReturnLine[]
         { key: "output", box: null, label: "GST charged on supplies", baseMinor: null, taxMinor: s.outputTaxMinor },
         { key: "purchases", box: null, label: "Value of purchases (excluding GST)", baseMinor: s.purchasesNetMinor, taxMinor: null },
         { key: "input", box: null, label: "GST paid on purchases (input tax)", baseMinor: null, taxMinor: s.inputTaxMinor },
-        { key: "net", box: null, label: s.netTaxMinor >= 0 ? "GST payable to Revenue Jersey" : "GST repayable to you", baseMinor: null, taxMinor: Math.abs(s.netTaxMinor), total: true },
+        {
+          key: "net",
+          box: null,
+          label: s.netTaxMinor >= 0 ? "GST payable to Revenue Jersey" : "GST repayable to you",
+          baseMinor: null,
+          taxMinor: Math.abs(s.netTaxMinor),
+          total: true,
+        },
       ]
     case "us":
       return [
-        ...s.sales.map((g) => ({ key: `rate-${g.rateBp}`, box: null, label: g.rateBp ? `Taxable sales at ${g.rateBp / 100} %` : "Non-taxable / exempt sales", baseMinor: g.netMinor, taxMinor: g.rateBp ? g.taxMinor : null })),
-        { key: "collected", box: null, label: "Sales tax collected — to remit to your state", baseMinor: s.salesNetMinor, taxMinor: s.outputTaxMinor, total: true },
+        ...s.sales.map((g) => ({
+          key: `rate-${g.rateBp}`,
+          box: null,
+          label: g.rateBp ? `Taxable sales at ${g.rateBp / 100} %` : "Non-taxable / exempt sales",
+          baseMinor: g.netMinor,
+          taxMinor: g.rateBp ? g.taxMinor : null,
+        })),
+        {
+          key: "collected",
+          box: null,
+          label: "Sales tax collected — to remit to your state",
+          baseMinor: s.salesNetMinor,
+          taxMinor: s.outputTaxMinor,
+          total: true,
+        },
       ]
   }
 }

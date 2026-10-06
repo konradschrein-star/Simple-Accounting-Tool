@@ -4,7 +4,9 @@ export class DomainError extends Error {}
 export type ActionResult<T extends object = object> = ({ ok: true; message?: string } & T) | { ok: false; error: string }
 
 /** Runs a mutation and turns DomainErrors into `{ ok: false }` results for the client. */
-export async function guarded<T extends object>(fn: () => (T & { message?: string }) | void | Promise<(T & { message?: string }) | void>): Promise<ActionResult<T>> {
+export async function guarded<T extends object>(
+  fn: () => (T & { message?: string }) | void | Promise<(T & { message?: string }) | void>
+): Promise<ActionResult<T>> {
   try {
     const value = await fn()
     return { ok: true, ...(value ?? {}) } as ActionResult<T>

@@ -25,14 +25,30 @@ export function listProducts(db: Db, orgId: string, includeArchived = false): Pr
 }
 
 export function saveProduct(db: Db, orgId: string, id: string | null, input: ProductInput): Product {
-  if (id) return db.update(products).set(input).where(and(eq(products.orgId, orgId), eq(products.id, id))).returning().get()
-  return db.insert(products).values({ orgId, ...input }).returning().get()
+  if (id)
+    return db
+      .update(products)
+      .set(input)
+      .where(and(eq(products.orgId, orgId), eq(products.id, id)))
+      .returning()
+      .get()
+  return db
+    .insert(products)
+    .values({ orgId, ...input })
+    .returning()
+    .get()
 }
 
 export function archiveProduct(db: Db, orgId: string, id: string) {
-  db.update(products).set({ archived: true }).where(and(eq(products.orgId, orgId), eq(products.id, id))).run()
+  db.update(products)
+    .set({ archived: true })
+    .where(and(eq(products.orgId, orgId), eq(products.id, id)))
+    .run()
 }
 
 export function bumpProductUsage(db: Db, orgId: string, id: string) {
-  db.update(products).set({ usageCount: sql`${products.usageCount} + 1` }).where(and(eq(products.orgId, orgId), eq(products.id, id))).run()
+  db.update(products)
+    .set({ usageCount: sql`${products.usageCount} + 1` })
+    .where(and(eq(products.orgId, orgId), eq(products.id, id)))
+    .run()
 }

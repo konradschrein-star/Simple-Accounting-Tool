@@ -7,14 +7,7 @@ import { getJurisdiction, type JurisdictionCode, type TaxProfile } from "@/juris
 export type WorkspaceSettings = typeof workspaceSettings.$inferSelect
 
 export function firstMembershipOrgId(db: Db, userId: string): string | null {
-  return (
-    db
-      .select({ orgId: member.organizationId })
-      .from(member)
-      .where(eq(member.userId, userId))
-      .orderBy(asc(member.createdAt))
-      .get()?.orgId ?? null
-  )
+  return db.select({ orgId: member.organizationId }).from(member).where(eq(member.userId, userId)).orderBy(asc(member.createdAt)).get()?.orgId ?? null
 }
 
 export function isMember(db: Db, userId: string, orgId: string): boolean {
@@ -29,7 +22,9 @@ export function isMember(db: Db, userId: string, orgId: string): boolean {
 export function bootstrapWorkspace(db: Db, userId: string, name: string, opts: { isDemo?: boolean; demoExpiresAt?: Date } = {}): string {
   const orgId = nanoid()
   db.transaction((tx) => {
-    tx.insert(organization).values({ id: orgId, name, slug: `ws-${orgId.toLowerCase()}`, createdAt: new Date() }).run()
+    tx.insert(organization)
+      .values({ id: orgId, name, slug: `ws-${orgId.toLowerCase()}`, createdAt: new Date() })
+      .run()
     tx.insert(member).values({ id: nanoid(), organizationId: orgId, userId, role: "owner", createdAt: new Date() }).run()
     tx.insert(workspaceSettings)
       .values({ orgId, isDemo: opts.isDemo ?? false, demoExpiresAt: opts.demoExpiresAt ?? null })
@@ -93,7 +88,13 @@ export function renameOrganization(db: Db, orgId: string, name: string) {
 }
 
 export function activeDemoCount(db: Db): number {
-  return db.select({ n: count() }).from(workspaceSettings).where(and(eq(workspaceSettings.isDemo, true), gt(workspaceSettings.demoExpiresAt, new Date()))).get()?.n ?? 0
+  return (
+    db
+      .select({ n: count() })
+      .from(workspaceSettings)
+      .where(and(eq(workspaceSettings.isDemo, true), gt(workspaceSettings.demoExpiresAt, new Date())))
+      .get()?.n ?? 0
+  )
 }
 
 export function renameUser(db: Db, userId: string, name: string) {
@@ -102,7 +103,12 @@ export function renameUser(db: Db, userId: string, name: string) {
 
 /** Workspaces that finished onboarding (the hourly alert sweep runs over these). */
 export function onboardedWorkspaceIds(db: Db): string[] {
-  return db.select({ orgId: workspaceSettings.orgId }).from(workspaceSettings).where(isNotNull(workspaceSettings.jurisdiction)).all().map((r) => r.orgId)
+  return db
+    .select({ orgId: workspaceSettings.orgId })
+    .from(workspaceSettings)
+    .where(isNotNull(workspaceSettings.jurisdiction))
+    .all()
+    .map((r) => r.orgId)
 }
 
 /** Deletes a workspace (cascades to every tenant table) and optionally its owner's account, atomically. */

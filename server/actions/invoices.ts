@@ -49,7 +49,7 @@ const draftSchema = z.object({
         taxRateBp: z.number().int().min(0).max(10_000),
         discountBp: z.number().int().min(0).max(10_000).default(0),
         unit: z.string().max(30).default(""),
-      }),
+      })
     )
     .max(200),
   productIds: z.array(z.string()).max(200).default([]),

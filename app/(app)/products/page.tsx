@@ -32,7 +32,11 @@ export default async function ProductsPage() {
   )
   return (
     <PageBody>
-      <PageHeader title="Products & services" description="Your price list. Add items to invoices and quotes from the catalog — most-used first." actions={addButton} />
+      <PageHeader
+        title="Products & services"
+        description="Your price list. Add items to invoices and quotes from the catalog — most-used first."
+        actions={addButton}
+      />
       {products.length ? (
         <Card className="py-0">
           <Table>
@@ -56,7 +60,9 @@ export default async function ProductsPage() {
                     {formatMoney(p.unitPriceMinor, currency, locale)}
                     {p.unit ? <span className="text-muted-foreground"> / {p.unit}</span> : null}
                   </TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">{p.taxRateBp === null ? "Default" : formatRate(p.taxRateBp, locale)}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">
+                    {p.taxRateBp === null ? "Default" : formatRate(p.taxRateBp, locale)}
+                  </TableCell>
                   <TableCell className="hidden text-right text-muted-foreground tabular-nums md:table-cell">{p.usageCount}×</TableCell>
                   <TableCell className="pr-6">
                     <div className="flex justify-end gap-1">
@@ -70,10 +76,12 @@ export default async function ProductsPage() {
                           </Button>
                         }
                       />
-                      <form action={async () => {
-                        "use server"
-                        await archiveProductAction(p.id)
-                      }}>
+                      <form
+                        action={async () => {
+                          "use server"
+                          await archiveProductAction(p.id)
+                        }}
+                      >
                         <Button variant="ghost" size="icon" aria-label={`Archive ${p.name}`}>
                           <ArchiveIcon />
                         </Button>

@@ -1,33 +1,13 @@
 "use client"
 
-import {
-  FilePlusIcon,
-  FileSignatureIcon,
-  MonitorIcon,
-  MoonIcon,
-  PaperclipIcon,
-  ReceiptTextIcon,
-  SearchIcon,
-  SunIcon,
-  UploadIcon,
-  UserIcon,
-} from "lucide-react"
+import { FilePlusIcon, FileSignatureIcon, MonitorIcon, MoonIcon, PaperclipIcon, ReceiptTextIcon, SearchIcon, SunIcon, UploadIcon, UserIcon } from "lucide-react"
 import { defaultFilter } from "cmdk"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useEffect, useState, useTransition } from "react"
 import { InvoiceStatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command"
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command"
 import { Kbd } from "@/components/ui/kbd"
 import { Spinner } from "@/components/ui/spinner"
 import { displayStatus, KIND_LABELS } from "@/invoicing/documents"
@@ -41,17 +21,7 @@ import { navGroups, type ShellRole } from "./app-sidebar"
 const NONE: SearchResults = { documents: [], clients: [], transactions: [] }
 
 /** ⌘K / Ctrl+K: jump anywhere, create anything, find any invoice, client or bank line. */
-export function CommandMenu({
-  role,
-  currency,
-  locale,
-  today,
-}: {
-  role: ShellRole
-  currency: CurrencyCode
-  locale: string
-  today: string
-}) {
+export function CommandMenu({ role, currency, locale, today }: { role: ShellRole; currency: CurrencyCode; locale: string; today: string }) {
   const router = useRouter()
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
@@ -72,10 +42,7 @@ export function CommandMenu({
 
   useEffect(() => {
     if (query.trim().length < 2) return
-    const timer = setTimeout(
-      () => startSearch(async () => setResults(await commandSearch(query))),
-      180
-    )
+    const timer = setTimeout(() => startSearch(async () => setResults(await commandSearch(query))), 180)
     return () => clearTimeout(timer)
   }, [query])
 
@@ -93,14 +60,8 @@ export function CommandMenu({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 w-full max-w-64 justify-start gap-2 text-muted-foreground sm:w-64"
-        onClick={() => setOpen(true)}
-      >
-        <SearchIcon />{" "}
-        <span className="flex-1 text-left">Search or jump to…</span>
+      <Button variant="outline" size="sm" className="h-8 w-full max-w-64 justify-start gap-2 text-muted-foreground sm:w-64" onClick={() => setOpen(true)}>
+        <SearchIcon /> <span className="flex-1 text-left">Search or jump to…</span>
         <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
       </Button>
       <CommandDialog
@@ -111,34 +72,17 @@ export function CommandMenu({
         description="Search invoices, clients and transactions, or jump to a page"
       >
         <Command filter={(value, search, keywords) => (value.startsWith("hit:") ? 1 : defaultFilter(value, search, keywords))}>
-          <CommandInput
-            placeholder="Search invoices, clients, transactions… or type a command"
-            value={query}
-            onValueChange={setQuery}
-          />
+          <CommandInput placeholder="Search invoices, clients, transactions… or type a command" value={query} onValueChange={setQuery} />
           <CommandList>
-            <CommandEmpty>
-              {searching ? <Spinner className="mx-auto" /> : "Nothing found."}
-            </CommandEmpty>
+            <CommandEmpty>{searching ? <Spinner className="mx-auto" /> : "Nothing found."}</CommandEmpty>
             {hits.documents.length ? (
               <CommandGroup heading="Documents">
                 {hits.documents.map((d) => (
-                  <CommandItem
-                    key={d.id}
-                    value={tag(d.id)}
-                    onSelect={() => go(`/invoices/${d.id}`)}
-                  >
-                    <span className="font-medium whitespace-nowrap">
-                      {d.number ??
-                        `Draft ${KIND_LABELS[d.kind].singular.toLowerCase()}`}
-                    </span>
-                    <span className="truncate text-muted-foreground">
-                      {d.clientName}
-                    </span>
+                  <CommandItem key={d.id} value={tag(d.id)} onSelect={() => go(`/invoices/${d.id}`)}>
+                    <span className="font-medium whitespace-nowrap">{d.number ?? `Draft ${KIND_LABELS[d.kind].singular.toLowerCase()}`}</span>
+                    <span className="truncate text-muted-foreground">{d.clientName}</span>
                     <span className="ml-auto flex items-center gap-2">
-                      <span className="tabular-nums">
-                        {formatMoney(d.totalMinor, d.currency, locale)}
-                      </span>
+                      <span className="tabular-nums">{formatMoney(d.totalMinor, d.currency, locale)}</span>
                       <InvoiceStatusBadge status={displayStatus(d, today)} />
                     </span>
                   </CommandItem>
@@ -148,17 +92,8 @@ export function CommandMenu({
             {hits.clients.length ? (
               <CommandGroup heading="Clients">
                 {hits.clients.map((c) => (
-                  <CommandItem
-                    key={c.id}
-                    value={tag(c.id)}
-                    onSelect={() =>
-                      go(`/clients?q=${encodeURIComponent(c.name)}`)
-                    }
-                  >
-                    <UserIcon /> {c.name}{" "}
-                    <span className="truncate text-muted-foreground">
-                      {c.email}
-                    </span>
+                  <CommandItem key={c.id} value={tag(c.id)} onSelect={() => go(`/clients?q=${encodeURIComponent(c.name)}`)}>
+                    <UserIcon /> {c.name} <span className="truncate text-muted-foreground">{c.email}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -166,21 +101,11 @@ export function CommandMenu({
             {hits.transactions.length ? (
               <CommandGroup heading="Transactions">
                 {hits.transactions.map((t) => (
-                  <CommandItem
-                    key={t.id}
-                    value={tag(t.id)}
-                    onSelect={() => go(`/transactions?txn=${t.id}`)}
-                  >
+                  <CommandItem key={t.id} value={tag(t.id)} onSelect={() => go(`/transactions?txn=${t.id}`)}>
                     <ReceiptTextIcon />
-                    <span className="truncate">
-                      {t.counterparty || t.description}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {formatDate(t.date, locale, "short")}
-                    </span>
-                    <span className="ml-auto tabular-nums">
-                      {formatMoney(t.amountMinor, currency, locale)}
-                    </span>
+                    <span className="truncate">{t.counterparty || t.description}</span>
+                    <span className="text-muted-foreground">{formatDate(t.date, locale, "short")}</span>
+                    <span className="ml-auto tabular-nums">{formatMoney(t.amountMinor, currency, locale)}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

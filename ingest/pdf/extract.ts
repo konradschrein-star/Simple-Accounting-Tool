@@ -20,7 +20,7 @@ export const pageSchema = z.object({
       amount: z.number().describe("Absolute amount as a decimal number"),
       type: z.enum(["credit", "debit"]),
       balance: z.number().nullable().describe("Running balance after this line if printed, signed"),
-    }),
+    })
   ),
 })
 type PageResult = z.infer<typeof pageSchema>
@@ -109,12 +109,14 @@ async function extractPages(llm: LlmPort, model: string, inputs: LlmContent[], c
           name: "bank_statement_page",
           schema: pageSchema,
           system: SYSTEM,
-          user: Array.isArray(user) ? [{ type: "text", text: `Page ${index + 1} of ${inputs.length}.` }, ...user] : `Page ${index + 1} of ${inputs.length}:\n\n${user}`,
+          user: Array.isArray(user)
+            ? [{ type: "text", text: `Page ${index + 1} of ${inputs.length}.` }, ...user]
+            : `Page ${index + 1} of ${inputs.length}:\n\n${user}`,
         })
         usedModel = m
         return data
-      }),
-    ),
+      })
+    )
   )
   return { pages, model: usedModel }
 }
@@ -140,7 +142,12 @@ export async function extractStatement(input: {
     primary = { ...assemble(pages, input.pageTexts), parser: "pdf_text", model, attempts }
   } else {
     const images = await input.renderImages()
-    const { pages, model } = await extractPages(input.llm, input.models.vision, images.map((png) => [imagePart(png)]), concurrency)
+    const { pages, model } = await extractPages(
+      input.llm,
+      input.models.vision,
+      images.map((png) => [imagePart(png)]),
+      concurrency
+    )
     primary = { ...assemble(pages, null), parser: "pdf_vision", model, attempts }
   }
   if (primary.rows.length === 0 && !digital) throw new LlmError("LLM_INVALID_OUTPUT", "No transactions found")
@@ -149,7 +156,12 @@ export async function extractStatement(input: {
   attempts++
   try {
     const images = await input.renderImages()
-    const { pages, model } = await extractPages(input.llm, input.models.escalation, images.map((png) => [imagePart(png)]), concurrency)
+    const { pages, model } = await extractPages(
+      input.llm,
+      input.models.escalation,
+      images.map((png) => [imagePart(png)]),
+      concurrency
+    )
     const escalated: PdfExtraction = { ...assemble(pages, null), parser: "pdf_vision", model, attempts }
     const best = extractionPenalty(escalated.rows, escalated.reconciliation) < extractionPenalty(primary.rows, primary.reconciliation) ? escalated : primary
     return { ...best, attempts }

@@ -9,9 +9,31 @@ export function exportWorkspace(db: Db, orgId: string) {
   return {
     clients: db.select().from(t.clients).where(eq(t.clients.orgId, orgId)).all(),
     invoices,
-    invoiceItems: invoices.length ? db.select().from(t.invoiceItems).where(inArray(t.invoiceItems.invoiceId, invoices.map((i) => i.id))).all() : [],
+    invoiceItems: invoices.length
+      ? db
+          .select()
+          .from(t.invoiceItems)
+          .where(
+            inArray(
+              t.invoiceItems.invoiceId,
+              invoices.map((i) => i.id)
+            )
+          )
+          .all()
+      : [],
     importBatches: batches,
-    importRows: batches.length ? db.select().from(t.importRows).where(inArray(t.importRows.batchId, batches.map((b) => b.id))).all() : [],
+    importRows: batches.length
+      ? db
+          .select()
+          .from(t.importRows)
+          .where(
+            inArray(
+              t.importRows.batchId,
+              batches.map((b) => b.id)
+            )
+          )
+          .all()
+      : [],
     transactions: db.select().from(t.transactions).where(eq(t.transactions.orgId, orgId)).all(),
     ledgerAccounts: db.select().from(t.ledgerAccounts).where(eq(t.ledgerAccounts.orgId, orgId)).all(),
     categorizationRules: db.select().from(t.categorizationRules).where(eq(t.categorizationRules.orgId, orgId)).all(),

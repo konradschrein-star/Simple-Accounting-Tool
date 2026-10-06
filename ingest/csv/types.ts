@@ -6,7 +6,17 @@ const column = z.number().int().min(0).optional()
 /** Single source of truth for a column mapping: validates user edits and types the stored JSON. */
 export const csvMappingSchema = z.object({
   headerRow: z.number().int().min(0),
-  columns: z.object({ date: column, description: column, counterparty: column, amount: column, debit: column, credit: column, balance: column, currency: column, indicator: column }),
+  columns: z.object({
+    date: column,
+    description: column,
+    counterparty: column,
+    amount: column,
+    debit: column,
+    credit: column,
+    balance: column,
+    currency: column,
+    indicator: column,
+  }),
   amountMode: z.enum(["signed", "debitCredit", "indicator"]),
   dateFormat: z.enum(["dmy", "mdy", "ymd"]),
   decimal: z.enum([".", ","]),
