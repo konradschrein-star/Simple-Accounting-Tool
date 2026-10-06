@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "node scripts/migrate.mjs",
+    "auth:generate": "npx auth@latest generate --config scripts/auth-cli.ts --output db/auth-schema.ts --yes"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.7",
@@ -23,6 +24,7 @@
     "better-auth": "^1.7.7",
     "better-sqlite3": "^13.0.3",
     "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
     "cn": "^0.4.0",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
@@ -36,11 +38,14 @@
     "papaparse": "^5.7.0",
     "radix-ui": "^1.7.0",
     "react": "19.3.0",
+    "react-day-picker": "^10.0.2",
     "react-dom": "19.3.0",
     "react-dropzone": "^20.1.2",
     "react-hook-form": "^7.89.0",
-    "recharts": "^3.10.1",
+    "recharts": "3.8.0",
+    "server-only": "^0.0.1",
     "shadcn": "^4.21.3",
+    "sonner": "^2.0.8",
     "tw-animate-css": "^1.4.0",
     "zod": "^4.6.5"
   },

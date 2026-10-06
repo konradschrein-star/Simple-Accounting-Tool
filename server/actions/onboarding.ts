@@ -1,0 +1,57 @@
+"use server"
+
+import { redirect } from "next/navigation"
+import { z } from "zod"
+import { db } from "@/db/client"
+import { JURISDICTION_CODES } from "@/jurisdictions"
+import { audit, requireOrg } from "@/server/context"
+import { applyJurisdiction, renameOrganization, updateSettings } from "@/server/repos/workspace"
+
+const checkbox = z.preprocess((v) => v === "on" || v === "true", z.boolean())
+
+const onboardingSchema = z.object({
+  businessName: z.string().trim().min(2, "Enter your business name"),
+  jurisdiction: z.enum(JURISDICTION_CODES),
+  legalName: z.string().trim().default(""),
+  addressLine1: z.string().trim().default(""),
+  postcode: z.string().trim().default(""),
+  city: z.string().trim().default(""),
+  email: z.string().trim().default(""),
+  taxNumber: z.string().trim().default(""),
+  vatId: z.string().trim().default(""),
+  taxRegistered: checkbox,
+  smallBusinessExempt: checkbox,
+  vatFilingFrequency: z.enum(["monthly", "quarterly", "none"]).default("quarterly"),
+  vatPeriodEndMonth: z.coerce.number().int().min(1).max(3).default(3),
+  deDauerfrist: checkbox,
+})
+
+export type OnboardingState = { error?: string }
+
+export async function completeOnboarding(_prev: OnboardingState, form: FormData): Promise<OnboardingState> {
+  const ctx = await requireOrg()
+  const parsed = onboardingSchema.safeParse(Object.fromEntries(form))
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
+  const input = parsed.data
+  const exempt = input.jurisdiction === "de" && input.smallBusinessExempt
+
+  applyJurisdiction(db, ctx.orgId, input.jurisdiction)
+  renameOrganization(db, ctx.orgId, input.businessName)
+  updateSettings(db, ctx.orgId, {
+    legalName: input.legalName || input.businessName,
+    addressLine1: input.addressLine1,
+    postcode: input.postcode,
+    city: input.city,
+    email: input.email || ctx.user.email,
+    taxNumber: input.taxNumber,
+    vatId: input.vatId,
+    taxRegistered: input.taxRegistered && !exempt,
+    smallBusinessExempt: exempt,
+    vatFilingFrequency: input.taxRegistered && !exempt ? input.vatFilingFrequency : "none",
+    vatPeriodEndMonth: input.vatPeriodEndMonth,
+    deDauerfrist: input.deDauerfrist,
+    ...(exempt || !input.taxRegistered ? { defaultTaxRateBp: 0 } : {}),
+  })
+  audit(ctx, "onboarding.completed", "workspace", ctx.orgId, { jurisdiction: input.jurisdiction })
+  redirect("/dashboard")
+}
