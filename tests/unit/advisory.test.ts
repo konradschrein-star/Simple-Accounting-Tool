@@ -78,3 +78,19 @@ describe("advisory triggers", () => {
     expect(alerts[0].payload).toMatchObject({ daysLeft: 6 })
   })
 })
+
+describe("alert ranking", () => {
+  it("puts risk first, keeps only the newest milestone month, caps the list", async () => {
+    const { rankAlerts } = await import("@/advisory/triggers")
+    const alerts = [
+      { type: "milestone_lifetime" as const, dedupeKey: "milestone:lifetime" },
+      { type: "milestone_month" as const, dedupeKey: "milestone:month:2026-09" },
+      { type: "milestone_month" as const, dedupeKey: "milestone:month:2026-10" },
+      { type: "tax_deadline" as const, dedupeKey: "tax:x" },
+      { type: "margin_low" as const, dedupeKey: "margin:2026-10" },
+    ]
+    const { shown, hidden } = rankAlerts(alerts, 3)
+    expect(shown.map((a) => a.dedupeKey)).toEqual(["margin:2026-10", "tax:x", "milestone:month:2026-10"])
+    expect(hidden).toBe(1)
+  })
+})

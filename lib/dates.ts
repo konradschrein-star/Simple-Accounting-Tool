@@ -95,3 +95,8 @@ export function formatDate(iso: IsoDate | null | undefined, locale: string, styl
   if (!iso) return "—"
   return new Intl.DateTimeFormat(locale, { dateStyle: style, timeZone: "UTC" }).format(fromIso(iso))
 }
+
+/** UI copy is English, so month names are too (numbers and dates keep the workspace locale). */
+export function monthLabel(month: string, style: "long" | "short" = "long"): string {
+  return new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: style, year: style === "long" ? "numeric" : "2-digit", timeZone: "UTC" })
+}

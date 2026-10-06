@@ -2,6 +2,7 @@ import { AlertTriangleIcon, ArrowRightIcon, CalendarClockIcon, CompassIcon, File
 import type { Metadata } from "next"
 import Link from "next/link"
 import { evaluateTriggers } from "@/advisory/evaluate"
+import { rankAlerts } from "@/advisory/triggers"
 import type { PeriodMetrics } from "@/advisory/metrics"
 import { AlertCards, type AlertView } from "@/components/dashboard/alert-cards"
 import { BookkeepingOffer } from "@/components/dashboard/bookkeeping-offer"
@@ -28,7 +29,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { currency, locale } = ctx.settings
   const money = (m: number) => formatMoney(m, currency, locale)
   const p: PeriodMetrics = period === "month" ? metrics.thisMonth : metrics.trailing12
-  const alerts = activeAlerts(db, ctx.orgId)
+  const { shown: alerts, hidden: hiddenAlerts } = rankAlerts(activeAlerts(db, ctx.orgId), 3)
   const deadlines = ctx.jurisdiction.taxDeadlines(taxProfileOf(ctx.settings), ctx.today, addDays(ctx.today, 90)).slice(0, 4)
   const engagement = currentEngagement(db, ctx.orgId)
   const empty = metrics.firstActivity === null
@@ -86,6 +87,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : null}
 
       <AlertCards alerts={alerts.map((a) => ({ id: a.id, type: a.type, payload: a.payload }) satisfies AlertView)} currency={currency} locale={locale} />
+      {hiddenAlerts ? <p className="-mt-2 text-xs text-muted-foreground">+ {hiddenAlerts} more insight{hiddenAlerts > 1 ? "s" : ""} — dismiss one to see the next.</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {tiles.map((t) => (

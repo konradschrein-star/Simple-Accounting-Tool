@@ -26,7 +26,7 @@ function initials(name: string) {
   )
 }
 
-function Identity({ user }: { user: { name: string; email: string; image?: string | null } }) {
+function Identity({ user }: { user: { name: string; email: string; image?: string | null; isAnonymous?: boolean | null } }) {
   return (
     <>
       <Avatar className="size-8 rounded-lg">
@@ -35,13 +35,13 @@ function Identity({ user }: { user: { name: string; email: string; image?: strin
       </Avatar>
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">{user.name}</span>
-        <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+        <span className="truncate text-xs text-muted-foreground">{user.isAnonymous ? "Demo guest" : user.email}</span>
       </div>
     </>
   )
 }
 
-export function NavUser({ user }: { user: { name: string; email: string; image?: string | null } }) {
+export function NavUser({ user }: { user: { name: string; email: string; image?: string | null; isAnonymous?: boolean | null } }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
   return (

@@ -37,7 +37,7 @@ function copy(alert: AlertView, money: (m: number) => string, locale: string) {
       return {
         icon: CalendarClockIcon,
         tone: "border-warning/50 bg-warning/5",
-        title: `${String(p.title)} due ${new Date(`${String(p.date)}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "long", timeZone: "UTC" })}`,
+        title: `${String(p.title)} due ${new Date(`${String(p.date)}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}`,
         body: `${String(p.detail)} ${Number(p.daysLeft)} days left — plan the cash so the payment doesn’t squeeze your month.`,
       }
   }
@@ -49,7 +49,7 @@ export function AlertCards({ alerts, currency, locale }: { alerts: AlertView[]; 
 
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
       {alerts.map((alert) => {
         const c = copy(alert, money, locale)
         return (

@@ -45,3 +45,12 @@ export function evaluateAlerts(input: {
 
   return alerts
 }
+
+const PRIORITY: Record<AlertType, number> = { margin_low: 0, tax_deadline: 1, milestone_month: 2, milestone_lifetime: 3 }
+
+/** What deserves the user's attention first: risk, then deadlines, then the newest milestone. Older milestone months are redundant. */
+export function rankAlerts<T extends { type: AlertType; dedupeKey: string }>(alerts: T[], limit = 2): { shown: T[]; hidden: number } {
+  const newestMonth = alerts.filter((a) => a.type === "milestone_month").sort((a, b) => b.dedupeKey.localeCompare(a.dedupeKey))[0]
+  const relevant = alerts.filter((a) => a.type !== "milestone_month" || a === newestMonth).sort((a, b) => PRIORITY[a.type] - PRIORITY[b.type])
+  return { shown: relevant.slice(0, limit), hidden: Math.max(0, relevant.length - limit) }
+}

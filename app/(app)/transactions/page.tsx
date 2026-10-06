@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { db } from "@/db/client"
-import { monthKey } from "@/lib/dates"
+import { monthKey, monthLabel } from "@/lib/dates"
 import { formatMoney } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { closedPeriods, listAccounts, listTransactions, transactionMonths } from "@/server/repos/ledger"
@@ -37,7 +37,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         {months.slice(0, 12).map((m) => (
           <Button key={m} asChild size="sm" variant={filter.month === m ? "secondary" : "ghost"}>
             <Link href={link({ month: m })}>
-              {new Date(`${m}-01T00:00:00Z`).toLocaleDateString(ctx.settings.locale, { month: "short", year: "2-digit", timeZone: "UTC" })}
+              {monthLabel(m, "short")}
               {closed.has(m) ? " 🔒" : ""}
             </Link>
           </Button>

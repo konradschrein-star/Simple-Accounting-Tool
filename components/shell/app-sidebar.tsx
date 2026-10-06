@@ -71,7 +71,7 @@ export function AppSidebar({
 }: {
   brandName: string
   orgName: string
-  user: { name: string; email: string; image?: string | null }
+  user: { name: string; email: string; image?: string | null; isAnonymous?: boolean | null }
   role: ShellRole
   reviewCount: number
 }) {

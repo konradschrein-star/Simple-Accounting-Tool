@@ -12,7 +12,7 @@ import { computePnl } from "@/bookkeeping/pnl"
 import { priorMonth } from "@/bookkeeping/close-service"
 import { RANGE_KEYS, RANGE_LABELS, reportRange, type RangeKey } from "@/bookkeeping/ranges"
 import { db } from "@/db/client"
-import { formatDate } from "@/lib/dates"
+import { formatDate, monthLabel } from "@/lib/dates"
 import { formatMoney } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { removeRule } from "@/server/actions/bookkeeping"
@@ -34,7 +34,6 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
   const { currency, locale } = ctx.settings
   const accounts = listAccounts(db, ctx.orgId)
   const currentMonth = ctx.today.slice(0, 7)
-  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" })
 
   let body: React.ReactNode
   if (tab === "pnl") {
