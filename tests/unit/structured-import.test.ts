@@ -2,7 +2,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 import { parseCamt, parseOfx, sniffStructured } from "@/ingest/structured"
-import { matchPayment } from "@/invoicing/matching"
+import { matchPayment, referencesNumber } from "@/invoicing/matching"
 
 const fixture = (name: string) => fs.readFileSync(path.join(__dirname, "../fixtures/structured", name), "utf8")
 
@@ -20,10 +20,11 @@ describe("CAMT.053", () => {
       ["2026-10-01", 148750, "Baeckerei Mueller GmbH"],
       ["2026-10-02", -85000, "Hausverwaltung Schmidt"],
       ["2026-10-15", -6645, "ADOBE SYSTEMS"],
-      ["2026-10-20", 400000, "Leasing AG"], // reversed direct debit comes back as money in
+      ["2026-10-20", 400000, "Leasing AG"], // returned direct debit (CRDT + RvslInd) is money back in
       ["2026-10-25", -405395, "Finanzamt Berlin"],
     ])
     expect(rows[0].description).toBe("RE INV-2026-0001 Danke")
+    expect(rows[3].description).toBe("Storno: Ruecklastschrift Leasing")
     expect(rows.every((r) => r.issues.length === 0)).toBe(true)
   })
 
@@ -49,6 +50,7 @@ describe("OFX", () => {
       ["2026-10-03", 240000, "NORTHWIND LTD"],
       ["2026-10-05", -4999, "SLACK TECHNOLOGIES"],
       ["2026-10-15", -125000, "WEWORK UK"],
+      ["2026-10-20", 2500, "AMAZON EU"], // POS type, positive amount: a refund, not a payment
     ])
     expect(rows[0].description).toBe("INV-2026-0007 PAYMENT")
   })
@@ -63,6 +65,17 @@ describe("matching bank credits to invoices", () => {
     expect(matchPayment({ date: "2026-10-03", amountMinor: 240000, text: "INV-2026-0007 PAYMENT" }, open, new Set())?.id).toBe("a")
     expect(matchPayment({ date: "2026-10-03", amountMinor: 240000, text: "RE INV 2026 0007" }, open, new Set())?.id).toBe("a")
   })
+  it("matches whole invoice numbers only, never a longer number that starts the same", () => {
+    const near = [
+      { id: "one", number: "INV-2026-0001", openMinor: 500, issueDate: "2026-09-01" },
+      { id: "twelve", number: "INV-2026-00012", openMinor: 500, issueDate: "2026-09-01" },
+    ]
+    expect(matchPayment({ date: "2026-10-03", amountMinor: 100, text: "Ref INV-2026-00012" }, near, new Set())?.id).toBe("twelve")
+    expect(matchPayment({ date: "2026-10-03", amountMinor: 100, text: "inv2026/0001 thanks" }, near, new Set())?.id).toBe("one")
+    expect(referencesNumber("XINV-2026-0001", "INV-2026-0001")).toBe(false)
+    expect(referencesNumber("RE INV 2026 0001", "INV-2026-0001")).toBe(true)
+  })
+
   it("falls back to the exact open amount, never to an overpayment of a named invoice", () => {
     expect(matchPayment({ date: "2026-10-03", amountMinor: 240000, text: "Thanks" }, open, new Set())?.id).toBe("b")
     expect(matchPayment({ date: "2026-10-03", amountMinor: 999999, text: "INV-2026-0007" }, open, new Set())).toBeNull()

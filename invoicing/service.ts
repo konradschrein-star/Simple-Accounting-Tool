@@ -4,7 +4,8 @@ import type { Db } from "@/db/client"
 import { clients, invoiceEvents, invoices, workspaceSettings } from "@/db/schema"
 import { getJurisdiction, type Jurisdiction } from "@/jurisdictions"
 import { formatDate, todayIn } from "@/lib/dates"
-import { emailConfigured, sendEmail } from "@/lib/email"
+import { emailConfigured, sendEmail, type OutgoingEmail } from "@/lib/email"
+import { limits } from "@/lib/rate-limit"
 import { env } from "@/lib/env"
 import { formatMoney, roundHalfAwayFromZero, type CurrencyCode } from "@/lib/money"
 import { invoicePdf } from "@/pdf/invoice-file"
@@ -14,6 +15,15 @@ import { dueSeries, updateSeries } from "@/server/repos/recurring"
 import { getOrganizationName, getSettings } from "@/server/repos/workspace"
 import { dueReminderLevel, nextRecurrence, openAmount } from "./documents"
 import { documentEmail, reminderEmail } from "./emails"
+
+/** Email goes out from a real workspace only — never from demo sandboxes — and is rate-limited per workspace. */
+export const workspaceCanEmail = (settings: { isDemo: boolean }) => emailConfigured() && !settings.isDemo
+
+async function sendFromWorkspace(orgId: string, settings: { isDemo: boolean }, message: OutgoingEmail): Promise<string> {
+  if (!workspaceCanEmail(settings)) throw new InvoiceError("Email isn’t available in this workspace")
+  if (!limits.email(orgId)) throw new InvoiceError("You’ve sent a lot of email in the last hour — please try again later")
+  return sendEmail(message)
+}
 
 export const publicLink = (token: string) => `${env().BETTER_AUTH_URL}/i/${token}`
 
@@ -48,7 +58,7 @@ export async function sendDocument(db: Db, orgId: string, jurisdiction: Jurisdic
     link: publicLink(ctx.invoice.publicToken),
   })
   const pdf = await invoicePdf(db, orgId, ctx)
-  const messageId = await sendEmail({
+  const messageId = await sendFromWorkspace(orgId, settings, {
     to: recipient,
     subject,
     html,
@@ -79,7 +89,7 @@ export async function runRecurringInvoices(db: Db): Promise<number> {
         await finalizeWithRate(db, series.orgId, jurisdiction, id)
         logEvent(db, series.orgId, id, "generated", { seriesId: series.id })
         const generatedId = id
-        if (series.autoSend && emailConfigured())
+        if (series.autoSend && workspaceCanEmail(settings))
           await sendDocument(db, series.orgId, jurisdiction, generatedId).catch((e) =>
             logEvent(db, series.orgId, generatedId, "send_failed", { error: String(e?.message ?? e) })
           )
@@ -152,7 +162,7 @@ export async function runPaymentReminders(db: Db): Promise<number> {
         link: publicLink(invoice.publicToken!),
       })
       try {
-        await sendEmail({ to: client.email, subject, html, replyTo: settings.email || undefined })
+        await sendFromWorkspace(settings.orgId, settings, { to: client.email, subject, html, replyTo: settings.email || undefined })
         logEvent(db, settings.orgId, invoice.id, "reminder", { level, feeMinor: fee })
         sent++
       } catch (error) {

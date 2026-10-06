@@ -8,7 +8,7 @@ import { db } from "@/db/client"
 import { evaluateTriggers } from "@/advisory/evaluate"
 import { normalizeTaxProfile } from "@/jurisdictions/tax-profile"
 import { dataPath } from "@/lib/data-path"
-import { checkbox, text as textField } from "@/lib/form"
+import { checkbox, reminderDays, text as textField } from "@/lib/form"
 import { parseAmountInput } from "@/lib/money"
 import { bicProblem, ibanProblem, routingNumberProblem, sortCodeProblem, accountNumberProblem, vatIdProblem } from "@/lib/validation"
 import { audit, requireReadyOrg } from "@/server/context"
@@ -50,19 +50,7 @@ const profileSchema = z.object({
   quotePrefix: prefix,
   creditNotePrefix: prefix,
   remindersEnabled: checkbox,
-  reminderDays: z
-    .string()
-    .transform((v) =>
-      [
-        ...new Set(
-          v
-            .split(/[s,;]+/)
-            .filter(Boolean)
-            .map(Number)
-        ),
-      ].sort((a, b) => a - b)
-    )
-    .pipe(z.array(z.number().int().min(1, "Reminder days must be at least 1").max(365)).max(5, "At most 5 reminders")),
+  reminderDays,
   lateFeePercent: z.coerce.number().min(0).max(20, "Late fees above 20 % are not allowed"),
   vatAccounting: z.enum(["accrual", "cash"]),
   defaultPaymentTermsDays: z.coerce.number().int().min(0).max(365),

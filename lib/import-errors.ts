@@ -7,6 +7,7 @@ export const IMPORT_ERROR_COPY: Record<string, string> = {
   ENCRYPTED_PDF: "This PDF is password-protected. Remove the password (print to PDF) and upload it again.",
   TOO_MANY_PAGES: "This statement has too many pages. Split it by month and upload each part.",
   CURRENCY_MISMATCH: "This statement's currency doesn't match your workspace currency.",
+  UNREADABLE_FILE: "This file couldn't be read — export it again from your online banking, or try CSV.",
   NO_TRANSACTIONS_FOUND: "We couldn't find any transactions in this file.",
   LLM_TIMEOUT: "The AI reader timed out. Please retry in a moment.",
   LLM_INVALID_OUTPUT: "The AI reader couldn't produce a reliable result for this statement. Try the CSV export instead.",

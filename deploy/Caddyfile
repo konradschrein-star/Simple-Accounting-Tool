@@ -9,7 +9,11 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Frame-Options "SAMEORIGIN"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com; font-src 'self' data:; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; form-action 'self' https://accounts.google.com"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com; font-src 'self' data:; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com"
 	}
+	# Files rendered by the browser's own viewers (PDFs, receipt images): the page CSP would block the PDF viewer.
+	# They run no script in our origin, and X-Frame-Options still limits framing to our own pages.
+	@files path /api/invoices/*/pdf /api/invoices/*/einvoice /api/receipts/*/file /i/*/pdf
+	header @files -Content-Security-Policy
 	reverse_proxy app:3000
 }

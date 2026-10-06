@@ -14,9 +14,8 @@ import { db } from "@/db/client"
 import { invoiceRatesBp } from "@/jurisdictions/tax-profile"
 import { eInvoiceReadiness } from "@/einvoice/service"
 import { displayStatus, KIND_LABELS, openAmount } from "@/invoicing/documents"
-import { publicLink } from "@/invoicing/service"
+import { publicLink, workspaceCanEmail } from "@/invoicing/service"
 import { formatDate } from "@/lib/dates"
-import { emailConfigured } from "@/lib/email"
 import { formatMoney, toBaseMinor } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { listClients } from "@/server/repos/clients"
@@ -129,7 +128,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             openMinor={open}
             clientEmail={client?.email ?? ""}
             publicUrl={invoice.publicToken ? publicLink(invoice.publicToken) : null}
-            emailEnabled={emailConfigured()}
+            emailEnabled={workspaceCanEmail(ctx.settings)}
             eInvoice={ctx.jurisdiction.code === "de" ? eInvoiceReadiness(found, ctx.jurisdiction) : null}
           />
         }

@@ -35,11 +35,12 @@ export function parseCamt(xml: string, workspaceCurrency: string): StructuredSta
   const rows: NormalizedRow[] = []
   for (const statement of report.statements) {
     for (const entry of statement.entries) {
-      // A reversal (storno) books the opposite direction of its indicator.
-      const direction = entry.reversal ? (entry.creditDebitIndicator === "credit" ? "debit" : "credit") : entry.creditDebitIndicator
+      // CdtDbtInd is the direction of this booking — also for reversals, where RvslInd only says the original
+      // went the other way. The other party is named on the side of the original movement.
+      const direction = entry.creditDebitIndicator
+      const original = entry.reversal ? (direction === "credit" ? "debit" : "credit") : direction
       const tx = entry.transactions[0]
-      // The other party: who paid us, or whom we paid. Reversals keep the original party on the opposite side.
-      const counterparty = (direction === "credit" ? (tx?.debtor?.name ?? tx?.creditor?.name) : (tx?.creditor?.name ?? tx?.debtor?.name)) ?? ""
+      const counterparty = (original === "credit" ? (tx?.debtor?.name ?? tx?.creditor?.name) : (tx?.creditor?.name ?? tx?.debtor?.name)) ?? ""
       const remittance = entry.transactions
         .map((t) => t.remittanceInformation)
         .filter(Boolean)
@@ -51,7 +52,7 @@ export function parseCamt(xml: string, workspaceCurrency: string): StructuredSta
       rows.push({
         rowIndex: rows.length,
         date,
-        description: clean(remittance || entry.additionalInformation || entry.proprietaryCode) || "Bank transaction",
+        description: `${entry.reversal ? "Storno: " : ""}${clean(remittance || entry.additionalInformation || entry.proprietaryCode) || "Bank transaction"}`,
         counterparty: clean(counterparty),
         amountMinor: signed(entry.amount, direction),
         balanceMinor: null,
@@ -87,8 +88,9 @@ export function parseOfx(text: string, workspaceCurrency: string): StructuredSta
     throw new StructuredParseError(error instanceof Error ? error.message : "Unreadable OFX file")
   }
   const rows: NormalizedRow[] = normalized.transactions.map((t, rowIndex) => {
-    const cents = typeof t.amountAbs === "number" ? t.amountAbs : Number(t.amountAbs)
-    const amountMinor = Number.isFinite(cents) ? (t.direction === "credit" ? cents : -cents) : null
+    // TRNAMT's sign is authoritative (OFX spec); TRNTYPE is only a hint — a POS line can be a refund.
+    const cents = typeof t.amount === "number" ? t.amount : Number(t.amount)
+    const amountMinor = t.amount !== null && Number.isFinite(cents) ? cents : null
     const posted = typeof t.postedAt === "string" ? t.postedAt.slice(0, 10) : null
     const date = posted && /^\d{4}-\d{2}-\d{2}$/.test(posted) ? posted : null
     const name = clean(t.raw?.NAME as string | undefined)

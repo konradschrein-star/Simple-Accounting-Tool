@@ -60,8 +60,12 @@ async function runPdfImport(orgId: string, batchId: string) {
         extraction.currency
       )
 
-    updateBatch(db, orgId, batchId, { detectedCurrency: extraction.currency })
-    stageRows(db, orgId, batchId, extraction.rows, { reconciliation: extraction.reconciliation, parser: extraction.parser, modelUsed: extraction.model })
+    stageRows(db, orgId, batchId, extraction.rows, {
+      currency: settings.currency, // a different printed currency was refused above
+      reconciliation: extraction.reconciliation,
+      parser: extraction.parser,
+      modelUsed: extraction.model,
+    })
   } catch (error) {
     const code = error instanceof PdfError || error instanceof LlmError || error instanceof ImportFailure ? error.code : "INTERNAL"
     if (code === "INTERNAL") console.error(`[import ${batchId}]`, error)

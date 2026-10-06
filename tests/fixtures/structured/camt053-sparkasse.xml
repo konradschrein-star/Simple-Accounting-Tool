@@ -91,7 +91,7 @@
       </Ntry>
       <Ntry>
         <Amt Ccy="EUR">4000.00</Amt>
-        <CdtDbtInd>DBIT</CdtDbtInd>
+        <CdtDbtInd>CRDT</CdtDbtInd>
         <RvslInd>true</RvslInd>
         <Sts><Cd>BOOK</Cd></Sts>
         <BookgDt><Dt>2026-10-20</Dt></BookgDt>

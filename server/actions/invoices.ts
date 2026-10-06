@@ -7,9 +7,8 @@ import { evaluateTriggers } from "@/advisory/evaluate"
 import { CURRENCIES } from "@/db/schema"
 import { db } from "@/db/client"
 import type { DocumentKind } from "@/invoicing/documents"
-import { finalizeWithRate, sendDocument } from "@/invoicing/service"
+import { finalizeWithRate, sendDocument, workspaceCanEmail } from "@/invoicing/service"
 import { guarded, type ActionResult } from "@/lib/action-result"
-import { emailConfigured } from "@/lib/email"
 import { audit, requireReadyOrg, type ReadyOrgContext } from "@/server/context"
 import { exchangeRateMicro } from "@/server/repos/fx"
 import {
@@ -198,7 +197,7 @@ export async function makeRecurring(id: string, input: unknown): Promise<ActionR
   const parsed = recurringSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Choose a frequency and a start date" }
   if (parsed.data.startDate < ctx.today) return { ok: false, error: "The first invoice can't be in the past" }
-  if (parsed.data.autoSend && !emailConfigured()) return { ok: false, error: "Automatic sending needs email to be set up" }
+  if (parsed.data.autoSend && !workspaceCanEmail(ctx.settings)) return { ok: false, error: "Automatic sending needs email to be set up" }
   return guarded(() => {
     const templateId = duplicateDocument(db, ctx.orgId, ctx.settings, parsed.data.startDate, id, "invoice")
     const seriesId = createSeries(db, ctx.orgId, {

@@ -1,11 +1,12 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import { csvMappingProfiles, importBatches, importRows, invoices, transactions, workspaceSettings, type Reconciliation, type RowIssue } from "@/db/schema"
+import { csvMappingProfiles, importBatches, importRows, invoices, transactions, type Reconciliation, type RowIssue } from "@/db/schema"
 import type { CsvMapping, NormalizedRow } from "@/ingest/csv/types"
 import { hashBankRows } from "@/ingest/dedupe"
 import { openAmount } from "@/invoicing/documents"
 import { matchPayment, type OpenInvoice } from "@/invoicing/matching"
 import { DomainError } from "@/lib/action-result"
+import type { CurrencyCode } from "@/lib/money"
 import { paidAmounts } from "./invoices"
 
 export type ImportBatch = typeof importBatches.$inferSelect
@@ -76,17 +77,12 @@ export function saveMappingProfile(db: Db, orgId: string, fingerprint: string, m
     .run()
 }
 
-/**
- * Writes parsed rows to staging with review flags: duplicates of already-booked lines are excluded by default,
- * and credits that exactly match an open invoice get a "mark as paid" suggestion. One short sync transaction.
- */
-/** Issued, unpaid invoices in the workspace currency (statements are always in it), with what is still open. */
-function openInvoicesForMatching(db: Db, orgId: string): OpenInvoice[] {
-  const currency = db.select({ currency: workspaceSettings.currency }).from(workspaceSettings).where(eq(workspaceSettings.orgId, orgId)).get()?.currency
+/** Issued, unpaid invoices in the statement's currency, with what is still open on each. */
+function openInvoicesForMatching(db: Db, orgId: string, currency: CurrencyCode): OpenInvoice[] {
   const open = db
     .select({ id: invoices.id, number: invoices.number, total: invoices.totalMinor, issueDate: invoices.issueDate })
     .from(invoices)
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, "invoice"), eq(invoices.status, "finalized"), eq(invoices.currency, currency ?? "EUR")))
+    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, "invoice"), eq(invoices.status, "finalized"), eq(invoices.currency, currency)))
     .orderBy(asc(invoices.issueDate))
     .all()
   const paid = paidAmounts(
@@ -97,12 +93,23 @@ function openInvoicesForMatching(db: Db, orgId: string): OpenInvoice[] {
   return open.map((i) => ({ id: i.id, number: i.number ?? "", issueDate: i.issueDate, openMinor: openAmount(i.total, paid.get(i.id) ?? 0) }))
 }
 
+/**
+ * Writes parsed rows to staging with review flags: duplicates of already-booked lines are excluded by default,
+ * and credits that pay an open invoice in the statement's currency get a "pays INV-…" suggestion. One sync transaction
+ * that also records how the statement was read.
+ */
 export function stageRows(
   db: Db,
   orgId: string,
   batchId: string,
   rows: NormalizedRow[],
-  extra: { reconciliation?: Reconciliation | null; status?: ImportBatch["status"]; parser?: ImportBatch["parser"]; modelUsed?: string | null } = {}
+  statement: {
+    /** The statement's currency; only invoices in it can be matched. */
+    currency: CurrencyCode
+    parser: NonNullable<ImportBatch["parser"]>
+    reconciliation?: Reconciliation | null
+    modelUsed?: string | null
+  }
 ) {
   if (!getBatch(db, orgId, batchId)) throw new ImportError("Import not found")
   const hashByRow = hashBankRows(rows)
@@ -117,7 +124,7 @@ export function stageRows(
           .map((r) => r.h)
       : []
   )
-  const openInvoices = openInvoicesForMatching(db, orgId)
+  const openInvoices = openInvoicesForMatching(db, orgId, statement.currency)
   const claimed = new Set<string>()
 
   db.transaction((tx) => {
@@ -150,11 +157,12 @@ export function stageRows(
     }
     tx.update(importBatches)
       .set({
-        status: extra.status ?? "staged",
+        status: "staged",
         rowCount: rows.length,
-        reconciliation: extra.reconciliation ?? null,
-        parser: extra.parser,
-        modelUsed: extra.modelUsed,
+        reconciliation: statement.reconciliation ?? null,
+        parser: statement.parser,
+        modelUsed: statement.modelUsed ?? null,
+        detectedCurrency: statement.currency,
       })
       .where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, batchId)))
       .run()

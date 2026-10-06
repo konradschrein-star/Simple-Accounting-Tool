@@ -10,6 +10,7 @@ import { getJurisdiction, JURISDICTION_CODES } from "@/jurisdictions"
 import { getAuth } from "@/lib/auth"
 import { todayIn } from "@/lib/dates"
 import { env } from "@/lib/env"
+import { clientIp } from "@/lib/client-ip"
 import { limits } from "@/lib/rate-limit"
 import { getSession } from "@/server/context"
 import { activeDemoCount, bootstrapWorkspace, renameUser, setActiveOrganization } from "@/server/repos/workspace"
@@ -21,8 +22,7 @@ export async function startDemo(jurisdiction: string) {
   if (!env().DEMO_ENABLED) redirect("/signin")
   const code = z.enum(JURISDICTION_CODES).catch("de").parse(jurisdiction)
   if (await getSession()) redirect("/dashboard")
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local"
-  if (!limits.demo(ip) || activeDemoCount(db) >= MAX_ACTIVE_DEMOS) redirect("/?demo=busy")
+  if (!limits.demo(await clientIp()) || activeDemoCount(db) >= MAX_ACTIVE_DEMOS) redirect("/?demo=busy")
 
   const { user: guest } = await getAuth().api.signInAnonymous({ headers: await headers() })
   const persona = PERSONAS[code]
