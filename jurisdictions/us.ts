@@ -66,6 +66,8 @@ export const us: Jurisdiction = {
     { code: "3000", name: "Owner draws (incl. estimated tax)", kind: "owner", taxLine: null },
     { code: "3100", name: "Owner contributions", kind: "owner", taxLine: null },
   ],
+  // Sales tax is a pass-through: there is no input tax to recover.
+  inputTax: { standardBp: 0, byAccount: {} },
   requiredInvoiceFields: () => ["sellerAddress", "clientAddress"],
   exemptionNote: () => null,
   taxDeadlines: (_profile, from, to) => collectDeadlines(from, to, perYear),

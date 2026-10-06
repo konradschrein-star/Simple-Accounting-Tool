@@ -85,6 +85,8 @@ export const uk: Jurisdiction = {
     { code: "3000", name: "Owner drawings", kind: "owner", taxLine: null },
     { code: "3100", name: "Capital introduced", kind: "owner", taxLine: null },
   ],
+  // Wages, interest, bank charges and premises (rent, rates, insurance) carry no VAT; entertainment VAT is blocked.
+  inputTax: { standardBp: 2000, byAccount: { "6000": 0, "6200": 0, "6550": 0, "6600": 0, "6700": 0 } },
   requiredInvoiceFields: (profile) =>
     profile.taxRegistered ? ["sellerAddress", "clientAddress", "sellerTaxId"] : ["sellerAddress", "clientAddress"],
   exemptionNote: (profile) => (profile.taxRegistered ? null : "Not VAT registered."),

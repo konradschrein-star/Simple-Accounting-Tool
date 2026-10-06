@@ -90,6 +90,8 @@ export const de: Jurisdiction = {
     { code: "1800", name: "Privatentnahmen", kind: "owner", taxLine: null },
     { code: "1890", name: "Privateinlagen", kind: "owner", taxLine: null },
   ],
+  // Rent is usually VAT-free unless the landlord opted in; books carry 7 %.
+  inputTax: { standardBp: 1900, byAccount: { "4120": 0, "4210": 0, "4360": 0, "4380": 0, "4970": 0, "4940": 700 } },
   requiredInvoiceFields: () => ["sellerAddress", "clientAddress", "sellerTaxId", "serviceDate"],
   exemptionNote: (profile) =>
     profile.smallBusinessExempt ? "Gemäß §19 UStG wird keine Umsatzsteuer berechnet." : null,

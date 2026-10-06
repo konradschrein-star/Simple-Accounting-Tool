@@ -69,6 +69,7 @@ export const je: Jurisdiction = {
     { code: "3000", name: "Drawings", kind: "owner", taxLine: null },
     { code: "3100", name: "Capital introduced", kind: "owner", taxLine: null },
   ],
+  inputTax: { standardBp: 500, byAccount: { "6000": 0, "6700": 0, "6750": 0 } },
   requiredInvoiceFields: (profile) =>
     profile.taxRegistered ? ["sellerAddress", "clientAddress", "sellerTaxId", "serviceDate"] : ["sellerAddress", "clientAddress"],
   exemptionNote: (profile) => (profile.taxRegistered ? null : "Not registered for GST — no GST charged."),

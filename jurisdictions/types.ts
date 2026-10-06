@@ -43,6 +43,11 @@ export interface Jurisdiction {
   milestoneThresholdMinor: number
   csvSynonyms: Partial<Record<CsvRole, string[]>>
   chartOfAccounts: LedgerAccountTemplate[]
+  /**
+   * Input tax recoverable on expenses booked to each account, when the transaction doesn't say: the standard rate
+   * unless the account is listed (wages, insurance, bank fees, exempt rent… carry none). 0 everywhere for US sales tax.
+   */
+  inputTax: { standardBp: number; byAccount: Record<string, number> }
   /** Income account used for tax-exempt small businesses (e.g. DE §19), if the chart has one. */
   exemptIncomeCode?: string
   requiredInvoiceFields(profile: TaxProfile): InvoiceRequirement[]
