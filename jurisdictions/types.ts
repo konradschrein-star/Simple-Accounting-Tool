@@ -1,3 +1,4 @@
+import type { ReturnLine, VatSummary } from "@/tax/vat-return"
 import type { CurrencyCode } from "@/lib/money"
 import type { IsoDate } from "@/lib/dates"
 
@@ -26,7 +27,37 @@ export type CsvRole = "date" | "description" | "counterparty" | "amount" | "debi
 export type BankField = "iban" | "bic" | "sortCode" | "accountNumber" | "routingNumber"
 
 export type LedgerAccountKind = "income" | "expense" | "transfer" | "owner" | "tax"
-export type LedgerAccountTemplate = { code: string; name: string; kind: LedgerAccountKind; taxLine: string | null }
+export type LedgerAccountTemplate = {
+  code: string
+  name: string
+  kind: LedgerAccountKind
+  taxLine: string | null
+  /** Expenses: VAT/GST usually contained in a payment booked here (0 for wages, insurance, exempt rent, bank fees…). */
+  inputTaxBp?: number
+  /** Outside the scope of VAT (wages): left out of purchase totals on returns, not just untaxed. */
+  outOfScope?: true
+}
+
+/** How a jurisdiction's VAT/GST/sales-tax return looks and when it applies. */
+export type VatReturnForm = {
+  name: string
+  tabLabel: string
+  /** Column header for box numbers ("Kz.", "Box", or none). */
+  boxHeader: string
+  baseHeader: string
+  /** Appended to "Check the figures before you file…". */
+  filingHint: string
+  /** Fixed calendar quarters instead of the workspace's stagger (DE, US). */
+  calendarQuarters: boolean
+  /** Filing frequency regardless of settings. */
+  frequency?: "quarterly"
+  /** Only registered businesses file (sales tax is shown regardless). */
+  requiresRegistration: boolean
+  showsInputTax: boolean
+  /** Deadline ids from `taxDeadlines` that belong to this return. */
+  deadlineIdPrefix: string
+  lines: (summary: VatSummary) => ReturnLine[]
+}
 
 export interface Jurisdiction {
   code: JurisdictionCode
@@ -47,13 +78,9 @@ export interface Jurisdiction {
   milestoneThresholdMinor: number
   csvSynonyms: Partial<Record<CsvRole, string[]>>
   chartOfAccounts: LedgerAccountTemplate[]
-  /**
-   * Input tax recoverable on expenses booked to each account, when the transaction doesn't say: the standard rate
-   * unless the account is listed (wages, insurance, bank fees, exempt rent… carry none). 0 everywhere for US sales tax.
-   */
-  inputTax: { standardBp: number; byAccount: Record<string, number> }
   /** Income account used for tax-exempt small businesses (e.g. DE §19), if the chart has one. */
   exemptIncomeCode?: string
+  vatReturn: VatReturnForm
   requiredInvoiceFields(profile: TaxProfile): InvoiceRequirement[]
   /** Note printed on invoices that carry no tax (e.g. §19 UStG), or null. */
   exemptionNote(profile: TaxProfile): string | null

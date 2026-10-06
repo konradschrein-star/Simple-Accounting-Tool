@@ -12,7 +12,12 @@ export function getJurisdiction(code: JurisdictionCode): Jurisdiction {
   return JURISDICTIONS[code]
 }
 
-/** Input tax usually contained in an expense booked to this account (when no receipt says otherwise). */
+/** The chart entry behind an account code, if the jurisdiction's template has it. */
+export function accountTemplate(jurisdiction: Jurisdiction, accountCode: string) {
+  return jurisdiction.chartOfAccounts.find((a) => a.code === accountCode)
+}
+
+/** Input tax usually contained in an expense booked to this account — 0 for accounts the template doesn't know (never over-claim). */
 export function defaultInputTaxBp(jurisdiction: Jurisdiction, accountCode: string): number {
-  return jurisdiction.inputTax.byAccount[accountCode] ?? jurisdiction.inputTax.standardBp
+  return accountTemplate(jurisdiction, accountCode)?.inputTaxBp ?? 0
 }

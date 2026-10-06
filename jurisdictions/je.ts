@@ -1,7 +1,7 @@
 import { isoOf, lastDayOfMonth } from "@/lib/dates"
 import { collectDeadlines, pad2, quarterEndMonths } from "./deadlines"
 import { englishCsvSynonyms } from "./uk"
-import type { Jurisdiction, TaxDeadline, TaxProfile } from "./types"
+import type { Jurisdiction, TaxDeadline, TaxProfile, VatReturnForm } from "./types"
 
 function perYear(profile: TaxProfile, year: number): TaxDeadline[] {
   const deadlines: TaxDeadline[] = [
@@ -37,6 +37,32 @@ function perYear(profile: TaxProfile, year: number): TaxDeadline[] {
   return deadlines
 }
 
+const vatReturn: VatReturnForm = {
+  name: "GST return",
+  tabLabel: "GST return",
+  boxHeader: "",
+  baseHeader: "Value",
+  filingHint: "",
+  calendarQuarters: false,
+  requiresRegistration: true,
+  showsInputTax: true,
+  deadlineIdPrefix: "je-gst",
+  lines: (s) => [
+    { key: "supplies", box: null, label: "Value of supplies made (excluding GST)", baseMinor: s.salesNetMinor, taxMinor: null },
+    { key: "output", box: null, label: "GST charged on supplies", baseMinor: null, taxMinor: s.outputTaxMinor },
+    { key: "purchases", box: null, label: "Value of purchases (excluding GST)", baseMinor: s.purchasesNetMinor, taxMinor: null },
+    { key: "input", box: null, label: "GST paid on purchases (input tax)", baseMinor: null, taxMinor: s.inputTaxMinor },
+    {
+      key: "net",
+      box: null,
+      label: s.netTaxMinor >= 0 ? "GST payable to Revenue Jersey" : "GST repayable to you",
+      baseMinor: null,
+      taxMinor: Math.abs(s.netTaxMinor),
+      total: true,
+    },
+  ],
+}
+
 export const je: Jurisdiction = {
   code: "je",
   countryCode: "JE",
@@ -56,22 +82,22 @@ export const je: Jurisdiction = {
   chartOfAccounts: [
     { code: "4000", name: "Sales", kind: "income", taxLine: "Business income" },
     { code: "4900", name: "Other income", kind: "income", taxLine: "Other income" },
-    { code: "5000", name: "Cost of sales", kind: "expense", taxLine: "Cost of sales" },
-    { code: "6000", name: "Staff costs", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6100", name: "Motor & travel", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6200", name: "Premises & utilities", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6400", name: "Office, phone & software", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6500", name: "Marketing", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6700", name: "Bank charges", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6750", name: "Insurance", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6800", name: "Professional fees", kind: "expense", taxLine: "Allowable expenses" },
-    { code: "6900", name: "Other expenses", kind: "expense", taxLine: "Allowable expenses" },
+    { code: "5000", name: "Cost of sales", kind: "expense", taxLine: "Cost of sales", inputTaxBp: 500 },
+    { code: "6000", name: "Staff costs", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 0, outOfScope: true },
+    { code: "6100", name: "Motor & travel", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 500 },
+    { code: "6200", name: "Premises & utilities", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 500 },
+    { code: "6400", name: "Office, phone & software", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 500 },
+    { code: "6500", name: "Marketing", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 500 },
+    { code: "6700", name: "Bank charges", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 0 },
+    { code: "6750", name: "Insurance", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 0 },
+    { code: "6800", name: "Professional fees", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 500 },
+    { code: "6900", name: "Other expenses", kind: "expense", taxLine: "Allowable expenses", inputTaxBp: 500 },
     { code: "2200", name: "GST paid to Revenue Jersey", kind: "tax", taxLine: null },
     { code: "1200", name: "Transfers between own accounts", kind: "transfer", taxLine: null },
     { code: "3000", name: "Drawings", kind: "owner", taxLine: null },
     { code: "3100", name: "Capital introduced", kind: "owner", taxLine: null },
   ],
-  inputTax: { standardBp: 500, byAccount: { "6000": 0, "6700": 0, "6750": 0 } },
+  vatReturn,
   requiredInvoiceFields: (profile) =>
     profile.taxRegistered ? ["sellerAddress", "clientAddress", "sellerTaxId", "serviceDate"] : ["sellerAddress", "clientAddress"],
   exemptionNote: (profile) => (profile.taxRegistered ? null : "Not registered for GST — no GST charged."),

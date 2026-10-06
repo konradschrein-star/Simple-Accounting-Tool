@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { returnLines, summarizeVat, vatPeriods, type VatSalesDoc } from "@/tax/vat-return"
+import { JURISDICTIONS } from "@/jurisdictions"
+import { summarizeVat, vatPeriods, type VatPurchase, type VatSalesDoc } from "@/tax/vat-return"
 
 const Q3 = { from: "2026-07-01", to: "2026-09-30" }
+const expense = (date: string, amountMinor: number, rateBp: number, outOfScope = false): VatPurchase => ({ date, amountMinor, rateBp, outOfScope })
 const doc = (over: Partial<VatSalesDoc>): VatSalesDoc => ({
   kind: "invoice",
-  status: "finalized",
   issueDate: "2026-08-10",
   fxRateMicro: 1_000_000,
   totalMinor: 119_000 + 10_700,
@@ -38,13 +39,13 @@ describe("return periods", () => {
 
 describe("VAT summary", () => {
   it("accrual: tax follows the invoice date, cancellations net out through the credit note", () => {
-    const cancelled = doc({ status: "cancelled" })
+    const cancelled = doc({})
     const creditNote = doc({
       kind: "credit_note",
       issueDate: "2026-09-02",
       taxGroups: cancelled.taxGroups.map((g) => ({ rateBp: g.rateBp, netMinor: -g.netMinor, taxMinor: -g.taxMinor })),
     })
-    const s = summarizeVat([doc({}), cancelled, creditNote, doc({ issueDate: "2026-10-01" }), doc({ status: "draft" })], [], Q3, "accrual")
+    const s = summarizeVat([doc({}), cancelled, creditNote, doc({ issueDate: "2026-10-01" })], [], Q3, "accrual")
     expect(s.outputTaxMinor).toBe(19_700)
     expect(s.salesNetMinor).toBe(110_000)
     expect(s.documentCount).toBe(3)
@@ -72,14 +73,29 @@ describe("VAT summary", () => {
     const s = summarizeVat([doc({ fxRateMicro: 1_170_000 })], [], Q3, "accrual")
     expect(s.outputTaxMinor).toBe(22_230 + 819)
   })
-  it("extracts input tax from gross expenses, refunds reduce it", () => {
+  it("cash: a credit note reverses only the share its invoice had been paid", () => {
+    const invoice = doc({ issueDate: "2026-06-01", payments: [{ date: "2026-06-20", amountMinor: doc({}).totalMinor / 2 }] })
+    const creditNote = doc({
+      kind: "credit_note",
+      issueDate: "2026-08-15",
+      totalMinor: -invoice.totalMinor,
+      taxGroups: invoice.taxGroups.map((g) => ({ rateBp: g.rateBp, netMinor: -g.netMinor, taxMinor: -g.taxMinor })),
+      corrected: { paidMinor: invoice.totalMinor / 2, totalMinor: invoice.totalMinor },
+    })
+    const s = summarizeVat([invoice, creditNote], [], Q3, "cash")
+    expect(s.outputTaxMinor).toBe(-(9_500 + 350))
+    expect(s.documentCount).toBe(1)
+    expect(summarizeVat([doc({ ...creditNote, corrected: { paidMinor: 0, totalMinor: invoice.totalMinor } })], [], Q3, "cash").documentCount).toBe(0)
+  })
+  it("extracts input tax from gross expenses, refunds reduce it, wages stay out of scope", () => {
     const s = summarizeVat(
       [],
       [
-        { date: "2026-08-01", amountMinor: -11_900, rateBp: 1900 },
-        { date: "2026-08-05", amountMinor: -5_000, rateBp: 0 },
-        { date: "2026-08-09", amountMinor: 1_190, rateBp: 1900 },
-        { date: "2026-10-01", amountMinor: -99_999, rateBp: 1900 },
+        expense("2026-08-01", -11_900, 1900),
+        expense("2026-08-05", -5_000, 0),
+        expense("2026-08-09", 1_190, 1900),
+        expense("2026-08-31", -300_000, 0, true),
+        expense("2026-10-01", -99_999, 1900),
       ],
       Q3,
       "accrual"
@@ -100,22 +116,27 @@ describe("form layouts", () => {
         ],
       }),
     ],
-    [{ date: "2026-08-01", amountMinor: -11_900, rateBp: 1900 }],
+    [expense("2026-08-01", -11_900, 1900)],
     Q3,
     "accrual"
   )
   it("UStVA: whole-euro bases in Kz 81/86, Vorsteuer in Kz 66, Kz 83 = balance", () => {
-    const lines = Object.fromEntries(returnLines("de", summary).map((l) => [l.key, l]))
+    const lines = Object.fromEntries(JURISDICTIONS.de.vatReturn.lines(summary).map((l) => [l.key, l]))
     expect(lines["81"]).toMatchObject({ baseMinor: 100_000, taxMinor: 19_019 })
     expect(lines["86"]).toMatchObject({ baseMinor: 10_000, taxMinor: 700 })
     expect(lines["66"].taxMinor).toBe(1_900)
     expect(lines["83"].taxMinor).toBe(19_019 + 700 - 1_900)
   })
   it("UK: the nine boxes add up", () => {
-    const boxes = Object.fromEntries(returnLines("uk", summary).map((l) => [l.box, l]))
+    const boxes = Object.fromEntries(JURISDICTIONS.uk.vatReturn.lines(summary).map((l) => [l.box, l]))
     expect(boxes["3"].taxMinor).toBe(boxes["1"].taxMinor)
     expect(boxes["5"].taxMinor).toBe(boxes["3"].taxMinor! - boxes["4"].taxMinor!)
     expect(boxes["6"].baseMinor).toBe(110_000)
     expect(boxes["7"].baseMinor).toBe(10_000)
+  })
+  it("UK: box 5 is always positive and says which way the money goes", () => {
+    const refund = summarizeVat([], [expense("2026-08-01", -12_000, 2000)], Q3, "accrual")
+    const box5 = JURISDICTIONS.uk.vatReturn.lines(refund).find((l) => l.box === "5")!
+    expect(box5).toMatchObject({ taxMinor: 2_000, label: "Net VAT to reclaim from HMRC" })
   })
 })

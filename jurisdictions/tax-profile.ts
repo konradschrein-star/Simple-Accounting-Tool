@@ -34,5 +34,5 @@ export function invoiceRatesBp(jurisdiction: Jurisdiction, profile: ChargeProfil
 
 /** Whether VAT/GST paid on expenses can be reclaimed (US sales tax has no input credit). */
 export function reclaimsInputTax(jurisdiction: Jurisdiction, profile: ChargeProfile): boolean {
-  return jurisdiction.inputTax.standardBp > 0 && profile.taxRegistered && !profile.smallBusinessExempt
+  return profile.taxRegistered && !profile.smallBusinessExempt && jurisdiction.chartOfAccounts.some((a) => (a.inputTaxBp ?? 0) > 0)
 }

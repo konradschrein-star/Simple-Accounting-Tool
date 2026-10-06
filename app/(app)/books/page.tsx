@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { CloseTab, PnlTab, RulesTab } from "@/components/books/books-tabs"
-import { VatTab, vatTabLabel } from "@/components/books/vat-tab"
+import { VatTab } from "@/components/books/vat-tab"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
 import { PageTabs, parseTab } from "@/components/shell/page-tabs"
 import { db } from "@/db/client"
@@ -14,7 +14,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
   const params = await searchParams
   const tabs = [
     ["pnl", "Profit & loss"],
-    ["vat", vatTabLabel(ctx.jurisdiction.code)],
+    ["vat", ctx.jurisdiction.vatReturn.tabLabel],
     ["close", "Monthly close"],
     ["rules", "Rules"],
   ] as const
