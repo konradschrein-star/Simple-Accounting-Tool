@@ -4,6 +4,7 @@ import { db } from "@/db/client"
 import { onboardedWorkspaceIds } from "@/server/repos/workspace"
 import { cleanupExpiredDemos } from "@/demo/cleanup"
 import { recoverInterruptedImports } from "@/ingest/jobs"
+import { recoverInterruptedReceipts } from "@/server/repos/receipts"
 import { runPaymentReminders, runRecurringInvoices } from "@/invoicing/service"
 import { env } from "@/lib/env"
 
@@ -44,6 +45,7 @@ export function startBackgroundTasks() {
   if (started) return
   started = true
   safely("import recovery", recoverInterruptedImports)
+  safely("receipt recovery", () => recoverInterruptedReceipts(db))
   const sweep = () => {
     safely("demo cleanup", () => cleanupExpiredDemos(db, path.resolve(env().DATA_DIR)))
     safely("alert sweep", () => onboardedWorkspaceIds(db).forEach((orgId) => evaluateTriggers(db, orgId)))

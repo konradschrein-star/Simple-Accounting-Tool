@@ -125,6 +125,6 @@ export function defaultLlm(): LlmPort | null {
   return env().OPENROUTER_API_KEY ? openRouterStructured : null
 }
 
-export function imagePart(png: Buffer): ChatCompletionContentPart {
-  return { type: "image_url", image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }
+export function imagePart(image: Buffer, mimeType: "image/png" | "image/jpeg" = "image/png"): ChatCompletionContentPart {
+  return { type: "image_url", image_url: { url: `data:${mimeType};base64,${image.toString("base64")}` } }
 }

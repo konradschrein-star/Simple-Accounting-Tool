@@ -496,8 +496,9 @@ export const attachments = sqliteTable(
     mimeType: text("mime_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     /** What the AI read off the receipt (vendor, date, total, VAT). */
-    extracted: json<{ vendor: string | null; date: string | null; totalMinor: number | null; vatMinor: number | null; currency: string | null }>("extracted"),
-    status: text("status", { enum: ["processing", "unmatched", "suggested", "matched"] }).notNull().default("processing"),
+    extracted: json<{ vendor: string | null; date: string | null; totalMinor: number | null; vatMinor: number | null; currency: string | null; invoiceNumber?: string | null }>("extracted"),
+    /** processing → (AI read it) suggested | unmatched → matched. `failed`: unreadable, can still be linked by hand. */
+    status: text("status", { enum: ["processing", "unmatched", "suggested", "matched", "failed"] }).notNull().default("processing"),
     suggestedTransactionId: text("suggested_transaction_id"),
     createdAt: createdAt(),
   },

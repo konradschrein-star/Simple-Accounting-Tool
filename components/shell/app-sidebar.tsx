@@ -8,6 +8,7 @@ import {
   LayoutDashboardIcon,
   ListChecksIcon,
   PackageIcon,
+  PaperclipIcon,
   type LucideIcon,
   ReceiptTextIcon,
   SettingsIcon,
@@ -54,6 +55,7 @@ function navGroups(role: ShellRole, reviewCount: number): { label: string; items
       items: [
         { title: "Imports", url: "/imports", icon: UploadIcon },
         { title: "Transactions", url: "/transactions", icon: ReceiptTextIcon },
+        { title: "Receipts", url: "/receipts", icon: PaperclipIcon },
         { title: "Review queue", url: "/review", icon: ListChecksIcon, badge: reviewCount },
         { title: "Books & P&L", url: "/books", icon: BookOpenCheckIcon },
       ],
