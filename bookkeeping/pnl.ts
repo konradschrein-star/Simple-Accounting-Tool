@@ -27,7 +27,7 @@ const inRange = (d: IsoDate, from: IsoDate, to: IsoDate) => d >= from && d <= to
 export function computePnl(input: {
   txns: PnlTransaction[]
   accounts: AccountRef[]
-  unlinkedPaid: { paidDate: IsoDate; totalMinor: number }[]
+  unlinkedPaid: { paidDate: IsoDate; amountMinor: number }[]
   period: { from: IsoDate; to: IsoDate }
   prior: { from: IsoDate; to: IsoDate }
 }): Pnl {
@@ -53,15 +53,15 @@ export function computePnl(input: {
     const signed = account.kind === "income" ? t.amountMinor : -t.amountMinor
     add(account.id, { accountId: account.id, code: account.code, name: account.name, taxLine: account.taxLine }, current ? signed : 0, prior ? signed : 0)
   }
-  for (const inv of input.unlinkedPaid) {
-    const current = inRange(inv.paidDate, input.period.from, input.period.to)
-    const prior = inRange(inv.paidDate, input.prior.from, input.prior.to)
+  for (const payment of input.unlinkedPaid) {
+    const current = inRange(payment.paidDate, input.period.from, input.period.to)
+    const prior = inRange(payment.paidDate, input.prior.from, input.prior.to)
     if (current || prior)
       add(
         "invoices",
         { accountId: null, code: "—", name: "Invoices paid (not on imported statements)", taxLine: null },
-        current ? inv.totalMinor : 0,
-        prior ? inv.totalMinor : 0
+        current ? payment.amountMinor : 0,
+        prior ? payment.amountMinor : 0
       )
   }
   const all = [...lines.values()].filter((l) => l.amountMinor || l.priorMinor).sort((a, b) => a.code.localeCompare(b.code))

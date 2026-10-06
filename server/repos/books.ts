@@ -9,7 +9,7 @@ import { listAccounts } from "./ledger"
 export type PeriodClose = typeof periodCloses.$inferSelect
 
 /** Ledger lines plus invoice payments that never touched an imported statement (manual / online), in base currency. */
-export function pnlInputs(db: Db, orgId: string): { txns: PnlTransaction[]; unlinkedPaid: { paidDate: string; totalMinor: number }[] } {
+export function pnlInputs(db: Db, orgId: string): { txns: PnlTransaction[]; unlinkedPaid: { paidDate: string; amountMinor: number }[] } {
   const txns = db
     .select({ date: transactions.date, amountMinor: transactions.amountMinor, accountId: transactions.ledgerAccountId })
     .from(transactions)
@@ -21,7 +21,7 @@ export function pnlInputs(db: Db, orgId: string): { txns: PnlTransaction[]; unli
     .innerJoin(invoices, eq(invoices.id, invoicePayments.invoiceId))
     .where(and(eq(invoicePayments.orgId, orgId), isNull(invoicePayments.transactionId)))
     .all()
-    .map((p) => ({ paidDate: p.paidDate, totalMinor: toBaseMinor(p.amountMinor, p.fx) }))
+    .map((p) => ({ paidDate: p.paidDate, amountMinor: toBaseMinor(p.amountMinor, p.fx) }))
   return { txns, unlinkedPaid }
 }
 

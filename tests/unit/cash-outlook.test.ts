@@ -20,7 +20,7 @@ describe("cash outlook", () => {
       scheduled: [],
       today: "2026-10-06",
     })
-    expect(o.balanceMinor).toBe(900_000)
+    expect(o.balance).toEqual({ amountMinor: 900_000, asOf: "2026-09-30" })
     expect(o.avgCashInMinor).toBe(500_000)
     expect(o.avgExpensesMinor).toBe(700_000)
     expect(o.netBurnMinor).toBe(200_000)
@@ -40,7 +40,7 @@ describe("cash outlook", () => {
       }).runwayMonths
     ).toBeNull()
     expect(cashOutlook({ balance: null, movementsSinceMinor: 0, months, receivables: [], scheduled: [], today: "2026-10-06" })).toMatchObject({
-      balanceMinor: null,
+      balance: null,
       runwayMonths: null,
     })
   })

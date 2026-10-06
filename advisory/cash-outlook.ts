@@ -15,8 +15,8 @@ export type CashOutlookInput = {
 }
 
 export type CashOutlook = {
-  balanceMinor: number | null
-  balanceAsOf: IsoDate | null
+  /** Last known balance plus everything booked since; null until the user gives one. */
+  balance: { amountMinor: number; asOf: IsoDate } | null
   /** Average of the last three full months. */
   avgCashInMinor: number
   avgExpensesMinor: number
@@ -40,8 +40,7 @@ export function cashOutlook(input: CashOutlookInput): CashOutlook {
   // Recurring invoices issued in the window are usually paid after it, so they are shown but not counted as cash.
   const netMinor = receivablesMinor - avgExpensesMinor
   return {
-    balanceMinor,
-    balanceAsOf: input.balance?.date ?? null,
+    balance: input.balance && balanceMinor !== null ? { amountMinor: balanceMinor, asOf: input.balance.date } : null,
     avgCashInMinor,
     avgExpensesMinor,
     netBurnMinor,

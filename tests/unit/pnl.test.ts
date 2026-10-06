@@ -17,7 +17,7 @@ describe("P&L", () => {
     accounts,
     period,
     prior,
-    unlinkedPaid: [{ paidDate: "2026-10-10", totalMinor: 50000 }],
+    unlinkedPaid: [{ paidDate: "2026-10-10", amountMinor: 50000 }],
     txns: [
       { date: "2026-10-01", amountMinor: 300000, accountId: "inc" },
       { date: "2026-09-01", amountMinor: 200000, accountId: "inc" },

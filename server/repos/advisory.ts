@@ -12,6 +12,7 @@ export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]
   const docs = db
     .select({
       id: invoices.id,
+      clientId: invoices.clientId,
       kind: invoices.kind,
       status: invoices.status,
       issueDate: invoices.issueDate,
@@ -22,7 +23,6 @@ export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]
     .from(invoices)
     .where(eq(invoices.orgId, orgId))
     .all()
-  const fxById = new Map(docs.map((d) => [d.id, d.fx]))
   return {
     invoices: docs.map(({ fx, ...d }) => ({ ...d, totalMinor: toBaseMinor(d.totalMinor, fx) })),
     payments: db
@@ -31,11 +31,13 @@ export function metricInputs(db: Db, orgId: string): { invoices: MetricInvoice[]
         date: invoicePayments.date,
         amountMinor: invoicePayments.amountMinor,
         transactionId: invoicePayments.transactionId,
+        fx: invoices.fxRateMicro,
       })
       .from(invoicePayments)
+      .innerJoin(invoices, eq(invoices.id, invoicePayments.invoiceId))
       .where(eq(invoicePayments.orgId, orgId))
       .all()
-      .map((p) => ({ ...p, amountMinor: toBaseMinor(p.amountMinor, fxById.get(p.invoiceId) ?? 1_000_000) })),
+      .map(({ fx, ...p }) => ({ ...p, amountMinor: toBaseMinor(p.amountMinor, fx) })),
     transactions: db
       .select({ date: transactions.date, amountMinor: transactions.amountMinor, kind: ledgerAccounts.kind })
       .from(transactions)

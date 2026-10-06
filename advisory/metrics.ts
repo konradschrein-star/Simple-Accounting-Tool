@@ -1,9 +1,17 @@
-import type { DocumentKind, DocumentStatus } from "@/invoicing/documents"
+import { openAmount, type DocumentKind, type DocumentStatus } from "@/invoicing/documents"
 import type { LedgerAccountKind } from "@/jurisdictions/types"
 import { addDays, addMonths, monthKey, monthRange, type IsoDate } from "@/lib/dates"
 
 /** Amounts are already in the workspace currency (converted with each document's locked rate). */
-export type MetricInvoice = { id: string; kind: DocumentKind; status: DocumentStatus; issueDate: IsoDate; dueDate: IsoDate; totalMinor: number }
+export type MetricInvoice = {
+  id: string
+  clientId: string | null
+  kind: DocumentKind
+  status: DocumentStatus
+  issueDate: IsoDate
+  dueDate: IsoDate
+  totalMinor: number
+}
 /** Payments recorded against invoices; those with a transaction are already part of the bank ledger. */
 export type MetricPayment = { invoiceId: string; date: IsoDate; amountMinor: number; transactionId: string | null }
 export type MetricTransaction = { date: IsoDate; amountMinor: number; kind: LedgerAccountKind | null }
@@ -17,6 +25,9 @@ export type PeriodMetrics = {
   marginBp: number | null
 }
 
+/** What a client still owes on one issued invoice, in the workspace currency. */
+export type Receivable = { invoiceId: string; clientId: string | null; dueDate: IsoDate; openMinor: number; overdue: boolean }
+
 export type MonthPoint = { month: string; invoicedMinor: number; cashInMinor: number; expensesMinor: number }
 
 export type Metrics = {
@@ -25,21 +36,22 @@ export type Metrics = {
   trailing90: PeriodMetrics
   lifetime: PeriodMetrics
   months: MonthPoint[]
+  receivables: Receivable[]
   outstandingMinor: number
   overdueMinor: number
   overdueCount: number
   uncategorizedCount: number
   firstActivity: IsoDate | null
-  /** Average monthly expenses over the last 3 full months — the burn rate. */
-  burnMinor: number
 }
+
+/** Ledger accounts whose movements are business spending ("Expenses" everywhere on the dashboard). */
+export const OUTFLOW_KINDS = ["expense", "tax"] as const satisfies readonly LedgerAccountKind[]
 
 /** Movements that count as business cash in / out. Transfers and owner movements never do. */
 function classify(t: MetricTransaction): "in" | "out" | null {
-  if (t.kind === "transfer" || t.kind === "owner") return null
+  if (t.kind === null) return t.amountMinor >= 0 ? "in" : "out" // uncategorized: sign heuristic
   if (t.kind === "income") return "in"
-  if (t.kind === "expense" || t.kind === "tax") return "out"
-  return t.amountMinor >= 0 ? "in" : "out" // uncategorized: sign heuristic
+  return (OUTFLOW_KINDS as readonly LedgerAccountKind[]).includes(t.kind) ? "out" : null
 }
 
 /** Issued revenue: invoices that went out (incl. later-cancelled ones) less every credit note issued. */
@@ -73,10 +85,16 @@ export function computeMetrics(invoices: MetricInvoice[], payments: MetricPaymen
   }
   const paidById = new Map<string, number>()
   for (const p of payments) paidById.set(p.invoiceId, (paidById.get(p.invoiceId) ?? 0) + p.amountMinor)
-  const open = invoices
+  const receivables: Receivable[] = invoices
     .filter((i) => i.kind === "invoice" && i.status === "finalized")
-    .map((i) => ({ ...i, openMinor: Math.max(0, i.totalMinor - (paidById.get(i.id) ?? 0)) }))
-  const overdue = open.filter((i) => i.dueDate < today)
+    .map((i) => ({
+      invoiceId: i.id,
+      clientId: i.clientId,
+      dueDate: i.dueDate,
+      openMinor: openAmount(i.totalMinor, paidById.get(i.id) ?? 0),
+      overdue: i.dueDate < today,
+    }))
+  const overdue = receivables.filter((r) => r.overdue)
   const dates = [...txns.map((t) => t.date), ...invoices.filter(countsAsInvoiced).map((i) => i.issueDate)].sort()
   return {
     thisMonth: period(invoices, payments, txns, monthRange(monthKey(today)).from, today),
@@ -84,11 +102,24 @@ export function computeMetrics(invoices: MetricInvoice[], payments: MetricPaymen
     trailing90: period(invoices, payments, txns, addDays(today, -89), today),
     lifetime: period(invoices, payments, txns, null, today),
     months,
-    outstandingMinor: open.reduce((s, i) => s + i.openMinor, 0),
-    overdueMinor: overdue.reduce((s, i) => s + i.openMinor, 0),
+    receivables,
+    outstandingMinor: receivables.reduce((s, r) => s + r.openMinor, 0),
+    overdueMinor: overdue.reduce((s, r) => s + r.openMinor, 0),
     overdueCount: overdue.length,
     uncategorizedCount: txns.filter((t) => t.kind === null).length,
     firstActivity: dates[0] ?? null,
-    burnMinor: Math.round(months.slice(-4, -1).reduce((s, m) => s + m.expensesMinor, 0) / 3),
   }
+}
+
+/** Open and overdue amounts per client. */
+export function receivablesByClient(receivables: Receivable[]): Map<string, { openMinor: number; overdueMinor: number }> {
+  const byClient = new Map<string, { openMinor: number; overdueMinor: number }>()
+  for (const r of receivables) {
+    if (!r.clientId) continue
+    const entry = byClient.get(r.clientId) ?? { openMinor: 0, overdueMinor: 0 }
+    entry.openMinor += r.openMinor
+    if (r.overdue) entry.overdueMinor += r.openMinor
+    byClient.set(r.clientId, entry)
+  }
+  return byClient
 }

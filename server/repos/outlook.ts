@@ -1,12 +1,10 @@
-import { and, eq, gt, gte, isNull, lt, lte, or, sql } from "drizzle-orm"
+import { and, eq, gt, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm"
 import { cashOutlook, topCategories, type CashOutlook } from "@/advisory/cash-outlook"
-import type { Metrics } from "@/advisory/metrics"
+import { OUTFLOW_KINDS, type Metrics } from "@/advisory/metrics"
 import type { Db } from "@/db/client"
 import { invoices, ledgerAccounts, recurringSeries, transactions } from "@/db/schema"
-import { openAmount } from "@/invoicing/documents"
 import type { IsoDate } from "@/lib/dates"
 import { toBaseMinor } from "@/lib/money"
-import { paidAmounts } from "./invoices"
 import type { WorkspaceSettings } from "./workspace"
 
 export function workspaceOutlook(db: Db, orgId: string, settings: WorkspaceSettings, metrics: Metrics, today: IsoDate): CashOutlook {
@@ -21,16 +19,6 @@ export function workspaceOutlook(db: Db, orgId: string, settings: WorkspaceSetti
           .get()?.total ?? 0
       )
     : 0
-  const open = db
-    .select({ id: invoices.id, dueDate: invoices.dueDate, totalMinor: invoices.totalMinor, fx: invoices.fxRateMicro })
-    .from(invoices)
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, "invoice"), eq(invoices.status, "finalized")))
-    .all()
-  const paid = paidAmounts(
-    db,
-    orgId,
-    open.map((i) => i.id)
-  )
   const scheduled = db
     .select({ date: recurringSeries.nextIssueDate, totalMinor: invoices.totalMinor, fx: invoices.fxRateMicro })
     .from(recurringSeries)
@@ -41,13 +29,16 @@ export function workspaceOutlook(db: Db, orgId: string, settings: WorkspaceSetti
     balance,
     movementsSinceMinor,
     months: metrics.months,
-    receivables: open.map((i) => ({ dueDate: i.dueDate, openMinor: toBaseMinor(openAmount(i.totalMinor, paid.get(i.id) ?? 0), i.fx) })),
+    receivables: metrics.receivables,
     scheduled: scheduled.map((s) => ({ date: s.date, amountMinor: toBaseMinor(s.totalMinor, s.fx) })),
     today,
   })
 }
 
-/** Money out per expense account in [from, to]; uncategorized payments get their own bucket so nothing hides. */
+/**
+ * Money out per account in [from, to], counted exactly like the Expenses tile (`OUTFLOW_KINDS`, refunds net out);
+ * uncategorized payments get their own bucket so nothing hides.
+ */
 export function spendingByCategory(db: Db, orgId: string, from: IsoDate, to: IsoDate) {
   const rows = db
     .select({ name: sql<string>`coalesce(${ledgerAccounts.name}, 'Not yet categorized')`, total: sql<number>`sum(-${transactions.amountMinor})` })
@@ -58,8 +49,7 @@ export function spendingByCategory(db: Db, orgId: string, from: IsoDate, to: Iso
         eq(transactions.orgId, orgId),
         gte(transactions.date, from),
         lte(transactions.date, to),
-        lt(transactions.amountMinor, 0),
-        or(eq(ledgerAccounts.kind, "expense"), isNull(transactions.ledgerAccountId))
+        or(inArray(ledgerAccounts.kind, OUTFLOW_KINDS), and(isNull(transactions.ledgerAccountId), lt(transactions.amountMinor, 0)))
       )
     )
     .groupBy(sql`1`)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { computeMetrics, type MetricInvoice, type MetricPayment, type MetricTransaction } from "@/advisory/metrics"
+import { computeMetrics, receivablesByClient, type MetricInvoice, type MetricPayment, type MetricTransaction } from "@/advisory/metrics"
 import { evaluateAlerts } from "@/advisory/triggers"
 import { JURISDICTIONS, type TaxProfile } from "@/jurisdictions"
 
@@ -13,6 +13,7 @@ const inv = (
   kind: MetricInvoice["kind"] = "invoice"
 ): MetricInvoice => ({
   id,
+  clientId: id === "b" ? "beta" : "acme",
   kind,
   status,
   issueDate,
@@ -69,6 +70,12 @@ describe("metrics", () => {
     expect(m.uncategorizedCount).toBe(1)
     expect(m.months).toHaveLength(12)
     expect(m.months.at(-1)?.month).toBe("2026-10")
+  })
+  it("groups receivables by client", () => {
+    expect(Object.fromEntries(receivablesByClient(m.receivables))).toEqual({
+      acme: { openMinor: 60000, overdueMinor: 60000 },
+      beta: { openMinor: 200000, overdueMinor: 200000 },
+    })
   })
 })
 

@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest"
 import type { Db } from "@/db/client"
+import { workspaceMetrics } from "@/advisory/evaluate"
+import { DASHBOARD_PERIODS } from "@/advisory/periods"
 import { seedDemoWorkspace } from "@/demo/seed"
 import { JURISDICTION_CODES } from "@/jurisdictions"
 import { activeAlerts } from "@/server/repos/advisory"
@@ -8,6 +10,7 @@ import { clientInputSchema, createClient, listClients } from "@/server/repos/cli
 import { requestEngagement, staffMayAccess, updateEngagement } from "@/server/repos/engagements"
 import { getInvoice, listDocuments } from "@/server/repos/invoices"
 import { listTransactions, reviewQueue } from "@/server/repos/ledger"
+import { spendingByCategory, workspaceOutlook } from "@/server/repos/outlook"
 import { listReceipts } from "@/server/repos/receipts"
 import { bootstrapWorkspace, getSettings } from "@/server/repos/workspace"
 import { createUser, testDatabase } from "./helpers"
@@ -39,6 +42,12 @@ describe.each(JURISDICTION_CODES)("demo workspace (%s)", (code) => {
     expect(listReceipts(db, orgId, "matched")).toHaveLength(2)
     expect(listReceipts(db, orgId, "inbox").map((r) => r.match)).toEqual(["suggested"])
     expect(getSettings(db, orgId).bankBalanceMinor).not.toBeNull()
+
+    // The dashboard's tiles and cards agree: categories add up to Expenses, and the runway is known.
+    const metrics = workspaceMetrics(db, orgId, TODAY)
+    const spending = spendingByCategory(db, orgId, DASHBOARD_PERIODS.year.from(TODAY), TODAY)
+    expect(spending.reduce((s, r) => s + r.amountMinor, 0)).toBe(metrics.trailing12.expensesMinor)
+    expect(workspaceOutlook(db, orgId, getSettings(db, orgId), metrics, TODAY).balance).not.toBeNull()
   })
 })
 

@@ -5,12 +5,11 @@ import { ClientsTable } from "@/components/clients/clients-table"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { workspaceMetrics } from "@/advisory/evaluate"
+import { receivablesByClient } from "@/advisory/metrics"
 import { db } from "@/db/client"
-import { displayStatus, openAmount } from "@/invoicing/documents"
-import { toBaseMinor } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { listClients } from "@/server/repos/clients"
-import { listDocuments } from "@/server/repos/invoices"
 
 export const metadata: Metadata = { title: "Clients" }
 
@@ -18,16 +17,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const ctx = await requireReadyOrg()
   const { q } = await searchParams
   const rows = listClients(db, ctx.orgId)
-  // What each client still owes (in the workspace currency), and how much of it is late.
-  const owed = new Map<string, { open: number; overdue: number }>()
-  for (const { invoice, paidMinor } of listDocuments(db, ctx.orgId, "invoice")) {
-    if (!invoice.clientId || invoice.status !== "finalized") continue
-    const open = toBaseMinor(openAmount(invoice.totalMinor, paidMinor), invoice.fxRateMicro)
-    const entry = owed.get(invoice.clientId) ?? { open: 0, overdue: 0 }
-    entry.open += open
-    if (displayStatus(invoice, ctx.today, paidMinor) === "overdue") entry.overdue += open
-    owed.set(invoice.clientId, entry)
-  }
+  const owed = receivablesByClient(workspaceMetrics(db, ctx.orgId, ctx.today).receivables)
   const addButton = (
     <Button>
       <PlusIcon /> New client
@@ -54,15 +44,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           currency={ctx.settings.currency}
           locale={ctx.settings.locale}
           initialSearch={q}
-          rows={rows.map(({ client, invoiceCount }) => ({
-            client,
-            name: client.name,
-            email: client.email,
-            city: client.city,
-            invoiceCount,
-            openMinor: owed.get(client.id)?.open ?? 0,
-            overdueMinor: owed.get(client.id)?.overdue ?? 0,
-          }))}
+          rows={rows.map(({ client, invoiceCount }) => ({ client, invoiceCount, openMinor: 0, overdueMinor: 0, ...owed.get(client.id) }))}
         />
       )}
     </PageBody>

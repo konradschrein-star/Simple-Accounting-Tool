@@ -27,10 +27,10 @@ export function CashPositionCard({ outlook, currency, locale }: { outlook: CashO
         <CardDescription className="flex items-center gap-2">
           <LandmarkIcon className="size-4" /> Cash position
         </CardDescription>
-        {outlook.balanceMinor !== null ? (
+        {outlook.balance ? (
           <>
-            <CardTitle className="text-3xl tabular-nums">{money(outlook.balanceMinor)}</CardTitle>
-            <CardDescription className="text-xs">Bank balance from {formatDate(outlook.balanceAsOf!, locale)}, plus everything booked since</CardDescription>
+            <CardTitle className="text-3xl tabular-nums">{money(outlook.balance.amountMinor)}</CardTitle>
+            <CardDescription className="text-xs">Bank balance from {formatDate(outlook.balance.asOf, locale)}, plus everything booked since</CardDescription>
           </>
         ) : (
           <>
@@ -59,7 +59,7 @@ export function CashPositionCard({ outlook, currency, locale }: { outlook: CashO
           }
           tone={burning && outlook.runwayMonths !== null && outlook.runwayMonths < 6 ? "font-semibold text-destructive" : undefined}
         />
-        {outlook.balanceMinor === null ? (
+        {outlook.balance === null ? (
           <Button asChild variant="link" className="h-auto px-0">
             <Link href="/settings#bank-balance">
               Set balance <ArrowRightIcon />

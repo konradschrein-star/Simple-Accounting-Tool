@@ -10,7 +10,7 @@ import { newDocument } from "@/server/actions/invoices"
 import type { Client } from "@/server/repos/clients"
 import { ClientDialog } from "./client-dialog"
 
-export type ClientRow = { client: Client; name: string; email: string; city: string; invoiceCount: number; openMinor: number; overdueMinor: number }
+export type ClientRow = { client: Client; invoiceCount: number; openMinor: number; overdueMinor: number }
 
 export function ClientsTable({ rows, currency, locale, initialSearch }: { rows: ClientRow[]; currency: CurrencyCode; locale: string; initialSearch?: string }) {
   const money = (m: number) => formatMoney(m, currency, locale)
@@ -18,19 +18,20 @@ export function ClientsTable({ rows, currency, locale, initialSearch }: { rows: 
     {
       // Name and email in one value, so the search finds either.
       id: "name",
-      accessorFn: (r) => `${r.name} ${r.email}`,
+      accessorFn: (r) => `${r.client.name} ${r.client.email}`,
       header: ({ column }) => <SortHeader column={column} title="Client" />,
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="truncate font-medium">{row.original.name}</div>
-          <div className="truncate text-xs text-muted-foreground">{row.original.email || "No email"}</div>
+          <div className="truncate font-medium">{row.original.client.name}</div>
+          <div className="truncate text-xs text-muted-foreground">{row.original.client.email || "No email"}</div>
         </div>
       ),
     },
     {
-      accessorKey: "city",
+      id: "city",
+      accessorFn: (r) => r.client.city,
       header: ({ column }) => <SortHeader column={column} title="City" className="hidden md:inline-flex" />,
-      cell: ({ row }) => <span className="hidden text-muted-foreground md:inline">{row.original.city || "—"}</span>,
+      cell: ({ row }) => <span className="hidden text-muted-foreground md:inline">{row.original.client.city || "—"}</span>,
     },
     {
       accessorKey: "invoiceCount",
@@ -60,7 +61,7 @@ export function ClientsTable({ rows, currency, locale, initialSearch }: { rows: 
           <ClientDialog
             client={row.original.client}
             trigger={
-              <Button size="icon" variant="ghost" aria-label={`Edit ${row.original.name}`}>
+              <Button size="icon" variant="ghost" aria-label={`Edit ${row.original.client.name}`}>
                 <PencilIcon />
               </Button>
             }

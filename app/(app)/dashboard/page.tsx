@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { workspaceMetrics } from "@/advisory/evaluate"
 import { rankAlerts } from "@/advisory/triggers"
-import type { PeriodMetrics } from "@/advisory/metrics"
+import { DASHBOARD_PERIODS, dashboardPeriod } from "@/advisory/periods"
 import { AlertCards, type AlertView } from "@/components/dashboard/alert-cards"
 import { BookkeepingOffer } from "@/components/dashboard/bookkeeping-offer"
 import { CashflowChart } from "@/components/dashboard/cashflow-chart"
@@ -13,7 +13,7 @@ import { PageBody, PageHeader } from "@/components/shell/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { db } from "@/db/client"
-import { addDays, addMonths, daysBetween, formatDate, monthKey } from "@/lib/dates"
+import { addDays, daysBetween, formatDate } from "@/lib/dates"
 import { env } from "@/lib/env"
 import { formatMarginBp, formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -27,17 +27,18 @@ export const metadata: Metadata = { title: "Dashboard" }
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const ctx = await requireReadyOrg()
-  const { period = "year" } = await searchParams
+  const period = dashboardPeriod.parse((await searchParams).period)
+  const shown = DASHBOARD_PERIODS[period]
   const metrics = workspaceMetrics(db, ctx.orgId, ctx.today)
   const { currency, locale } = ctx.settings
   const money = (m: number) => formatMoney(m, currency, locale)
-  const p: PeriodMetrics = period === "month" ? metrics.thisMonth : metrics.trailing12
+  const p = shown.pick(metrics)
   const { shown: alerts, hidden: hiddenAlerts } = rankAlerts(activeAlerts(db, ctx.orgId), 3)
   const deadlines = ctx.jurisdiction.taxDeadlines(taxProfileOf(ctx.settings), ctx.today, addDays(ctx.today, 90)).slice(0, 4)
   const engagement = currentEngagement(db, ctx.orgId)
   const empty = metrics.firstActivity === null
   const outlook = workspaceOutlook(db, ctx.orgId, ctx.settings, metrics, ctx.today)
-  const spending = spendingByCategory(db, ctx.orgId, period === "month" ? `${monthKey(ctx.today)}-01` : `${addMonths(monthKey(ctx.today), -11)}-01`, ctx.today)
+  const spending = spendingByCategory(db, ctx.orgId, shown.from(ctx.today), ctx.today)
 
   const tiles = [
     { label: "Invoiced", value: money(p.invoicedMinor), hint: "Finalized invoices by issue date" },
@@ -58,10 +59,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         description={`Cash-flow overview for ${ctx.orgName}`}
         actions={
           <div className="flex rounded-lg border p-0.5">
-            {[
-              ["month", "This month"],
-              ["year", "Last 12 months"],
-            ].map(([key, label]) => (
+            {Object.entries(DASHBOARD_PERIODS).map(([key, { label }]) => (
               <Button key={key} asChild size="sm" variant={period === key ? "secondary" : "ghost"}>
                 <Link href={`/dashboard?period=${key}`}>{label}</Link>
               </Button>
@@ -127,7 +125,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="grid gap-4 lg:grid-cols-3">
           <CashPositionCard outlook={outlook} currency={currency} locale={locale} />
           <Next30DaysCard outlook={outlook} currency={currency} locale={locale} />
-          <SpendingCard rows={spending} currency={currency} locale={locale} periodLabel={period === "month" ? "this month" : "last 12 months"} />
+          <SpendingCard rows={spending} currency={currency} locale={locale} periodLabel={shown.label.toLowerCase()} />
         </div>
       )}
 
