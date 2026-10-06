@@ -32,7 +32,7 @@ export async function saveCsvMapping(id: string, input: unknown): Promise<Action
   if (parsed.data.amountMode === "debitCredit" ? parsed.data.columns.debit === undefined && parsed.data.columns.credit === undefined : parsed.data.columns.amount === undefined)
     return { ok: false, error: "Choose the amount column(s)" }
   if (batch.status === "committed") return { ok: false, error: "This import is already booked" }
-  applyCsvMapping(ctx.orgId, batch, ctx.jurisdiction.code, parsed.data)
+  applyCsvMapping({ orgId: ctx.orgId, jurisdiction: ctx.jurisdiction.code, currency: ctx.settings.currency }, batch, parsed.data)
   audit(ctx, "import.mapped", "import", id)
   revalidatePath(`/imports/${id}`)
   return { ok: true }

@@ -155,6 +155,7 @@ export type RowIssue =
   | "possible_duplicate"
   | "low_confidence"
   | "out_of_period"
+  | "foreign_currency"
 
 export const importBatches = sqliteTable(
   "import_batches",

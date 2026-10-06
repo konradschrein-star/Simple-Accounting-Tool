@@ -17,14 +17,18 @@ export type Uncategorized = { id: string; description: string; counterparty: str
 
 export type Assignment = { accountId: string; source: "heuristic" | "rule"; ruleId?: string }
 
-const TRANSFER_RE = /\b(umbuchung|übertrag|uebertrag|eigenübertrag|transfer to|transfer from|own account|savings|sparkonto|tagesgeld)\b/i
-const TAX_RE = /\b(finanzamt|hmrc|irs usataxpymt|eftps|revenue jersey|comptroller of revenue)\b/i
+/** Whole-word match that also works next to umlauts and accents (`\b` is ASCII-only in JS). */
+const words = (alternatives: string[]) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "iu")
+
+const TRANSFER_RE = words(["umbuchung", "übertrag", "uebertrag", "eigenübertrag", "transfer to", "transfer from", "own account", "savings", "sparkonto", "tagesgeld"])
+const TAX_RE = words(["finanzamt", "hmrc", "irs usataxpymt", "eftps", "revenue jersey", "comptroller of revenue"])
+const LEGAL_FORM_RE = new RegExp(`(?<![\\p{L}\\p{N}])(?:gmbh|ag|ltd|limited|llc|inc|plc|kg|ug)\\.?(?![\\p{L}\\p{N}])`, "giu")
 
 export function normalizeCounterparty(value: string): string {
   return value
     .toLowerCase()
-    .replace(/\b(gmbh|ag|ltd|limited|llc|inc|plc|co|kg|ug)\b\.?/g, "")
-    .replace(/[^a-z0-9äöüß ]+/g, " ")
+    .replace(LEGAL_FORM_RE, "")
+    .replace(/[^\p{L}\p{N} ]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
 }

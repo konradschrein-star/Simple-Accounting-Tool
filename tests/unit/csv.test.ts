@@ -79,3 +79,11 @@ describe("CSV detection across real bank formats", () => {
     expect(normalizeRows(detection.rows, { ...detection.mapping, flipSign: true })[0].amountMinor).toBe(-85000)
   })
 })
+
+describe("currency guard", () => {
+  it("flags rows in another currency than the workspace", () => {
+    const detection = detectCsv("Date,Description,Amount,Currency\n01/10/2026,Hotel,-120.00,USD\n02/10/2026,Coffee,-3.50,GBP", "uk")
+    const rows = normalizeRows(detection.rows, detection.mapping, "GBP")
+    expect(rows.map((r) => r.issues)).toEqual([["foreign_currency"], []])
+  })
+})

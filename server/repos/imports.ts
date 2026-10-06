@@ -10,6 +10,9 @@ export type ImportRow = typeof importRows.$inferSelect
 
 export class ImportError extends DomainError {}
 
+/** Rows with these issues are staged but not booked unless the user ticks them. */
+const EXCLUDED_BY_DEFAULT = new Set<RowIssue>(["unparseable_date", "unparseable_amount", "foreign_currency"])
+
 export function listBatches(db: Db, orgId: string) {
   return db.select().from(importBatches).where(eq(importBatches.orgId, orgId)).orderBy(desc(importBatches.createdAt)).all()
 }
@@ -105,7 +108,7 @@ export function stageRows(
           balanceMinor: row.balanceMinor,
           raw: row.raw,
           issues,
-          include: !duplicate && issues.every((i) => i !== "unparseable_date" && i !== "unparseable_amount"),
+          include: !duplicate && !issues.some((i) => EXCLUDED_BY_DEFAULT.has(i)),
           matchedInvoiceId: match?.id ?? null,
         })
         .run()

@@ -11,8 +11,8 @@ export async function POST(request: Request) {
   try {
     const batch = startImport({
       orgId: ctx.orgId,
-      userId: ctx.user.id,
       jurisdiction: ctx.jurisdiction.code,
+      currency: ctx.settings.currency,
       today: ctx.today,
       filename: file.name,
       bytes: new Uint8Array(await file.arrayBuffer()),

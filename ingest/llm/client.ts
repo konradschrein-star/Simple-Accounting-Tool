@@ -1,5 +1,6 @@
-import OpenAI from "openai"
-import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions"
+import OpenAI, { APIConnectionTimeoutError, APIError } from "openai"
+import type { ChatCompletionContentPart, ChatCompletionCreateParamsNonStreaming, ChatCompletionMessageParam } from "openai/resources/chat/completions"
+import type { ResponseFormatJSONObject, ResponseFormatJSONSchema } from "openai/resources/shared"
 import { z } from "zod"
 import { env } from "@/lib/env"
 
@@ -67,40 +68,43 @@ function extractJson(text: string): unknown {
  * Strict json_schema first; one repair round-trip with the validation error; json_object mode as a fallback
  * for providers that ignore schemas.
  */
+/** OpenRouter routing preferences: zero-data-retention endpoints only, cheapest first. */
+type OpenRouterParams = ChatCompletionCreateParamsNonStreaming & {
+  provider: { zdr: boolean; data_collection: "deny"; require_parameters: boolean; sort: "price" }
+}
+
 export const openRouterStructured: LlmPort = async <T>(request: StructuredRequest<T>) => {
   const api = openRouter()
-  const messages: ChatCompletionMessageParam[] = [
-    { role: "system", content: request.system },
-    { role: "user", content: request.user },
-  ]
-  const provider = { zdr: true, data_collection: "deny", require_parameters: true, sort: "price" }
-  const formats = [
-    { type: "json_schema", json_schema: { name: request.name, strict: true, schema: strictJsonSchema(request.schema) } },
-    { type: "json_object" },
-  ] as const
+  const strict: ResponseFormatJSONSchema = { type: "json_schema", json_schema: { name: request.name, strict: true, schema: strictJsonSchema(request.schema) } }
+  const loose: ResponseFormatJSONObject = { type: "json_object" }
 
   let lastError = "no response"
-  for (const response_format of formats) {
+  for (const response_format of [strict, loose]) {
+    // Fresh conversation per format so repair turns from one mode never leak into the next.
+    const messages: ChatCompletionMessageParam[] = [
+      { role: "system", content: request.system },
+      { role: "user", content: request.user },
+    ]
     for (let attempt = 0; attempt < 2; attempt++) {
+      const params: OpenRouterParams = {
+        model: request.model,
+        messages,
+        temperature: 0,
+        max_tokens: request.maxTokens ?? 8000,
+        response_format,
+        provider: { zdr: true, data_collection: "deny", require_parameters: true, sort: "price" },
+      }
       let completion
       try {
-        completion = await api.chat.completions.create({
-          model: request.model,
-          messages,
-          temperature: 0,
-          max_tokens: request.maxTokens ?? 8000,
-          response_format: response_format as never,
-          // OpenRouter-specific routing preferences (passed through the OpenAI SDK body).
-          ...({ provider } as object),
-        })
+        completion = await api.chat.completions.create(params)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        if (/timed? ?out/i.test(message)) throw new LlmError("LLM_TIMEOUT", message)
-        if (/no endpoints|not a valid model|404/i.test(message)) {
-          lastError = message
+        if (error instanceof APIConnectionTimeoutError) throw new LlmError("LLM_TIMEOUT", error.message)
+        // 404: no endpoint supports this mode (e.g. strict schemas) — try the next format.
+        if (error instanceof APIError && error.status === 404) {
+          lastError = error.message
           break
         }
-        throw new LlmError("LLM_UNAVAILABLE", message)
+        throw new LlmError("LLM_UNAVAILABLE", error instanceof Error ? error.message : String(error))
       }
       const text = completion.choices[0]?.message?.content ?? ""
       try {
@@ -110,7 +114,7 @@ export const openRouterStructured: LlmPort = async <T>(request: StructuredReques
       } catch (error) {
         lastError = `Response was not JSON: ${String(error)}`
       }
-      messages.push({ role: "assistant", content: text }, { role: "user", content: `That output was invalid:\n${lastError}\nReturn only corrected JSON matching the schema.` })
+      if (attempt === 0) messages.push({ role: "assistant", content: text }, { role: "user", content: `That output was invalid:\n${lastError}\nReturn only corrected JSON matching the schema.` })
     }
   }
   throw new LlmError("LLM_INVALID_OUTPUT", lastError)

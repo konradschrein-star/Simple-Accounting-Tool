@@ -2,8 +2,11 @@ import type { RowIssue } from "@/db/schema"
 import type { CsvMapping, NormalizedRow } from "./types"
 import { isDebitIndicator, parseBankAmount, parseBankDate } from "./values"
 
-/** Applies a (detected or user-edited) mapping to raw CSV rows. Unparseable rows are kept and flagged, never dropped. */
-export function normalizeRows(rows: string[][], mapping: CsvMapping): NormalizedRow[] {
+/**
+ * Applies a (detected or user-edited) mapping to raw CSV rows. Unparseable rows are kept and flagged, never dropped.
+ * When `expectedCurrency` is given, rows whose currency column says otherwise are flagged (and excluded by default).
+ */
+export function normalizeRows(rows: string[][], mapping: CsvMapping, expectedCurrency?: string): NormalizedRow[] {
   const { columns, decimal } = mapping
   const cell = (row: string[], col: number | undefined) => (col === undefined ? "" : (row[col] ?? "").trim())
   const amount = (value: string) => (value ? parseBankAmount(value, decimal) : null)
@@ -29,6 +32,8 @@ export function normalizeRows(rows: string[][], mapping: CsvMapping): Normalized
       }
       if (amountMinor === null) issues.push("unparseable_amount")
       else if (mapping.flipSign) amountMinor = -amountMinor
+      const currency = cell(row, columns.currency).toUpperCase()
+      if (expectedCurrency && currency && currency !== expectedCurrency) issues.push("foreign_currency")
 
       const description = cell(row, columns.description)
       const counterparty = cell(row, columns.counterparty)

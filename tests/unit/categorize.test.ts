@@ -51,3 +51,16 @@ describe("AI categorization", () => {
     expect(out.get("b")).toEqual({ accountId: null, confidence: 0 })
   })
 })
+
+describe("unicode-safe matching", async () => {
+  const { categorizeDeterministic, normalizeCounterparty } = await import("@/bookkeeping/categorize")
+  it("recognises transfers that start with an umlaut", () => {
+    const result = categorizeDeterministic([{ id: "a", description: "Übertrag an Max", counterparty: "", amountMinor: -5000, invoiceId: null }], accounts, [])
+    expect(result.get("a")?.accountId).toBe("trf")
+  })
+  it("keeps accented names intact and strips legal forms only as whole words", () => {
+    expect(normalizeCounterparty("Société Générale S.A.")).toBe("société générale s a")
+    expect(normalizeCounterparty("Co-op Bank Ltd.")).toBe("co op bank")
+    expect(normalizeCounterparty("Bäckerei Müller GmbH")).toBe("bäckerei müller")
+  })
+})

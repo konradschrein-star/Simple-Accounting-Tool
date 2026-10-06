@@ -36,6 +36,7 @@ const ISSUE_LABELS: Record<RowIssue, string> = {
   possible_duplicate: "Already booked",
   low_confidence: "Not found in PDF text",
   out_of_period: "Outside statement period",
+  foreign_currency: "Other currency",
 }
 
 export function ReviewTable({
