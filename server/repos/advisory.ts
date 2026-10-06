@@ -52,6 +52,10 @@ export function activeAlerts(db: Db, orgId: string): AdvisoryAlert[] {
     .all()
 }
 
+export function getAlert(db: Db, orgId: string, id: string): AdvisoryAlert | null {
+  return db.select().from(advisoryAlerts).where(and(eq(advisoryAlerts.orgId, orgId), eq(advisoryAlerts.id, id))).get() ?? null
+}
+
 export function setAlertStatus(db: Db, orgId: string, id: string, status: AdvisoryAlert["status"]) {
   db.update(advisoryAlerts).set({ status }).where(and(eq(advisoryAlerts.orgId, orgId), eq(advisoryAlerts.id, id))).run()
 }

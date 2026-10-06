@@ -8,7 +8,7 @@ import { env } from "@/lib/env"
 import { notifyLead } from "@/lib/lead-webhook"
 import { limits } from "@/lib/rate-limit"
 import { audit, requireReadyOrg, type ReadyOrgContext } from "@/server/context"
-import { createAdvisoryRequest, hasOpenRequest, setAlertStatus } from "@/server/repos/advisory"
+import { createAdvisoryRequest, getAlert, hasOpenRequest, setAlertStatus } from "@/server/repos/advisory"
 import { requestEngagement } from "@/server/repos/engagements"
 
 export type CtaResult = { ok: true; bookingUrl: string | null; alreadyRequested?: boolean } | { ok: false; error: string }
@@ -42,15 +42,16 @@ export async function requestGrowthPlan(alertId: string | null, message = ""): P
   if (!limits.cta(ctx.user.id)) return { ok: false, error: "You've already sent a request — we'll be in touch shortly." }
   if (hasOpenRequest(db, ctx.orgId, "growth_plan")) return { ok: true, bookingUrl: bookingUrl(ctx), alreadyRequested: true }
   const metrics = snapshot(ctx)
+  const ownAlertId = alertId && getAlert(db, ctx.orgId, alertId) ? alertId : null
   const request = createAdvisoryRequest(db, {
     orgId: ctx.orgId,
     userId: ctx.user.id,
     kind: "growth_plan",
-    alertId,
+    alertId: ownAlertId,
     metricsSnapshot: metrics,
     message: z.string().max(2000).catch("").parse(message),
   })
-  if (alertId) setAlertStatus(db, ctx.orgId, alertId, "converted")
+  if (ownAlertId) setAlertStatus(db, ctx.orgId, ownAlertId, "converted")
   audit(ctx, "advisory.requested", "advisory_request", request.id)
   if (!ctx.settings.isDemo) notifyLead({ type: "growth_plan", workspace: ctx.orgName, name: ctx.user.name, email: ctx.user.email, metrics })
   revalidatePath("/dashboard")

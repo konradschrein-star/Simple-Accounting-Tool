@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
+import { DomainError } from "@/lib/action-result"
 import { clients, invoiceItems, invoices, workspaceSettings } from "@/db/schema"
 import {
   buildSnapshot,
@@ -17,13 +18,13 @@ import { getOrganizationName, getSettings, taxProfileOf, type WorkspaceSettings 
 export type Invoice = typeof invoices.$inferSelect
 export type InvoiceItem = typeof invoiceItems.$inferSelect
 
-export class InvoiceError extends Error {}
+export class InvoiceError extends DomainError {}
 
 export function listInvoices(db: Db, orgId: string) {
   return db
     .select({ invoice: invoices, clientName: clients.name })
     .from(invoices)
-    .leftJoin(clients, eq(clients.id, invoices.clientId))
+    .leftJoin(clients, and(eq(clients.id, invoices.clientId), eq(clients.orgId, invoices.orgId)))
     .where(eq(invoices.orgId, orgId))
     .orderBy(desc(invoices.issueDate), desc(invoices.createdAt))
     .all()
@@ -38,6 +39,8 @@ export function getInvoice(db: Db, orgId: string, id: string) {
 }
 
 export function createDraft(db: Db, orgId: string, settings: WorkspaceSettings, today: IsoDate, clientId: string | null = null): string {
+  if (clientId && !db.select({ id: clients.id }).from(clients).where(and(eq(clients.orgId, orgId), eq(clients.id, clientId))).get())
+    throw new InvoiceError("Unknown client")
   return db.transaction((tx) => {
     const invoice = tx
       .insert(invoices)
@@ -222,4 +225,9 @@ export function invoiceNumbers(db: Db, orgId: string, ids: string[]): Map<string
       .all()
       .map((i) => [i.id, i.number]),
   )
+}
+
+/** Finalized invoices render once; later downloads serve the stored file. */
+export function setInvoicePdfPath(db: Db, orgId: string, id: string, pdfPath: string) {
+  db.update(invoices).set({ pdfPath }).where(and(eq(invoices.orgId, orgId), eq(invoices.id, id))).run()
 }

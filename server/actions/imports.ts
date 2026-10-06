@@ -7,21 +7,13 @@ import { evaluateTriggers } from "@/advisory/evaluate"
 import { categorizeWorkspace } from "@/bookkeeping/service"
 import { db } from "@/db/client"
 import { enqueuePdfImport } from "@/ingest/jobs"
-import { applyCsvMapping, removeImportFile } from "@/ingest/service"
+import { csvMappingSchema } from "@/ingest/csv/types"
+import { applyCsvMapping, pdfImportsThisMonth, removeImportFile } from "@/ingest/service"
 import { env } from "@/lib/env"
 import { audit, requireReadyOrg } from "@/server/context"
 import { deleteBatch, editRows, getBatch, updateBatch } from "@/server/repos/imports"
 import { commitBatch, LedgerError } from "@/server/repos/ledger"
 
-const col = z.number().int().min(0).optional()
-const mappingSchema = z.object({
-  headerRow: z.number().int().min(0),
-  columns: z.object({ date: col, description: col, counterparty: col, amount: col, debit: col, credit: col, balance: col, currency: col, indicator: col }),
-  amountMode: z.enum(["signed", "debitCredit", "indicator"]),
-  dateFormat: z.enum(["dmy", "mdy", "ymd"]),
-  decimal: z.enum([".", ","]),
-  flipSign: z.boolean(),
-})
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string }
 
@@ -34,7 +26,7 @@ async function loadBatch(id: string) {
 
 export async function saveCsvMapping(id: string, input: unknown): Promise<ActionResult> {
   const { ctx, batch } = await loadBatch(id)
-  const parsed = mappingSchema.safeParse(input)
+  const parsed = csvMappingSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Invalid column mapping" }
   if (parsed.data.columns.date === undefined) return { ok: false, error: "Choose the date column" }
   if (parsed.data.amountMode === "debitCredit" ? parsed.data.columns.debit === undefined && parsed.data.columns.credit === undefined : parsed.data.columns.amount === undefined)
@@ -53,7 +45,7 @@ const editSchema = z.array(
     description: z.string().max(500).optional(),
     amountMinor: z.number().int().optional(),
     include: z.boolean().optional(),
-    matchedInvoiceId: z.string().nullable().optional(),
+    matchedInvoiceId: z.null().optional(),
   }),
 )
 
@@ -90,10 +82,12 @@ export async function commitImport(id: string): Promise<ActionResult> {
   return { ok: true, message: `${result.inserted} transactions booked · ${categorized.deterministic + categorized.ai} auto-categorized${paid}` }
 }
 
+export const MAX_IMPORT_ATTEMPTS = 3
+
 export async function retryImport(id: string) {
   const { ctx, batch } = await loadBatch(id)
-  if (batch.status !== "failed" || batch.source !== "pdf" || !batch.filePath) return
-  updateBatch(db, ctx.orgId, id, { attempts: batch.attempts + 1 })
+  if (batch.status !== "failed" || batch.source !== "pdf" || !batch.filePath || batch.attempts >= MAX_IMPORT_ATTEMPTS) return
+  if (pdfImportsThisMonth(ctx.orgId, ctx.today) >= env().PDF_IMPORTS_PER_MONTH) return
   enqueuePdfImport(ctx.orgId, id)
   revalidatePath(`/imports/${id}`)
 }

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm"
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { nanoid } from "nanoid"
+import type { CsvMapping, StoredCsvMapping } from "../ingest/csv/types"
 import { organization, user } from "./auth-schema"
 
 export * from "./auth-schema"
@@ -175,7 +176,7 @@ export const importBatches = sqliteTable(
     errorCode: text("error_code"),
     errorMessage: text("error_message"),
     reconciliation: json<Reconciliation>("reconciliation"),
-    csvMapping: json<Record<string, unknown>>("csv_mapping"),
+    csvMapping: json<StoredCsvMapping>("csv_mapping"),
     rowCount: integer("row_count").notNull().default(0),
     createdAt: createdAt(),
     committedAt: integer("committed_at", { mode: "timestamp_ms" }),
@@ -247,7 +248,7 @@ export const csvMappingProfiles = sqliteTable(
     id: id(),
     orgId: orgId(),
     headerFingerprint: text("header_fingerprint").notNull(),
-    mapping: json<Record<string, unknown>>("mapping").notNull(),
+    mapping: json<CsvMapping>("mapping").notNull(),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("csv_profiles_org_fp").on(t.orgId, t.headerFingerprint)],

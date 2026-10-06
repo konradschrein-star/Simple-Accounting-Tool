@@ -17,3 +17,10 @@ export function dedupeHashes(rows: { date: string; amountMinor: number; descript
     return createHash("sha256").update(`${key}|${occurrence}`).digest("hex")
   })
 }
+
+/** Hashes every bookable row (date + amount present) in statement order; staging and commit must agree on this. */
+export function hashBankRows<T extends { date: string | null; amountMinor: number | null; description: string }>(rows: T[]): Map<T, string> {
+  const bookable = rows.filter((r) => r.date && r.amountMinor !== null)
+  const hashes = dedupeHashes(bookable.map((r) => ({ date: r.date!, amountMinor: r.amountMinor!, description: r.description })))
+  return new Map(bookable.map((r, i) => [r, hashes[i]]))
+}

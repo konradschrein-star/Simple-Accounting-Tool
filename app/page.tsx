@@ -36,9 +36,10 @@ const FEATURES = [
   { icon: BriefcaseBusinessIcon, title: "Or hand it over completely", body: "Our bookkeepers take over the review queue and close your month — AI-first, human-checked, with every change audited." },
 ]
 
-export default async function LandingPage() {
+export default async function LandingPage({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
   if ((await getSession())?.user) redirect("/dashboard")
   const brand = env().BRAND_NAME
+  const demoBusy = (await searchParams).demo === "busy"
   return (
     <div className="min-h-svh">
       <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
@@ -81,6 +82,7 @@ export default async function LandingPage() {
               {env().DEMO_ENABLED ? (
                 <div className="mt-8">
                   <p className="mb-2 text-sm font-medium">Or explore a live demo business — no sign-up:</p>
+                  {demoBusy ? <p className="mb-2 text-sm text-destructive">Demos are busy right now — please try again in a little while, or start free.</p> : null}
                   <div className="flex flex-wrap gap-2">
                     {DEMOS.map((d) => (
                       <form key={d.code} action={startDemo.bind(null, d.code)}>

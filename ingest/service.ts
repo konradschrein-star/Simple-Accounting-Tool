@@ -2,7 +2,7 @@ import "server-only"
 import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
-import { and, count, eq, gte, isNull, notInArray, or } from "drizzle-orm"
+import { and, eq, gte, isNull, notInArray, or, sum } from "drizzle-orm"
 import { db } from "@/db/client"
 import { importBatches } from "@/db/schema"
 import type { JurisdictionCode } from "@/jurisdictions/types"
@@ -33,11 +33,12 @@ function sniff(bytes: Uint8Array, filename: string): "pdf" | "csv" | null {
   return null
 }
 
+/** LLM runs (first attempts and retries) this month — what the free-tier quota actually limits. */
 export function pdfImportsThisMonth(orgId: string, today: string): number {
   const monthStart = fromIso(`${today.slice(0, 7)}-01`)
-  return (
+  return Number(
     db
-      .select({ n: count() })
+      .select({ n: sum(importBatches.attempts) })
       .from(importBatches)
       .where(
         and(
@@ -45,10 +46,10 @@ export function pdfImportsThisMonth(orgId: string, today: string): number {
           eq(importBatches.source, "pdf"),
           eq(importBatches.llmCalled, true),
           gte(importBatches.createdAt, monthStart),
-          or(isNull(importBatches.errorCode), notInArray(importBatches.errorCode, ["LLM_UNAVAILABLE", "INTERRUPTED"])),
+          or(isNull(importBatches.errorCode), notInArray(importBatches.errorCode, ["LLM_UNAVAILABLE", "PDF_TOOLING_UNAVAILABLE", "INTERRUPTED", "INTERNAL"])),
         ),
       )
-      .get()?.n ?? 0
+      .get()?.n ?? 0,
   )
 }
 
@@ -75,7 +76,7 @@ export function startImport(input: { orgId: string; userId: string; jurisdiction
   if (findBatchBySha(db, orgId, sha)) throw new ImportRejected("DUPLICATE_FILE", 409)
   if (kind === "pdf" && pdfImportsThisMonth(orgId, input.today) >= env().PDF_IMPORTS_PER_MONTH) throw new ImportRejected("QUOTA_EXCEEDED", 402)
 
-  const batch = createBatch(db, { orgId, source: kind, filename: input.filename.slice(0, 200), fileSha256: sha })
+  const batch = createBatch(db, orgId, { source: kind, filename: input.filename.slice(0, 200), fileSha256: sha })
   const relative = path.join("uploads", orgId, "imports", `${batch.id}.${kind}`)
   const absolute = path.join(path.resolve(env().DATA_DIR), relative)
   fs.mkdirSync(path.dirname(absolute), { recursive: true })

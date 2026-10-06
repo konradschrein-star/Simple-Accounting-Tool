@@ -2,9 +2,9 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
 import { admin, anonymous, organization } from "better-auth/plugins"
-import { asc, eq } from "drizzle-orm"
 import { db } from "@/db/client"
 import * as schema from "@/db/schema"
+import { firstMembershipOrgId } from "@/server/repos/workspace"
 import { env } from "@/lib/env"
 
 function createAuth() {
@@ -21,6 +21,19 @@ function createAuth() {
         ? { google: { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET, prompt: "select_account" } }
         : {},
     rateLimit: { enabled: true, storage: "memory" },
+    // Guests are only created server-side by the demo flow; role changes go through our audited admin UI.
+    disabledPaths: [
+      "/sign-in/anonymous",
+      "/admin/impersonate-user",
+      "/admin/stop-impersonating",
+      "/admin/set-role",
+      "/admin/create-user",
+      "/admin/remove-user",
+      "/admin/set-user-password",
+      "/admin/ban-user",
+      "/admin/unban-user",
+      "/admin/update-user",
+    ],
     databaseHooks: {
       user: {
         create: {
@@ -33,13 +46,7 @@ function createAuth() {
         create: {
           // Every session starts in the user's first workspace; requireOrg() bootstraps one if none exists yet.
           before: async (session) => {
-            const membership = db
-              .select({ organizationId: schema.member.organizationId })
-              .from(schema.member)
-              .where(eq(schema.member.userId, session.userId))
-              .orderBy(asc(schema.member.createdAt))
-              .get()
-            return { data: { ...session, activeOrganizationId: membership?.organizationId ?? null } }
+            return { data: { ...session, activeOrganizationId: firstMembershipOrgId(db, session.userId) } }
           },
         },
       },

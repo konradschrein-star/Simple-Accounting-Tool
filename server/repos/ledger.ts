@@ -2,12 +2,13 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { categorizationRules, importBatches, importRows, invoices, ledgerAccounts, periodCloses, transactions } from "@/db/schema"
 import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
-import { dedupeHashes } from "@/ingest/dedupe"
+import { hashBankRows } from "@/ingest/dedupe"
+import { DomainError } from "@/lib/action-result"
 import { monthKey } from "@/lib/dates"
 
 export type Transaction = typeof transactions.$inferSelect
 
-export class LedgerError extends Error {}
+export class LedgerError extends DomainError {}
 
 export function listAccounts(db: Db, orgId: string): AccountRef[] {
   return db
@@ -48,9 +49,7 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
   if (!batch) throw new LedgerError("Import not found")
   if (batch.status !== "staged") throw new LedgerError("This import is not ready to commit")
   const rows = db.select().from(importRows).where(eq(importRows.batchId, batchId)).orderBy(asc(importRows.rowIndex)).all()
-  const valid = rows.filter((r) => r.date && r.amountMinor !== null)
-  const hashes = dedupeHashes(valid.map((r) => ({ date: r.date!, amountMinor: r.amountMinor!, description: r.description })))
-  const included = valid.map((r, i) => ({ row: r, hash: hashes[i] })).filter(({ row }) => row.include)
+  const included = [...hashBankRows(rows)].map(([row, hash]) => ({ row, hash })).filter(({ row }) => row.include)
   assertOpen(db, orgId, included.map(({ row }) => row.date!))
 
   return db.transaction((tx) => {

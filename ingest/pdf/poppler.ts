@@ -8,7 +8,7 @@ const run = promisify(execFile)
 
 export class PdfError extends Error {
   constructor(
-    readonly code: "ENCRYPTED_PDF" | "TOO_MANY_PAGES" | "UNSUPPORTED_TYPE" | "LLM_UNAVAILABLE",
+    readonly code: "ENCRYPTED_PDF" | "TOO_MANY_PAGES" | "UNSUPPORTED_TYPE" | "PDF_TOOLING_UNAVAILABLE",
     message: string,
   ) {
     super(message)
@@ -21,7 +21,7 @@ async function tool(name: string, args: string[]): Promise<string> {
     return stdout
   } catch (error) {
     const err = error as NodeJS.ErrnoException & { stderr?: string }
-    if (err.code === "ENOENT") throw new PdfError("LLM_UNAVAILABLE", `${name} is not installed (poppler-utils)`)
+    if (err.code === "ENOENT") throw new PdfError("PDF_TOOLING_UNAVAILABLE", `${name} is not installed (poppler-utils)`)
     if (/incorrect password|encrypted/i.test(err.stderr ?? "")) throw new PdfError("ENCRYPTED_PDF", "The PDF is password-protected")
     throw new PdfError("UNSUPPORTED_TYPE", `Could not read PDF: ${err.stderr || err.message}`)
   }

@@ -1,11 +1,11 @@
 import "server-only"
-import path from "node:path"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import pLimit from "p-limit"
 import { db } from "@/db/client"
 import { importBatches } from "@/db/schema"
+import { dataPath } from "@/lib/data-path"
 import { env } from "@/lib/env"
-import { LlmError, openRouterStructured } from "@/ingest/llm/client"
+import { defaultLlm, LlmError } from "@/ingest/llm/client"
 import { extractStatement } from "@/ingest/pdf/extract"
 import { PdfError, pdfInfo, pdfPageImages, pdfPageTexts } from "@/ingest/pdf/poppler"
 import { getBatch, stageRows, updateBatch } from "@/server/repos/imports"
@@ -16,47 +16,57 @@ const jobs = pLimit(2)
 
 export function enqueuePdfImport(orgId: string, batchId: string) {
   updateBatch(db, orgId, batchId, { status: "parsing", errorCode: null, errorMessage: null })
-  void jobs(() => runPdfImport(orgId, batchId))
+  jobs(() => runPdfImport(orgId, batchId)).catch((error) => console.error(`[import ${batchId}] crashed`, error))
+}
+
+class ImportFailure extends Error {
+  constructor(
+    readonly code: "NO_TRANSACTIONS_FOUND" | "CURRENCY_MISMATCH",
+    message: string,
+    readonly detectedCurrency: string | null = null,
+  ) {
+    super(message)
+  }
 }
 
 async function runPdfImport(orgId: string, batchId: string) {
-  const batch = getBatch(db, orgId, batchId)
-  if (!batch?.filePath) return
-  const file = path.join(path.resolve(env().DATA_DIR), batch.filePath)
-  const settings = getSettings(db, orgId)
   try {
+    const batch = getBatch(db, orgId, batchId)
+    if (!batch?.filePath) throw new Error("Import file is missing")
+    const file = dataPath(batch.filePath)
+    const settings = getSettings(db, orgId)
+    const llm = defaultLlm()
+    if (!llm) throw new LlmError("LLM_UNAVAILABLE", "AI parsing is not configured")
+
     const info = await pdfInfo(file)
     if (info.encrypted) throw new PdfError("ENCRYPTED_PDF", "The PDF is password-protected")
     if (info.pages > env().MAX_PDF_PAGES) throw new PdfError("TOO_MANY_PAGES", `Statements are limited to ${env().MAX_PDF_PAGES} pages`)
-    if (!env().OPENROUTER_API_KEY) throw new LlmError("LLM_UNAVAILABLE", "AI parsing is not configured")
     const pageTexts = await pdfPageTexts(file)
-    updateBatch(db, orgId, batchId, { llmCalled: true })
+
+    // Every run counts towards the monthly quota, whether or not it succeeds.
+    updateBatch(db, orgId, batchId, { llmCalled: true, attempts: batch.attempts + 1 })
     const e = env()
     const extraction = await extractStatement({
-      llm: openRouterStructured,
+      llm,
       models: { text: e.LLM_TEXT_MODEL, vision: e.LLM_VISION_MODEL, escalation: e.LLM_ESCALATION_MODEL },
       pageTexts,
       renderImages: () => pdfPageImages(file, info.pages),
     })
-    if (!extraction.rows.length) {
-      updateBatch(db, orgId, batchId, { status: "failed", errorCode: "NO_TRANSACTIONS_FOUND", errorMessage: "No transactions were found in this PDF." })
-      return
-    }
-    if (extraction.currency && extraction.currency !== settings.currency) {
-      updateBatch(db, orgId, batchId, {
-        status: "failed",
-        errorCode: "CURRENCY_MISMATCH",
-        detectedCurrency: extraction.currency,
-        errorMessage: `This statement is in ${extraction.currency}, but your workspace uses ${settings.currency}.`,
-      })
-      return
-    }
-    updateBatch(db, orgId, batchId, { attempts: extraction.attempts, detectedCurrency: extraction.currency })
+    if (!extraction.rows.length) throw new ImportFailure("NO_TRANSACTIONS_FOUND", "No transactions were found in this PDF.")
+    if (extraction.currency && extraction.currency !== settings.currency)
+      throw new ImportFailure("CURRENCY_MISMATCH", `This statement is in ${extraction.currency}, but your workspace uses ${settings.currency}.`, extraction.currency)
+
+    updateBatch(db, orgId, batchId, { detectedCurrency: extraction.currency })
     stageRows(db, orgId, batchId, extraction.rows, { reconciliation: extraction.reconciliation, parser: extraction.parser, modelUsed: extraction.model })
   } catch (error) {
-    const code = error instanceof PdfError || error instanceof LlmError ? error.code : "LLM_INVALID_OUTPUT"
-    console.error(`[import ${batchId}]`, error)
-    updateBatch(db, orgId, batchId, { status: "failed", errorCode: code, errorMessage: error instanceof Error ? error.message : String(error) })
+    const code = error instanceof PdfError || error instanceof LlmError || error instanceof ImportFailure ? error.code : "INTERNAL"
+    if (code === "INTERNAL") console.error(`[import ${batchId}]`, error)
+    updateBatch(db, orgId, batchId, {
+      status: "failed",
+      errorCode: code,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      ...(error instanceof ImportFailure && error.detectedCurrency ? { detectedCurrency: error.detectedCurrency } : {}),
+    })
   }
 }
 
@@ -64,6 +74,6 @@ async function runPdfImport(orgId: string, batchId: string) {
 export function recoverInterruptedImports() {
   db.update(importBatches)
     .set({ status: "failed", errorCode: "INTERRUPTED", errorMessage: "Processing was interrupted by a restart. Please retry." })
-    .where(and(eq(importBatches.status, "parsing")))
+    .where(eq(importBatches.status, "parsing"))
     .run()
 }

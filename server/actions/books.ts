@@ -5,6 +5,8 @@ import { z } from "zod"
 import { draftCloseSummary } from "@/bookkeeping/close-service"
 import { closeReady } from "@/bookkeeping/pnl"
 import { db } from "@/db/client"
+import { defaultLlm } from "@/ingest/llm/client"
+import { limits } from "@/lib/rate-limit"
 import { audit, requireReadyOrg } from "@/server/context"
 import { closePeriod, monthChecklist, reopenPeriod, saveCloseDraft } from "@/server/repos/books"
 
@@ -21,7 +23,7 @@ export async function prepareClose(period: string): Promise<BooksResult> {
   const ctx = await requireReadyOrg()
   if (!month.safeParse(period).success) return { ok: false, error: "Invalid month" }
   const checklist = monthChecklist(db, ctx.orgId, period)
-  const aiSummary = await draftCloseSummary({ db, orgId: ctx.orgId, month: period, settings: ctx.settings, jurisdiction: ctx.jurisdiction, today: ctx.today })
+  const aiSummary = await draftCloseSummary({ db, orgId: ctx.orgId, month: period, settings: ctx.settings, jurisdiction: ctx.jurisdiction, today: ctx.today, llm: limits.llm(ctx.orgId) ? defaultLlm() : null })
   saveCloseDraft(db, ctx.orgId, period, { checklist, aiSummary })
   audit(ctx, "close.drafted", "period_close", period)
   revalidatePath("/books")

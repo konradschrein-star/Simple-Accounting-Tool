@@ -66,7 +66,10 @@ export const requireOrg = cache(async (): Promise<OrgContext> => {
     else orgId = null
   }
   if (!orgId) {
-    orgId = firstMembershipOrgId(db, user.id) ?? bootstrapWorkspace(db, user.id, user.name ? `${user.name}'s business` : "My business")
+    const existing = firstMembershipOrgId(db, user.id)
+    // Guests never get a permanent workspace — their only workspace is the expiring demo.
+    if (!existing && user.isAnonymous) redirect("/")
+    orgId = existing ?? bootstrapWorkspace(db, user.id, user.name ? `${user.name}'s business` : "My business")
     setActiveOrganization(db, session.id, orgId)
   }
 

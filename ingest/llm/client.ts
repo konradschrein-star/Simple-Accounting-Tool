@@ -116,6 +116,11 @@ export const openRouterStructured: LlmPort = async <T>(request: StructuredReques
   throw new LlmError("LLM_INVALID_OUTPUT", lastError)
 }
 
+/** The configured model gateway, or null when AI is not set up — callers then fall back to deterministic behaviour. */
+export function defaultLlm(): LlmPort | null {
+  return env().OPENROUTER_API_KEY ? openRouterStructured : null
+}
+
 export function imagePart(png: Buffer): ChatCompletionContentPart {
   return { type: "image_url", image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }
 }

@@ -1,7 +1,7 @@
-import { and, asc, eq, isNotNull } from "drizzle-orm"
+import { and, asc, count, eq, gt, isNotNull } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import type { Db } from "@/db/client"
-import { ledgerAccounts, member, organization, serviceEngagements, session, workspaceSettings } from "@/db/schema"
+import { ledgerAccounts, member, organization, serviceEngagements, session, user, workspaceSettings } from "@/db/schema"
 import { getJurisdiction, type JurisdictionCode, type TaxProfile } from "@/jurisdictions"
 
 export type WorkspaceSettings = typeof workspaceSettings.$inferSelect
@@ -100,4 +100,12 @@ export function updateSettings(db: Db, orgId: string, patch: Partial<Omit<Worksp
 
 export function renameOrganization(db: Db, orgId: string, name: string) {
   db.update(organization).set({ name }).where(eq(organization.id, orgId)).run()
+}
+
+export function activeDemoCount(db: Db): number {
+  return db.select({ n: count() }).from(workspaceSettings).where(and(eq(workspaceSettings.isDemo, true), gt(workspaceSettings.demoExpiresAt, new Date()))).get()?.n ?? 0
+}
+
+export function renameUser(db: Db, userId: string, name: string) {
+  db.update(user).set({ name }).where(eq(user.id, userId)).run()
 }

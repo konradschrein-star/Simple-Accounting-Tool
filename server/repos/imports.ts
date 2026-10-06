@@ -2,10 +2,13 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { csvMappingProfiles, importBatches, importRows, invoices, transactions, type Reconciliation, type RowIssue } from "@/db/schema"
 import type { CsvMapping, NormalizedRow } from "@/ingest/csv/types"
-import { dedupeHashes } from "@/ingest/dedupe"
+import { hashBankRows } from "@/ingest/dedupe"
+import { DomainError } from "@/lib/action-result"
 
 export type ImportBatch = typeof importBatches.$inferSelect
 export type ImportRow = typeof importRows.$inferSelect
+
+export class ImportError extends DomainError {}
 
 export function listBatches(db: Db, orgId: string) {
   return db.select().from(importBatches).where(eq(importBatches.orgId, orgId)).orderBy(desc(importBatches.createdAt)).all()
@@ -19,15 +22,16 @@ export function findBatchBySha(db: Db, orgId: string, sha: string): ImportBatch 
   return db.select().from(importBatches).where(and(eq(importBatches.orgId, orgId), eq(importBatches.fileSha256, sha))).get() ?? null
 }
 
-export function createBatch(db: Db, values: typeof importBatches.$inferInsert): ImportBatch {
-  return db.insert(importBatches).values(values).returning().get()
+export function createBatch(db: Db, orgId: string, values: Omit<typeof importBatches.$inferInsert, "orgId">): ImportBatch {
+  return db.insert(importBatches).values({ ...values, orgId }).returning().get()
 }
 
 export function updateBatch(db: Db, orgId: string, id: string, patch: Partial<typeof importBatches.$inferInsert>) {
   db.update(importBatches).set(patch).where(and(eq(importBatches.orgId, orgId), eq(importBatches.id, id))).run()
 }
 
-export function listRows(db: Db, batchId: string): ImportRow[] {
+export function listRows(db: Db, orgId: string, batchId: string): ImportRow[] {
+  if (!getBatch(db, orgId, batchId)) return []
   return db.select().from(importRows).where(eq(importRows.batchId, batchId)).orderBy(asc(importRows.rowIndex)).all()
 }
 
@@ -37,7 +41,7 @@ export function findMappingProfile(db: Db, orgId: string, fingerprint: string): 
     .from(csvMappingProfiles)
     .where(and(eq(csvMappingProfiles.orgId, orgId), eq(csvMappingProfiles.headerFingerprint, fingerprint)))
     .get()
-  return (profile?.mapping as CsvMapping | undefined) ?? null
+  return profile?.mapping ?? null
 }
 
 export function saveMappingProfile(db: Db, orgId: string, fingerprint: string, mapping: CsvMapping) {
@@ -58,9 +62,9 @@ export function stageRows(
   rows: NormalizedRow[],
   extra: { reconciliation?: Reconciliation | null; status?: ImportBatch["status"]; parser?: ImportBatch["parser"]; modelUsed?: string | null } = {},
 ) {
-  const valid = rows.filter((r) => r.date && r.amountMinor !== null)
-  const hashes = dedupeHashes(valid.map((r) => ({ date: r.date!, amountMinor: r.amountMinor!, description: r.description })))
-  const hashByRow = new Map(valid.map((r, i) => [r, hashes[i]]))
+  if (!getBatch(db, orgId, batchId)) throw new ImportError("Import not found")
+  const hashByRow = hashBankRows(rows)
+  const hashes = [...hashByRow.values()]
   const existing = new Set(
     hashes.length
       ? db
@@ -113,11 +117,12 @@ export function stageRows(
   })
 }
 
-export type RowEdit = { id: string; date?: string; description?: string; amountMinor?: number; include?: boolean; matchedInvoiceId?: string | null }
+/** Users can only edit the parsed values or drop the suggested invoice match — never point a row at an arbitrary invoice. */
+export type RowEdit = { id: string; date?: string; description?: string; amountMinor?: number; include?: boolean; matchedInvoiceId?: null }
 
 export function editRows(db: Db, orgId: string, batchId: string, edits: RowEdit[]) {
   const batch = getBatch(db, orgId, batchId)
-  if (!batch || batch.status !== "staged") throw new Error("Batch is not editable")
+  if (!batch || batch.status !== "staged") throw new ImportError("This import can no longer be edited")
   db.transaction((tx) => {
     for (const { id, ...patch } of edits) {
       tx.update(importRows).set(patch).where(and(eq(importRows.batchId, batchId), eq(importRows.id, id))).run()

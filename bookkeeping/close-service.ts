@@ -3,7 +3,7 @@ import { z } from "zod"
 import { workspaceMetrics } from "@/advisory/evaluate"
 import type { Db } from "@/db/client"
 import type { CloseSummary } from "@/db/schema"
-import { openRouterStructured, type LlmPort } from "@/ingest/llm/client"
+import type { LlmPort } from "@/ingest/llm/client"
 import type { Jurisdiction } from "@/jurisdictions"
 import { addDays, monthLabel } from "@/lib/dates"
 import { env } from "@/lib/env"
@@ -25,14 +25,15 @@ export async function draftCloseSummary(input: {
   settings: WorkspaceSettings
   jurisdiction: Jurisdiction
   today: string
-  llm?: LlmPort
+  /** null = deterministic summary only (no key configured, or throttled). */
+  llm: LlmPort | null
 }): Promise<CloseSummary> {
   const { db, orgId, month, settings, jurisdiction } = input
   const pnl = monthPnl(db, orgId, month)
   const metrics = workspaceMetrics(db, orgId, input.today)
   const next = jurisdiction.taxDeadlines(taxProfileOf(settings), input.today, addDays(input.today, 45))[0] ?? null
   const draft = draftSummary({ monthLabel: monthLabel(month), pnl, currency: settings.currency, locale: settings.locale, overdueMinor: metrics.overdueMinor, nextDeadline: next })
-  const llm = input.llm ?? (env().OPENROUTER_API_KEY ? openRouterStructured : null)
+  const { llm } = input
   if (!llm) return draft
   try {
     const { data } = await llm({

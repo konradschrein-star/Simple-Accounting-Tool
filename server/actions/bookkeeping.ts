@@ -7,7 +7,9 @@ import { evaluateTriggers } from "@/advisory/evaluate"
 import { suggestRule } from "@/bookkeeping/categorize"
 import { categorizeWorkspace } from "@/bookkeeping/service"
 import { db } from "@/db/client"
+import { defaultLlm } from "@/ingest/llm/client"
 import { transactions } from "@/db/schema"
+import { limits } from "@/lib/rate-limit"
 import { audit, requireReadyOrg } from "@/server/context"
 import { createRule, deleteRule, deleteTransaction, LedgerError, setAccount } from "@/server/repos/ledger"
 
@@ -69,8 +71,8 @@ export async function createRuleFromTransaction(transactionId: string): Promise<
   if (!rule) return { ok: false, error: "Not enough detail to build a rule from this line" }
   const id = createRule(db, ctx.orgId, rule)
   audit(ctx, "rule.created", "rule", id, rule)
-  // Apply the new rule to everything still waiting.
-  await categorizeWorkspace(db, ctx.orgId)
+  // Apply the new rule to everything still waiting (rules only; the AI pass is throttled).
+  await categorizeWorkspace(db, ctx.orgId, limits.llm(ctx.orgId) ? defaultLlm() : null)
   revalidatePath("/", "layout")
   return { ok: true, message: `Rule saved: “${rule.pattern}” will be categorized automatically` }
 }
@@ -84,6 +86,7 @@ export async function removeRule(ruleId: string) {
 
 export async function rerunCategorization(): Promise<BookkeepingResult> {
   const ctx = await requireReadyOrg()
+  if (!limits.llm(ctx.orgId)) return { ok: false, error: "Auto-categorization was run recently — please wait a few minutes." }
   const result = await categorizeWorkspace(db, ctx.orgId)
   audit(ctx, "transactions.recategorized", "transaction", null, result)
   revalidatePath("/", "layout")

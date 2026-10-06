@@ -12,6 +12,7 @@ export async function GET() {
     fs.accessSync(path.resolve(env().DATA_DIR), fs.constants.W_OK)
     return Response.json({ ok: true })
   } catch (error) {
-    return Response.json({ ok: false, error: String(error) }, { status: 503 })
+    console.error("[health]", error)
+    return Response.json({ ok: false }, { status: 503 })
   }
 }

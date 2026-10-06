@@ -1,17 +1,22 @@
+import { z } from "zod"
 import type { RowIssue } from "@/db/schema"
-import type { CsvRole } from "@/jurisdictions/types"
 
-export type DateFormat = "dmy" | "mdy" | "ymd"
-export type AmountMode = "signed" | "debitCredit" | "indicator"
+const column = z.number().int().min(0).optional()
 
-export type CsvMapping = {
-  headerRow: number
-  columns: Partial<Record<CsvRole, number>>
-  amountMode: AmountMode
-  dateFormat: DateFormat
-  decimal: "." | ","
-  flipSign: boolean
-}
+/** Single source of truth for a column mapping: validates user edits and types the stored JSON. */
+export const csvMappingSchema = z.object({
+  headerRow: z.number().int().min(0),
+  columns: z.object({ date: column, description: column, counterparty: column, amount: column, debit: column, credit: column, balance: column, currency: column, indicator: column }),
+  amountMode: z.enum(["signed", "debitCredit", "indicator"]),
+  dateFormat: z.enum(["dmy", "mdy", "ymd"]),
+  decimal: z.enum([".", ","]),
+  flipSign: z.boolean(),
+})
+
+export type CsvMapping = z.infer<typeof csvMappingSchema>
+export type DateFormat = CsvMapping["dateFormat"]
+export type AmountMode = CsvMapping["amountMode"]
+export type StoredCsvMapping = CsvMapping & { fingerprint: string }
 
 export type CsvDetection = {
   rows: string[][]

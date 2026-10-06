@@ -10,15 +10,15 @@ import { applyJurisdiction, renameOrganization, updateSettings } from "@/server/
 const checkbox = z.preprocess((v) => v === "on" || v === "true", z.boolean())
 
 const onboardingSchema = z.object({
-  businessName: z.string().trim().min(2, "Enter your business name"),
+  businessName: z.string().trim().min(2, "Enter your business name").max(120),
   jurisdiction: z.enum(JURISDICTION_CODES),
-  legalName: z.string().trim().default(""),
-  addressLine1: z.string().trim().default(""),
-  postcode: z.string().trim().default(""),
-  city: z.string().trim().default(""),
-  email: z.string().trim().default(""),
-  taxNumber: z.string().trim().default(""),
-  vatId: z.string().trim().default(""),
+  legalName: z.string().trim().max(200).default(""),
+  addressLine1: z.string().trim().max(200).default(""),
+  postcode: z.string().trim().max(200).default(""),
+  city: z.string().trim().max(200).default(""),
+  email: z.string().trim().max(200).default(""),
+  taxNumber: z.string().trim().max(200).default(""),
+  vatId: z.string().trim().max(200).default(""),
   taxRegistered: checkbox,
   smallBusinessExempt: checkbox,
   vatFilingFrequency: z.enum(["monthly", "quarterly", "none"]).default("quarterly"),
@@ -30,6 +30,7 @@ export type OnboardingState = { error?: string }
 
 export async function completeOnboarding(_prev: OnboardingState, form: FormData): Promise<OnboardingState> {
   const ctx = await requireOrg()
+  if (ctx.jurisdiction) redirect("/dashboard")
   const parsed = onboardingSchema.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
   const input = parsed.data

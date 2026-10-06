@@ -12,6 +12,8 @@ export const IMPORT_ERROR_COPY: Record<string, string> = {
   LLM_INVALID_OUTPUT: "The AI reader couldn't produce a reliable result for this statement. Try the CSV export instead.",
   LLM_UNAVAILABLE: "AI statement reading is temporarily unavailable. CSV imports still work.",
   INTERRUPTED: "Processing was interrupted. Please retry.",
+  PDF_TOOLING_UNAVAILABLE: "PDF reading is temporarily unavailable. CSV imports still work.",
+  INTERNAL: "Something went wrong on our side. Please retry, or use the CSV export.",
 }
 
 export function importErrorMessage(code: string | null | undefined, fallback?: string | null): string {

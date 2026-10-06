@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
 import { db } from "@/db/client"
-import type { CsvMapping } from "@/ingest/csv/types"
 import { csvPreview } from "@/ingest/service"
 import { importErrorMessage } from "@/lib/import-errors"
 import { requireReadyOrg } from "@/server/context"
@@ -70,15 +69,15 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
       <MappingEditor
         batchId={batch.id}
         header={preview.header}
-        rows={preview.rows.slice(0, (batch.csvMapping as CsvMapping).headerRow + 26)}
-        initial={batch.csvMapping as CsvMapping}
+        rows={preview.rows.slice(0, batch.csvMapping!.headerRow + 26)}
+        initial={batch.csvMapping!}
         dateFormatAmbiguous={preview.dateFormatAmbiguous}
         currency={currency}
         locale={locale}
       />
     )
   } else if (batch.status === "staged") {
-    const rows = listRows(db, batch.id)
+    const rows = listRows(db, ctx.orgId, batch.id)
     const numbers = invoiceNumbers(db, ctx.orgId, rows.flatMap((r) => (r.matchedInvoiceId ? [r.matchedInvoiceId] : [])))
     body = (
       <ReviewTable

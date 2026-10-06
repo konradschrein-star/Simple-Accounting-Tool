@@ -1,8 +1,7 @@
 import { db } from "@/db/client"
+import { csvResponse } from "@/lib/csv"
 import { requireAdmin } from "@/server/context"
 import { leadRows } from "@/server/repos/admin"
-
-const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`
 
 export async function GET() {
   await requireAdmin()
@@ -24,6 +23,5 @@ export async function GET() {
     l.request?.status,
     l.request?.createdAt.toISOString(),
   ])
-  const csv = "﻿" + [header, ...rows].map((r) => r.map(cell).join(",")).join("\r\n")
-  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"` } })
+  return csvResponse(`leads-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows])
 }
