@@ -1,4 +1,3 @@
-import { and, count, eq } from "drizzle-orm"
 import { BriefcaseBusinessIcon, FlaskConicalIcon } from "lucide-react"
 import Link from "next/link"
 import { AppSidebar, type ShellRole } from "@/components/shell/app-sidebar"
@@ -7,20 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { db } from "@/db/client"
-import { transactions } from "@/db/schema"
 import { env } from "@/lib/env"
 import { requireReadyOrg } from "@/server/context"
+import { countNeedsReview } from "@/server/repos/ledger"
 import { exitClientWorkspace } from "@/server/actions/console"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireReadyOrg()
   const role: ShellRole = ctx.user.role === "admin" ? "admin" : ctx.user.role === "staff" ? "staff" : "user"
-  const reviewCount =
-    db
-      .select({ n: count() })
-      .from(transactions)
-      .where(and(eq(transactions.orgId, ctx.orgId), eq(transactions.reviewStatus, "needs_review")))
-      .get()?.n ?? 0
+  const reviewCount = countNeedsReview(db, ctx.orgId)
 
   return (
     <SidebarProvider>

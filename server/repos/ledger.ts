@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { categorizationRules, importBatches, importRows, invoices, ledgerAccounts, periodCloses, transactions } from "@/db/schema"
 import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
@@ -165,13 +165,47 @@ export function deleteRule(db: Db, orgId: string, id: string) {
   db.delete(categorizationRules).where(and(eq(categorizationRules.orgId, orgId), eq(categorizationRules.id, id))).run()
 }
 
-/** How many times a human has corrected this counterparty to the same account (drives AI rule suggestions). */
-export function repeatedCorrections(db: Db, orgId: string, counterparty: string, accountId: string): number {
+export function reviewQueue(db: Db, orgId: string): Transaction[] {
+  return db
+    .select()
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewStatus, "needs_review")))
+    .orderBy(asc(transactions.date))
+    .all()
+}
+
+export function countNeedsReview(db: Db, orgId: string): number {
   return (
     db
       .select({ n: sql<number>`count(*)` })
       .from(transactions)
-      .where(and(eq(transactions.orgId, orgId), eq(transactions.counterparty, counterparty), eq(transactions.ledgerAccountId, accountId), eq(transactions.categorizationSource, "human"), isNotNull(transactions.counterparty)))
+      .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewStatus, "needs_review")))
       .get()?.n ?? 0
   )
+}
+
+export function listTransactions(db: Db, orgId: string, filter: { month?: string; accountId?: string; q?: string }) {
+  const conditions = [eq(transactions.orgId, orgId)]
+  if (filter.month) conditions.push(sql`substr(${transactions.date}, 1, 7) = ${filter.month}`)
+  if (filter.accountId === "none") conditions.push(isNull(transactions.ledgerAccountId))
+  else if (filter.accountId) conditions.push(eq(transactions.ledgerAccountId, filter.accountId))
+  if (filter.q) conditions.push(sql`(${transactions.description} like ${`%${filter.q}%`} or ${transactions.counterparty} like ${`%${filter.q}%`})`)
+  return db
+    .select({ txn: transactions, accountCode: ledgerAccounts.code, accountName: ledgerAccounts.name })
+    .from(transactions)
+    .leftJoin(ledgerAccounts, eq(ledgerAccounts.id, transactions.ledgerAccountId))
+    .where(and(...conditions))
+    .orderBy(desc(transactions.date), desc(transactions.createdAt))
+    .limit(1000)
+    .all()
+}
+
+export function transactionMonths(db: Db, orgId: string): string[] {
+  return db
+    .selectDistinct({ month: sql<string>`substr(${transactions.date}, 1, 7)` })
+    .from(transactions)
+    .where(eq(transactions.orgId, orgId))
+    .orderBy(desc(sql`substr(${transactions.date}, 1, 7)`))
+    .all()
+    .map((r) => r.month)
 }

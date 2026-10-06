@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { clients, invoiceItems, invoices, workspaceSettings } from "@/db/schema"
 import {
@@ -210,4 +210,16 @@ export function duplicateInvoice(db: Db, orgId: string, settings: WorkspaceSetti
     lines: source.items.map(({ description, quantityMilli, unitPriceMinor, taxRateBp }) => ({ description, quantityMilli, unitPriceMinor, taxRateBp })),
   })
   return copy
+}
+
+export function invoiceNumbers(db: Db, orgId: string, ids: string[]): Map<string, string | null> {
+  if (!ids.length) return new Map()
+  return new Map(
+    db
+      .select({ id: invoices.id, number: invoices.number })
+      .from(invoices)
+      .where(and(eq(invoices.orgId, orgId), inArray(invoices.id, ids)))
+      .all()
+      .map((i) => [i.id, i.number]),
+  )
 }

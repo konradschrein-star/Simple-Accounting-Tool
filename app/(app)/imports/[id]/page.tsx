@@ -1,4 +1,3 @@
-import { inArray } from "drizzle-orm"
 import { ArrowLeftIcon, CheckCircle2Icon, CircleAlertIcon, SparklesIcon } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -13,13 +12,13 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
 import { db } from "@/db/client"
-import { invoices } from "@/db/schema"
 import type { CsvMapping } from "@/ingest/csv/types"
 import { csvPreview } from "@/ingest/service"
 import { importErrorMessage } from "@/lib/import-errors"
 import { requireReadyOrg } from "@/server/context"
 import { deleteImport, retryImport } from "@/server/actions/imports"
 import { getBatch, listRows } from "@/server/repos/imports"
+import { invoiceNumbers } from "@/server/repos/invoices"
 
 export const metadata: Metadata = { title: "Import" }
 
@@ -80,10 +79,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
     )
   } else if (batch.status === "staged") {
     const rows = listRows(db, batch.id)
-    const matchedIds = rows.flatMap((r) => (r.matchedInvoiceId ? [r.matchedInvoiceId] : []))
-    const numbers = new Map(
-      matchedIds.length ? db.select({ id: invoices.id, number: invoices.number }).from(invoices).where(inArray(invoices.id, matchedIds)).all().map((i) => [i.id, i.number]) : [],
-    )
+    const numbers = invoiceNumbers(db, ctx.orgId, rows.flatMap((r) => (r.matchedInvoiceId ? [r.matchedInvoiceId] : [])))
     body = (
       <ReviewTable
         batchId={batch.id}
