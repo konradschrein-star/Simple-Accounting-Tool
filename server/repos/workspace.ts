@@ -109,3 +109,8 @@ export function activeDemoCount(db: Db): number {
 export function renameUser(db: Db, userId: string, name: string) {
   db.update(user).set({ name }).where(eq(user.id, userId)).run()
 }
+
+/** Workspaces that finished onboarding (the hourly alert sweep runs over these). */
+export function onboardedWorkspaceIds(db: Db): string[] {
+  return db.select({ orgId: workspaceSettings.orgId }).from(workspaceSettings).where(isNotNull(workspaceSettings.jurisdiction)).all().map((r) => r.orgId)
+}

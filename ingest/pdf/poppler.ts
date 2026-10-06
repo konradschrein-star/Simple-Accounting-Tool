@@ -52,6 +52,3 @@ export async function pdfPageImages(file: string, pages: number, dpi = 150): Pro
   }
 }
 
-export function meaningfulChars(text: string): number {
-  return text.replace(/\s+/g, "").length
-}

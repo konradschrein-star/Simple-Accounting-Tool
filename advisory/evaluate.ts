@@ -12,10 +12,10 @@ export function workspaceMetrics(db: Db, orgId: string, today: string): Metrics 
   return computeMetrics(inputs.invoices, inputs.transactions, today)
 }
 
-/** Re-evaluates advisory triggers for a workspace. Called after every money-moving mutation and on dashboard load. */
-export function evaluateTriggers(db: Db, orgId: string): Metrics | null {
+/** Re-evaluates advisory triggers for a workspace. Called after money-moving mutations and by the hourly sweep (time-based alerts). */
+export function evaluateTriggers(db: Db, orgId: string): void {
   const settings = getSettings(db, orgId)
-  if (!settings.jurisdiction) return null
+  if (!settings.jurisdiction) return
   const today = todayIn(settings.timezone)
   const metrics = workspaceMetrics(db, orgId, today)
   persistAlerts(
@@ -24,5 +24,4 @@ export function evaluateTriggers(db: Db, orgId: string): Metrics | null {
     evaluateAlerts({ metrics, jurisdiction: getJurisdiction(settings.jurisdiction), profile: taxProfileOf(settings), today, marginThresholdBp: env().MARGIN_ALERT_BP }),
   )
   expireTaxAlerts(db, orgId, today)
-  return metrics
 }

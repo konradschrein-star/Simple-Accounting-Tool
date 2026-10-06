@@ -18,6 +18,8 @@ const good = {
 }
 // The cheap model misreads the debit as a credit — the balances expose it.
 const wrongSign = { ...good, transactions: [good.transactions[0], { ...good.transactions[1], type: "credit" as const }] }
+// A digit misread that is internally consistent — only the statement balances expose it.
+const wrongDigits = { ...good, transactions: [good.transactions[0], { ...good.transactions[1], amount_text: "580,00-", amount: 580 }] }
 
 function fakeLlm(byModel: Record<string, unknown>): LlmPort & { calls: string[] } {
   const calls: string[] = []
@@ -44,8 +46,16 @@ describe("PDF statement extraction", () => {
     expect(llm.calls).toEqual(["text-model"])
   })
 
+  it("trusts the printed sign over the model's reading and flags the disagreement", async () => {
+    const llm = fakeLlm({ "text-model": wrongSign })
+    const result = await extractStatement({ llm, models, pageTexts: [PAGE], renderImages: async () => [] })
+    expect(llm.calls).toEqual(["text-model"])
+    expect(result.reconciliation.ok).toBe(true)
+    expect(result.rows[1]).toMatchObject({ amountMinor: -85000, issues: ["low_confidence"] })
+  })
+
   it("escalates to the larger vision model when balances do not reconcile", async () => {
-    const llm = fakeLlm({ "text-model": wrongSign, "big-vision": good })
+    const llm = fakeLlm({ "text-model": wrongDigits, "big-vision": good })
     const result = await extractStatement({ llm, models, pageTexts: [PAGE], renderImages: async () => [Buffer.from("png")] })
     expect(llm.calls).toEqual(["text-model", "big-vision"])
     expect(result.model).toBe("big-vision")
@@ -58,5 +68,33 @@ describe("PDF statement extraction", () => {
     const result = await extractStatement({ llm, models, pageTexts: [""], renderImages: async () => [Buffer.from("png")] })
     expect(result.parser).toBe("pdf_vision")
     expect(llm.calls).toEqual(["vision-model"])
+  })
+})
+
+describe("printed amounts", async () => {
+  const { parsePrintedAmount, normalizeCurrency } = await import("@/ingest/pdf/printed-amount")
+  it.each([
+    ["1.487,50", ",", 148750, null],
+    ["850,00-", ",", 85000, -1],
+    ["66,45 S", ",", 6645, -1],
+    ["2.856,00 H", ",", 285600, 1],
+    ["(12.00)", ".", 1200, -1],
+    ["−54.99", ".", 5499, -1],
+    ["1,250.00 CR", ".", 125000, 1],
+  ] as const)("%s", (text, decimal, magnitude, sign) => {
+    expect(parsePrintedAmount(text, decimal)).toEqual({ magnitudeMinor: magnitude, sign })
+  })
+  it("normalizes currency answers", () => {
+    expect(normalizeCurrency("€")).toBe("EUR")
+    expect(normalizeCurrency("gbp")).toBe("GBP")
+    expect(normalizeCurrency("Euro")).toBeNull()
+  })
+})
+
+describe("hallucination guard", async () => {
+  const { flagUnsupportedAmounts } = await import("@/ingest/verify")
+  it("does not accept 5,00 just because 15,00 is printed", () => {
+    const rows = flagUnsupportedAmounts([{ amountMinor: -500, balanceMinor: null, amountText: "5,00", issues: [] }], "Gebühr 15,00 S")
+    expect(rows[0].issues).toEqual(["low_confidence"])
   })
 })

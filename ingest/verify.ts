@@ -33,13 +33,15 @@ export function reconcile(rows: VerifiableRow[], openingMinor: number | null, cl
   return { openingMinor, closingMinor, computedDeltaMinor, ok }
 }
 
-/** Hallucination guard for text-layer extraction: the printed amount must literally occur on the page. */
+/** Hallucination guard for text-layer extraction: the printed amount must occur on the page as a whole number token. */
 export function flagUnsupportedAmounts<T extends VerifiableRow>(rows: T[], pageText: string): T[] {
-  const haystack = pageText.replace(/\s+/g, "")
+  const haystack = pageText.replace(/\s+/g, " ")
   return rows.map((row) => {
-    const needle = (row.amountText ?? "").replace(/\s+/g, "").replace(/^[+-]|[+-]$/g, "")
-    if (!needle || haystack.includes(needle) || row.issues.includes("low_confidence")) return row
-    return { ...row, issues: [...row.issues, "low_confidence"] }
+    const digits = (row.amountText ?? "").replace(/[^\d.,]/g, "")
+    if (!digits || row.issues.includes("low_confidence")) return row
+    const escaped = digits.replace(/\./g, "\\.")
+    const found = new RegExp(`(?<![\\d.,])${escaped}(?![\\d])`).test(haystack)
+    return found ? row : { ...row, issues: [...row.issues, "low_confidence"] }
   })
 }
 

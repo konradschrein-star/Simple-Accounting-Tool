@@ -1,7 +1,7 @@
 import { AlertTriangleIcon, ArrowRightIcon, CalendarClockIcon, CompassIcon, FileTextIcon, UploadIcon } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import { evaluateTriggers } from "@/advisory/evaluate"
+import { workspaceMetrics } from "@/advisory/evaluate"
 import { rankAlerts } from "@/advisory/triggers"
 import type { PeriodMetrics } from "@/advisory/metrics"
 import { AlertCards, type AlertView } from "@/components/dashboard/alert-cards"
@@ -25,7 +25,7 @@ export const metadata: Metadata = { title: "Dashboard" }
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const ctx = await requireReadyOrg()
   const { period = "year" } = await searchParams
-  const metrics = evaluateTriggers(db, ctx.orgId)!
+  const metrics = workspaceMetrics(db, ctx.orgId, ctx.today)
   const { currency, locale } = ctx.settings
   const money = (m: number) => formatMoney(m, currency, locale)
   const p: PeriodMetrics = period === "month" ? metrics.thisMonth : metrics.trailing12
