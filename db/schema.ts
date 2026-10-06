@@ -291,13 +291,7 @@ export const serviceEngagements = sqliteTable(
   (t) => [index("engagements_org_status").on(t.orgId, t.status)],
 )
 
-export type CloseChecklist = {
-  statementsCommitted: boolean
-  reconciliationOk: boolean
-  uncategorized: number
-  needsReview: number
-  unmatchedPaidInvoices: number
-}
+export type CloseChecklist = { transactions: number; needsReview: number; pendingImports: number; unreconciledImports: number }
 
 export type CloseSummary = { headline: string; bullets: string[]; watchItems: string[] }
 
