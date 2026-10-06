@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { priorMonth } from "@/lib/dates"
+import { monthKey, priorMonth, todayIn } from "@/lib/dates"
 import { db } from "@/db/client"
 import { requireStaff } from "@/server/context"
 import { enterClientWorkspace } from "@/server/actions/console"
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Bookkeeper console" }
 export default async function ConsolePage() {
   const { user } = await requireStaff()
   const engagements = listEngagements(db, { staffUserId: user.role === "admin" ? undefined : user.id, statuses: ["active"] })
-  const currentMonth = new Date().toISOString().slice(0, 7)
+  const currentMonth = monthKey(todayIn("Europe/London"))
   const lastMonth = priorMonth(currentMonth)
   const signals = consoleSignals(db, engagements.map((e) => e.engagement.orgId), currentMonth, lastMonth)
   const rows = engagements

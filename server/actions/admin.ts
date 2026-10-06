@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { db } from "@/db/client"
 import { requireAdmin } from "@/server/context"
-import { setRequestStatus, setUserRole } from "@/server/repos/admin"
+import { listUsers, setRequestStatus, setUserRole } from "@/server/repos/admin"
 import { updateEngagement } from "@/server/repos/engagements"
 
 export async function updateRequestStatus(id: string, status: string) {
@@ -22,6 +22,8 @@ export async function setEngagementStatus(id: string, status: string) {
 
 export async function assignEngagementStaff(id: string, staffUserId: string) {
   await requireAdmin()
+  const assignee = listUsers(db).find((u) => u.id === staffUserId)
+  if (assignee?.role !== "staff" && assignee?.role !== "admin") throw new Error("Only team members can be assigned")
   updateEngagement(db, id, { assignedStaffUserId: staffUserId })
   revalidatePath("/admin")
   revalidatePath("/console")

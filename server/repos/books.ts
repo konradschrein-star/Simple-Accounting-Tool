@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { importBatches, importRows, invoices, periodCloses, transactions, type CloseChecklist, type CloseSummary } from "@/db/schema"
 import { computePnl, type Pnl, type PnlTransaction } from "@/bookkeeping/pnl"
@@ -87,15 +87,6 @@ export function reopenPeriod(db: Db, orgId: string, period: string) {
     .run()
 }
 
-export function uncategorizedInMonth(db: Db, orgId: string, month: string): number {
-  return (
-    db
-      .select({ n: sql<number>`count(*)` })
-      .from(transactions)
-      .where(and(eq(transactions.orgId, orgId), isNull(transactions.ledgerAccountId), sql`substr(${transactions.date}, 1, 7) = ${month}`))
-      .get()?.n ?? 0
-  )
-}
 
 export function monthPnl(db: Db, orgId: string, month: string): Pnl {
   return computePnl({ ...pnlInputs(db, orgId), accounts: listAccounts(db, orgId), period: monthRange(month), prior: monthRange(priorMonth(month)) })

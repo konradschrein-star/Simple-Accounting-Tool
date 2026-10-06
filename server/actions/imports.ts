@@ -56,6 +56,7 @@ export async function saveImportEdits(id: string, edits: unknown): Promise<Actio
   if (!parsed.success) return { ok: false, error: "Invalid edit" }
   try {
     editRows(db, ctx.orgId, id, parsed.data)
+    if (ctx.actor === "staff") audit(ctx, "import.rows_edited", "import", id, parsed.data)
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not save" }
   }

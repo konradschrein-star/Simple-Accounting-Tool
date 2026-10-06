@@ -4,6 +4,17 @@ import { organization, serviceEngagements, user } from "@/db/schema"
 
 export type Engagement = typeof serviceEngagements.$inferSelect
 
+/** Staff may act inside a client workspace only with an active, consented engagement — assigned to them, unless they are an admin. */
+export function staffMayAccess(db: Db, staff: { id: string; role?: string | null }, orgId: string): boolean {
+  if (staff.role !== "staff" && staff.role !== "admin") return false
+  const engagement = db
+    .select()
+    .from(serviceEngagements)
+    .where(and(eq(serviceEngagements.orgId, orgId), eq(serviceEngagements.status, "active"), isNotNull(serviceEngagements.clientConsentAt)))
+    .get()
+  return !!engagement && (staff.role === "admin" || engagement.assignedStaffUserId === staff.id)
+}
+
 export function currentEngagement(db: Db, orgId: string): Engagement | null {
   return (
     db

@@ -1,14 +1,15 @@
 import { DownloadIcon } from "lucide-react"
 import type { Metadata } from "next"
-import Link from "next/link"
 import { InlineSelect } from "@/components/admin/inline-select"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
+import { PageTabs, parseTab } from "@/components/shell/page-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { db } from "@/db/client"
-import { formatMoney, type CurrencyCode } from "@/lib/money"
+import { env } from "@/lib/env"
+import { formatMarginBp, formatMoney, type CurrencyCode } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { requireAdmin } from "@/server/context"
 import { assignEngagementStaff, setEngagementStatus, updateRequestStatus, updateUserRole } from "@/server/actions/admin"
@@ -28,7 +29,7 @@ const TABS = [
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { user: me } = await requireAdmin()
-  const tab = (await searchParams).tab ?? "leads"
+  const tab = parseTab(TABS, (await searchParams).tab)
   const totals = platformTotals(db)
   const users = listUsers(db)
   const staff = users.filter((u) => u.role === "staff" || u.role === "admin")
@@ -53,10 +54,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <TableCell className="pl-6 font-medium">{orgName}</TableCell>
                 <TableCell className="text-muted-foreground">{e.createdAt.toLocaleDateString("en-GB")} · consent ✓</TableCell>
                 <TableCell>
-                  <InlineSelect value={e.status} options={ENGAGEMENT_STATUSES} action={setEngagementStatus.bind(null, e.id)} />
+                  <InlineSelect label={`Status for ${orgName}`} value={e.status} options={ENGAGEMENT_STATUSES} action={setEngagementStatus.bind(null, e.id)} />
                 </TableCell>
                 <TableCell className="pr-6">
                   <InlineSelect
+                    label={`Bookkeeper for ${orgName}`}
                     value={e.assignedStaffUserId}
                     placeholder="Assign…"
                     className="h-8 w-48"
@@ -99,7 +101,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.createdAt.toLocaleDateString("en-GB")}</TableCell>
                   <TableCell className="pr-6">
-                    {u.id === me.id ? <Badge>admin (you)</Badge> : <InlineSelect value={u.role ?? "user"} options={ROLES} action={updateUserRole.bind(null, u.id)} />}
+                    {u.id === me.id ? <Badge>admin (you)</Badge> : <InlineSelect label={`Role for ${u.email}`} value={u.role ?? "user"} options={ROLES} action={updateUserRole.bind(null, u.id)} />}
                   </TableCell>
                 </TableRow>
               ))}
@@ -137,8 +139,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{money(l.lifetimeInvoicedMinor)}</TableCell>
                   <TableCell className="text-right tabular-nums">{money(l.trailing12CashInMinor)}</TableCell>
-                  <TableCell className={cn("text-right tabular-nums", l.trailing12MarginBp !== null && l.trailing12MarginBp < 2500 && "text-destructive")}>
-                    {l.trailing12MarginBp === null ? "—" : `${(l.trailing12MarginBp / 100).toFixed(0)} %`}
+                  <TableCell className={cn("text-right tabular-nums", l.trailing12MarginBp !== null && l.trailing12MarginBp < env().MARGIN_ALERT_BP && "text-destructive")}>
+                    {formatMarginBp(l.trailing12MarginBp, "en-GB")}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -152,7 +154,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                         <Badge className={l.request.kind === "bookkeeping" ? "bg-chart-2/15 text-chart-2" : "bg-primary/15 text-primary"}>
                           {l.request.kind === "bookkeeping" ? "Bookkeeping" : "Growth plan"}
                         </Badge>
-                        <InlineSelect value={l.request.status} options={REQUEST_STATUSES} action={updateRequestStatus.bind(null, l.request.id)} className="h-8 w-32" />
+                        <InlineSelect label={`Request status for ${l.orgName}`} value={l.request.status} options={REQUEST_STATUSES} action={updateRequestStatus.bind(null, l.request.id)} className="h-8 w-32" />
                       </div>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -202,17 +204,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </Card>
         ))}
       </div>
-      <div className="flex gap-1 border-b">
-        {TABS.map(([key, label]) => (
-          <Link
-            key={key}
-            href={`/admin?tab=${key}`}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === key ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
+      <PageTabs basePath="/admin" tabs={TABS} current={tab} />
       {body}
     </PageBody>
   )

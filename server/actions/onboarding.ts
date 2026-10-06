@@ -3,11 +3,12 @@
 import { redirect } from "next/navigation"
 import { z } from "zod"
 import { db } from "@/db/client"
-import { JURISDICTION_CODES } from "@/jurisdictions"
+import { evaluateTriggers } from "@/advisory/evaluate"
+import { getJurisdiction, JURISDICTION_CODES } from "@/jurisdictions"
+import { normalizeTaxProfile } from "@/jurisdictions/tax-profile"
+import { checkbox } from "@/lib/form"
 import { audit, requireOrg } from "@/server/context"
 import { applyJurisdiction, renameOrganization, updateSettings } from "@/server/repos/workspace"
-
-const checkbox = z.preprocess((v) => v === "on" || v === "true", z.boolean())
 
 const onboardingSchema = z.object({
   businessName: z.string().trim().min(2, "Enter your business name").max(120),
@@ -34,7 +35,6 @@ export async function completeOnboarding(_prev: OnboardingState, form: FormData)
   const parsed = onboardingSchema.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
   const input = parsed.data
-  const exempt = input.jurisdiction === "de" && input.smallBusinessExempt
 
   applyJurisdiction(db, ctx.orgId, input.jurisdiction)
   renameOrganization(db, ctx.orgId, input.businessName)
@@ -46,13 +46,10 @@ export async function completeOnboarding(_prev: OnboardingState, form: FormData)
     email: input.email || ctx.user.email,
     taxNumber: input.taxNumber,
     vatId: input.vatId,
-    taxRegistered: input.taxRegistered && !exempt,
-    smallBusinessExempt: exempt,
-    vatFilingFrequency: input.taxRegistered && !exempt ? input.vatFilingFrequency : "none",
-    vatPeriodEndMonth: input.vatPeriodEndMonth,
-    deDauerfrist: input.deDauerfrist,
-    ...(exempt || !input.taxRegistered ? { defaultTaxRateBp: 0 } : {}),
+    ...normalizeTaxProfile(getJurisdiction(input.jurisdiction), input),
   })
   audit(ctx, "onboarding.completed", "workspace", ctx.orgId, { jurisdiction: input.jurisdiction })
+  // First alerts (e.g. an upcoming tax deadline) should be there on the very first dashboard visit.
+  evaluateTriggers(db, ctx.orgId)
   redirect("/dashboard")
 }

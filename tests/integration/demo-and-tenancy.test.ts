@@ -5,11 +5,10 @@ import { JURISDICTION_CODES } from "@/jurisdictions"
 import { activeAlerts } from "@/server/repos/advisory"
 import { listCloses } from "@/server/repos/books"
 import { createClient, listClients } from "@/server/repos/clients"
-import { requestEngagement } from "@/server/repos/engagements"
-import { updateEngagement } from "@/server/repos/engagements"
+import { requestEngagement, staffMayAccess, updateEngagement } from "@/server/repos/engagements"
 import { getInvoice, listInvoices } from "@/server/repos/invoices"
 import { listTransactions, reviewQueue } from "@/server/repos/ledger"
-import { bootstrapWorkspace, staffMayAccess } from "@/server/repos/workspace"
+import { bootstrapWorkspace } from "@/server/repos/workspace"
 import { createUser, testDatabase } from "./helpers"
 
 const TODAY = "2026-10-06"
@@ -57,13 +56,16 @@ describe("tenant isolation", () => {
     const staff = createUser(db, { role: "staff" })
     const other = createUser(db, { role: "staff" })
     const orgId = bootstrapWorkspace(db, owner, "Client")
-    expect(staffMayAccess(db, staff, false, orgId)).toBe(false)
+    const staffUser = { id: staff, role: "staff" }
+    const otherUser = { id: other, role: "staff" }
+    expect(staffMayAccess(db, staffUser, orgId)).toBe(false)
+    expect(staffMayAccess(db, { id: owner, role: "user" }, orgId)).toBe(false)
     const engagement = requestEngagement(db, orgId)!
-    expect(staffMayAccess(db, staff, false, orgId)).toBe(false) // requested, not active
+    expect(staffMayAccess(db, staffUser, orgId)).toBe(false) // requested, not active
     updateEngagement(db, engagement, { status: "active", assignedStaffUserId: staff })
-    expect(staffMayAccess(db, staff, false, orgId)).toBe(true)
-    expect(staffMayAccess(db, other, false, orgId)).toBe(false)
-    expect(staffMayAccess(db, other, true, orgId)).toBe(true) // admins see every active engagement
+    expect(staffMayAccess(db, staffUser, orgId)).toBe(true)
+    expect(staffMayAccess(db, otherUser, orgId)).toBe(false)
+    expect(staffMayAccess(db, { id: other, role: "admin" }, orgId)).toBe(true) // admins see every active engagement
   })
 })
 

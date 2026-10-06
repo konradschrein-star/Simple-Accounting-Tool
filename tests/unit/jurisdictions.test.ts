@@ -70,3 +70,17 @@ describe("todayIn", () => {
     expect(todayIn("America/New_York", instant)).toBe("2026-12-31")
   })
 })
+
+describe("tax profile normalization", async () => {
+  const { normalizeTaxProfile } = await import("@/jurisdictions/tax-profile")
+  const input = { taxRegistered: true, smallBusinessExempt: true, vatFilingFrequency: "quarterly" as const, vatPeriodEndMonth: 3, deDauerfrist: true }
+  it("DE Kleinunternehmer: exempt, not registered, no filing, 0 % default", () => {
+    expect(normalizeTaxProfile(JURISDICTIONS.de, input)).toEqual({ taxRegistered: false, smallBusinessExempt: true, vatFilingFrequency: "none", vatPeriodEndMonth: 3, deDauerfrist: false, defaultTaxRateBp: 0 })
+  })
+  it("the §19 exemption does not exist in the UK", () => {
+    expect(normalizeTaxProfile(JURISDICTIONS.uk, input)).toMatchObject({ taxRegistered: true, smallBusinessExempt: false, defaultTaxRateBp: 2000 })
+  })
+  it("unregistered businesses have no filing schedule", () => {
+    expect(normalizeTaxProfile(JURISDICTIONS.je, { ...input, taxRegistered: false, smallBusinessExempt: false })).toMatchObject({ vatFilingFrequency: "none", defaultTaxRateBp: 0 })
+  })
+})

@@ -63,7 +63,6 @@ export function parseDecimalToMinor(input: string, decimalSeparator: "." | "," =
 }
 
 export const toMinor = (major: number) => roundHalfAwayFromZero(major * 100)
-export const toMilli = (qty: number) => roundHalfAwayFromZero(qty * 1000)
 
 /**
  * Lenient parser for amounts typed by users in any locale ("1.234,56", "1,234.56", "12,5", "12.50").

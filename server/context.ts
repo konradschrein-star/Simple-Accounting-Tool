@@ -14,9 +14,9 @@ import {
   getSettings,
   isMember,
   setActiveOrganization,
-  staffMayAccess,
   type WorkspaceSettings,
 } from "./repos/workspace"
+import { staffMayAccess } from "./repos/engagements"
 
 export type SessionUser = {
   id: string
@@ -57,12 +57,11 @@ export const isStaffRole = (role?: string | null) => role === "admin" || role ==
  */
 export const requireOrg = cache(async (): Promise<OrgContext> => {
   const { session, user } = await requireUser()
-  const staff = isStaffRole(user.role)
   let orgId = session.activeOrganizationId ?? null
   let actor: OrgContext["actor"] = "owner"
 
   if (orgId && !isMember(db, user.id, orgId)) {
-    if (staff && staffMayAccess(db, user.id, user.role === "admin", orgId)) actor = "staff"
+    if (staffMayAccess(db, user, orgId)) actor = "staff"
     else orgId = null
   }
   if (!orgId) {

@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { db } from "@/db/client"
 import { addDays, daysBetween, formatDate } from "@/lib/dates"
-import { formatMoney } from "@/lib/money"
+import { env } from "@/lib/env"
+import { formatMarginBp, formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { requireReadyOrg } from "@/server/context"
 import { activeAlerts } from "@/server/repos/advisory"
@@ -40,9 +41,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     { label: "Expenses", value: money(p.expensesMinor), hint: "Excl. transfers and private" },
     {
       label: "Net margin",
-      value: p.marginBp === null ? "—" : `${(p.marginBp / 100).toLocaleString(locale, { maximumFractionDigits: 1 })} %`,
+      value: formatMarginBp(p.marginBp, locale),
       hint: `Net ${money(p.netMinor)}`,
-      warn: p.marginBp !== null && p.marginBp < 2500,
+      warn: p.marginBp !== null && p.marginBp < env().MARGIN_ALERT_BP,
     },
   ]
 
@@ -96,7 +97,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <CardDescription>{t.label}</CardDescription>
               <CardTitle className="flex items-center gap-2 text-3xl font-semibold tabular-nums">
                 {t.value}
-                {t.warn ? <AlertTriangleIcon className="size-5 text-destructive" aria-label="Below 25 %" /> : null}
+                {t.warn ? <AlertTriangleIcon className="size-5 text-destructive" aria-label="Below your margin threshold" /> : null}
               </CardTitle>
               <CardDescription className="text-xs">{t.hint}</CardDescription>
             </CardHeader>
@@ -173,7 +174,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </CardContent>
           </Card>
 
-          <BookkeepingOffer uncategorized={metrics.uncategorizedCount} status={(engagement?.status as "requested" | "active" | "paused" | undefined) ?? "none"} />
+          <BookkeepingOffer uncategorized={metrics.uncategorizedCount} status={engagement?.status ?? "none"} />
 
           <Card className="bg-muted/40">
             <CardHeader>

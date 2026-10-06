@@ -1,19 +1,20 @@
 "use client"
 
 import { BriefcaseBusinessIcon } from "lucide-react"
-import { useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Spinner } from "@/components/ui/spinner"
+import { useServerAction } from "@/components/use-server-action"
+import type { Engagement } from "@/server/repos/engagements"
 import { requestBookkeeping } from "@/server/actions/advisory"
 
-export function BookkeepingOffer({ uncategorized, status }: { uncategorized: number; status: "none" | "requested" | "active" | "paused" }) {
+export function BookkeepingOffer({ uncategorized, status }: { uncategorized: number; status: Engagement["status"] | "none" }) {
   const [consent, setConsent] = useState(false)
   const [open, setOpen] = useState(false)
-  const [pending, start] = useTransition()
+  const { pending, run } = useServerAction()
 
   if (status === "active") {
     return (
@@ -55,7 +56,7 @@ export function BookkeepingOffer({ uncategorized, status }: { uncategorized: num
                   can end the service at any time.
                 </DialogDescription>
               </DialogHeader>
-              <CardContent className="px-0">
+              <div>
                 <label className="flex items-start gap-3 text-sm">
                   <Checkbox checked={consent} onCheckedChange={(v) => setConsent(v === true)} className="mt-0.5" />
                   <span>
@@ -63,17 +64,17 @@ export function BookkeepingOffer({ uncategorized, status }: { uncategorized: num
                     audit log.
                   </span>
                 </label>
-              </CardContent>
+              </div>
               <DialogFooter>
                 <Button
                   disabled={!consent || pending}
                   onClick={() =>
-                    start(async () => {
-                      const result = await requestBookkeeping(consent)
-                      if (!result.ok) return void toast.error(result.error)
-                      toast.success("Request received — we’ll be in touch shortly.")
-                      setOpen(false)
-                      if (result.bookingUrl) window.open(result.bookingUrl, "_blank", "noopener")
+                    run(() => requestBookkeeping(consent), {
+                      success: "Request received — we’ll be in touch shortly.",
+                      onSuccess: (r) => {
+                        setOpen(false)
+                        if (r.bookingUrl) window.open(r.bookingUrl, "_blank", "noopener")
+                      },
                     })
                   }
                 >

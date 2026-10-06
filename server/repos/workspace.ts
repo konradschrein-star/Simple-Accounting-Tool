@@ -1,7 +1,7 @@
 import { and, asc, count, eq, gt, isNotNull } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import type { Db } from "@/db/client"
-import { ledgerAccounts, member, organization, serviceEngagements, session, user, workspaceSettings } from "@/db/schema"
+import { ledgerAccounts, member, organization, session, user, workspaceSettings } from "@/db/schema"
 import { getJurisdiction, type JurisdictionCode, type TaxProfile } from "@/jurisdictions"
 
 export type WorkspaceSettings = typeof workspaceSettings.$inferSelect
@@ -23,16 +23,6 @@ export function isMember(db: Db, userId: string, orgId: string): boolean {
     .from(member)
     .where(and(eq(member.userId, userId), eq(member.organizationId, orgId)))
     .get()
-}
-
-/** Staff may act inside a client workspace only with an active, consented engagement (and assignment unless admin). */
-export function staffMayAccess(db: Db, staffUserId: string, isAdmin: boolean, orgId: string): boolean {
-  const engagement = db
-    .select()
-    .from(serviceEngagements)
-    .where(and(eq(serviceEngagements.orgId, orgId), eq(serviceEngagements.status, "active"), isNotNull(serviceEngagements.clientConsentAt)))
-    .get()
-  return !!engagement && (isAdmin || engagement.assignedStaffUserId === staffUserId)
 }
 
 /** Creates an empty workspace (org + owner membership + settings) in one synchronous transaction. */
@@ -113,4 +103,12 @@ export function renameUser(db: Db, userId: string, name: string) {
 /** Workspaces that finished onboarding (the hourly alert sweep runs over these). */
 export function onboardedWorkspaceIds(db: Db): string[] {
   return db.select({ orgId: workspaceSettings.orgId }).from(workspaceSettings).where(isNotNull(workspaceSettings.jurisdiction)).all().map((r) => r.orgId)
+}
+
+/** Deletes a workspace (cascades to every tenant table) and optionally its owner's account, atomically. */
+export function eraseWorkspace(db: Db, orgId: string, ownerUserId: string | null) {
+  db.transaction((tx) => {
+    tx.delete(organization).where(eq(organization.id, orgId)).run()
+    if (ownerUserId) tx.delete(user).where(eq(user.id, ownerUserId)).run()
+  })
 }

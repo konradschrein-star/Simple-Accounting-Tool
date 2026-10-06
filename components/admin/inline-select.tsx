@@ -5,12 +5,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 /** A select that persists through a bound server action on change. */
 export function InlineSelect({
+  label,
   value,
   options,
   action,
   placeholder,
   className = "h-8 w-36",
 }: {
+  /** Accessible name (the select has no visible label in table cells). */
+  label: string
   value: string | null
   options: { value: string; label: string }[]
   action: (value: string) => Promise<void>
@@ -20,7 +23,7 @@ export function InlineSelect({
   const [pending, start] = useTransition()
   return (
     <Select value={value ?? undefined} onValueChange={(v) => start(() => action(v))} disabled={pending}>
-      <SelectTrigger className={className}>
+      <SelectTrigger aria-label={label} className={className}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

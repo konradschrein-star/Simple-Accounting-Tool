@@ -1,5 +1,3 @@
-"use client"
-
 import { CalendarClockIcon, TrendingDownIcon, TrophyIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +7,7 @@ import { GrowthPlanButton } from "./growth-plan-button"
 
 export type AlertView = { id: string; type: "milestone_lifetime" | "milestone_month" | "margin_low" | "tax_deadline"; payload: Record<string, unknown> }
 
-function copy(alert: AlertView, money: (m: number) => string, locale: string) {
+function copy(alert: AlertView, money: (m: number) => string) {
   const p = alert.payload
   switch (alert.type) {
     case "milestone_lifetime":
@@ -51,7 +49,7 @@ export function AlertCards({ alerts, currency, locale }: { alerts: AlertView[]; 
   return (
     <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
       {alerts.map((alert) => {
-        const c = copy(alert, money, locale)
+        const c = copy(alert, money)
         return (
           <Card key={alert.id} className={c.tone}>
             <CardHeader>
