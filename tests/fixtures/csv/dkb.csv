@@ -1,0 +1,7 @@
+"Konto";"Girokonto DE12 1203 0000 1234 5678 90"
+""
+"Kontostand vom 31.10.2026:";"12.345,67 €"
+""
+"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"
+"30.10.26";"30.10.26";"Gebucht";"Muster Consulting";"Deutsche Telekom";"Rechnung 10/2026";"Ausgang";"DE00000000000000000000";"-49,99";"";"";""
+"28.10.26";"28.10.26";"Gebucht";"Kunde AG";"Muster Consulting";"INV-2026-0002";"Eingang";"DE00000000000000000001";"2.380,00";"";"";""

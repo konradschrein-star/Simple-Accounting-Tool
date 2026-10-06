@@ -59,6 +59,7 @@ export const de: Jurisdiction = {
     balance: ["saldo", "kontostand"],
     currency: ["währung", "waehrung"],
   },
+  exemptIncomeCode: "8195",
   chartOfAccounts: [
     { code: "8400", name: "Erlöse 19 % USt", kind: "income", taxLine: "EÜR: Betriebseinnahmen (USt-pflichtig)" },
     { code: "8300", name: "Erlöse 7 % USt", kind: "income", taxLine: "EÜR: Betriebseinnahmen (USt-pflichtig)" },

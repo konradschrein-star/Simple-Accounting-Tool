@@ -1,0 +1,3 @@
+"Date","Payee","Account number","Transaction type","Payment reference","Amount (EUR)","Amount (Foreign Currency)","Type Foreign Currency","Exchange Rate"
+"2026-10-01","Hetzner Online GmbH","DE00000000000000000000","Presentment","Server October","-38.68","","",""
+"2026-10-03","Kunde GmbH","DE00000000000000000001","Income","INV-2026-0003","1200.00","","",""

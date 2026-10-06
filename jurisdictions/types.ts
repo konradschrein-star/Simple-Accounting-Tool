@@ -43,6 +43,8 @@ export interface Jurisdiction {
   milestoneThresholdMinor: number
   csvSynonyms: Partial<Record<CsvRole, string[]>>
   chartOfAccounts: LedgerAccountTemplate[]
+  /** Income account used for tax-exempt small businesses (e.g. DE §19), if the chart has one. */
+  exemptIncomeCode?: string
   requiredInvoiceFields(profile: TaxProfile): InvoiceRequirement[]
   /** Note printed on invoices that carry no tax (e.g. §19 UStG), or null. */
   exemptionNote(profile: TaxProfile): string | null
