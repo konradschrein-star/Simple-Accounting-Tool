@@ -76,6 +76,9 @@ export const workspaceSettings = sqliteTable("workspace_settings", {
   vatAccounting: text("vat_accounting", { enum: ["accrual", "cash"] })
     .notNull()
     .default("accrual"),
+  /** Last known bank balance (from a statement's closing balance, or entered by hand) and the day it applies to. */
+  bankBalanceMinor: integer("bank_balance_minor"),
+  bankBalanceDate: text("bank_balance_date"),
   currencyLocked: bool("currency_locked"),
   advisoryOptIn: bool("advisory_opt_in"),
   advisoryOptInAt: integer("advisory_opt_in_at", { mode: "timestamp_ms" }),

@@ -6,7 +6,8 @@ import { startImport } from "@/ingest/service"
 import { getJurisdiction } from "@/jurisdictions"
 import { createClient } from "@/server/repos/clients"
 import { listRows } from "@/server/repos/imports"
-import { createDraft, finalizeDocument, saveDraft } from "@/server/repos/invoices"
+import { createDraft, finalizeDocument, getInvoice, saveDraft } from "@/server/repos/invoices"
+import { commitBatch } from "@/server/repos/ledger"
 import { applyJurisdiction, bootstrapWorkspace, getSettings, updateSettings } from "@/server/repos/workspace"
 import { createUser, testDatabase } from "./helpers"
 
@@ -42,5 +43,10 @@ describe("structured statement import", () => {
     // 1,487.50 is a part payment of the 2,975.00 invoice — matched because the reference names it.
     expect(rows.find((r) => r.amountMinor === 148750)?.matchedInvoiceId).toBe(id)
     expect(rows.filter((r) => r.matchedInvoiceId)).toHaveLength(1)
+
+    // Booking it records the part payment and takes over the closing balance as the known bank balance.
+    commitBatch(db, orgId, batch.id)
+    expect(getSettings(db, orgId)).toMatchObject({ bankBalanceMinor: 1_301_710, bankBalanceDate: "2026-10-25" })
+    expect(getInvoice(db, orgId, id)).toMatchObject({ paidMinor: 148_750, invoice: { status: "finalized" } })
   })
 })

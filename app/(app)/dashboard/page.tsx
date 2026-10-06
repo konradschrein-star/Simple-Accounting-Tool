@@ -7,18 +7,20 @@ import type { PeriodMetrics } from "@/advisory/metrics"
 import { AlertCards, type AlertView } from "@/components/dashboard/alert-cards"
 import { BookkeepingOffer } from "@/components/dashboard/bookkeeping-offer"
 import { CashflowChart } from "@/components/dashboard/cashflow-chart"
+import { CashPositionCard, Next30DaysCard, SpendingCard } from "@/components/dashboard/outlook-cards"
 import { GrowthPlanButton } from "@/components/dashboard/growth-plan-button"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { db } from "@/db/client"
-import { addDays, daysBetween, formatDate } from "@/lib/dates"
+import { addDays, addMonths, daysBetween, formatDate, monthKey } from "@/lib/dates"
 import { env } from "@/lib/env"
 import { formatMarginBp, formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { requireReadyOrg } from "@/server/context"
 import { activeAlerts } from "@/server/repos/advisory"
 import { currentEngagement } from "@/server/repos/engagements"
+import { spendingByCategory, workspaceOutlook } from "@/server/repos/outlook"
 import { taxProfileOf } from "@/server/repos/workspace"
 
 export const metadata: Metadata = { title: "Dashboard" }
@@ -34,6 +36,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const deadlines = ctx.jurisdiction.taxDeadlines(taxProfileOf(ctx.settings), ctx.today, addDays(ctx.today, 90)).slice(0, 4)
   const engagement = currentEngagement(db, ctx.orgId)
   const empty = metrics.firstActivity === null
+  const outlook = workspaceOutlook(db, ctx.orgId, ctx.settings, metrics, ctx.today)
+  const spending = spendingByCategory(db, ctx.orgId, period === "month" ? `${monthKey(ctx.today)}-01` : `${addMonths(monthKey(ctx.today), -11)}-01`, ctx.today)
 
   const tiles = [
     { label: "Invoiced", value: money(p.invoicedMinor), hint: "Finalized invoices by issue date" },
@@ -118,6 +122,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </Card>
         ))}
       </div>
+
+      {empty ? null : (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <CashPositionCard outlook={outlook} currency={currency} locale={locale} />
+          <Next30DaysCard outlook={outlook} currency={currency} locale={locale} />
+          <SpendingCard rows={spending} currency={currency} locale={locale} periodLabel={period === "month" ? "this month" : "last 12 months"} />
+        </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>

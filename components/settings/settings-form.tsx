@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { formatDocumentNumber } from "@/invoicing/documents"
+import { minorToInput } from "@/lib/money"
 import type { BankField, JurisdictionCode } from "@/jurisdictions/types"
 import { saveSettings } from "@/server/actions/settings"
 import type { WorkspaceSettings } from "@/server/repos/workspace"
@@ -184,6 +185,21 @@ export function SettingsForm({
             <Field>
               <FieldLabel htmlFor="defaultPaymentTermsDays">Default payment terms (days)</FieldLabel>
               <Input id="defaultPaymentTermsDays" name="defaultPaymentTermsDays" type="number" min={0} max={365} defaultValue={s.defaultPaymentTermsDays} />
+            </Field>
+            <Field id="bank-balance">
+              <FieldLabel htmlFor="bankBalance">Bank balance</FieldLabel>
+              <Input
+                id="bankBalance"
+                name="bankBalance"
+                inputMode="decimal"
+                placeholder="e.g. 12,500.00"
+                defaultValue={s.bankBalanceMinor === null ? "" : minorToInput(s.bankBalanceMinor)}
+              />
+              <FieldDescription>Updated automatically when you import a statement that shows balances. Powers your runway.</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="bankBalanceDate">Balance on</FieldLabel>
+              <Input id="bankBalanceDate" name="bankBalanceDate" type="date" defaultValue={s.bankBalanceDate ?? ""} />
             </Field>
           </FieldGroup>
         </CardContent>

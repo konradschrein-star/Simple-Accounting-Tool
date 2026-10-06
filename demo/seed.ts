@@ -302,6 +302,9 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
   })
   closePeriod(db, orgId, period, userId, monthChecklist(db, orgId, period), summary)
 
+  // As if last month's statement had been imported: everything booked since is added on top.
+  updateSettings(db, orgId, { bankBalanceMinor: 1_850_000, bankBalanceDate: addDays(today, -35) })
+
   evaluateTriggers(db, orgId)
   return { invoices: paidInvoices.length, transactions: rows.length, closedPeriod: period }
 }

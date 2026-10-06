@@ -10,6 +10,7 @@ import {
   ledgerAccounts,
   periodCloses,
   transactions,
+  workspaceSettings,
 } from "@/db/schema"
 import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
 import { hashBankRows } from "@/ingest/dedupe"
@@ -118,6 +119,17 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
       }
     }
     tx.update(importBatches).set({ status: "committed", committedAt: new Date() }).where(eq(importBatches.id, batchId)).run()
+    // A statement that prints its closing balance tells us the bank balance on its last day — keep the newest one.
+    const closing = batch.reconciliation?.closingMinor
+    const lastDay = rows.reduce<string | null>((max, r) => (r.date && (!max || r.date > max) ? r.date : max), null)
+    if (closing !== null && closing !== undefined && lastDay) {
+      tx.update(workspaceSettings)
+        .set({ bankBalanceMinor: closing, bankBalanceDate: lastDay })
+        .where(
+          and(eq(workspaceSettings.orgId, orgId), sql`(${workspaceSettings.bankBalanceDate} is null or ${workspaceSettings.bankBalanceDate} <= ${lastDay})`)
+        )
+        .run()
+    }
     return { inserted, invoicesPaid }
   })
 }

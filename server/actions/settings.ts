@@ -9,6 +9,7 @@ import { evaluateTriggers } from "@/advisory/evaluate"
 import { normalizeTaxProfile } from "@/jurisdictions/tax-profile"
 import { dataPath } from "@/lib/data-path"
 import { checkbox, text as textField } from "@/lib/form"
+import { parseAmountInput } from "@/lib/money"
 import { bicProblem, ibanProblem, routingNumberProblem, sortCodeProblem, accountNumberProblem, vatIdProblem } from "@/lib/validation"
 import { audit, requireReadyOrg } from "@/server/context"
 import { eraseWorkspace, renameOrganization, updateSettings } from "@/server/repos/workspace"
@@ -65,6 +66,17 @@ const profileSchema = z.object({
   lateFeePercent: z.coerce.number().min(0).max(20, "Late fees above 20 % are not allowed"),
   vatAccounting: z.enum(["accrual", "cash"]),
   defaultPaymentTermsDays: z.coerce.number().int().min(0).max(365),
+  // Blank clears the balance; otherwise it must parse as an amount (overdrafts allowed) with a date.
+  bankBalance: z
+    .string()
+    .default("")
+    .transform((v, ctx) => {
+      if (!v.trim()) return null
+      const minor = parseAmountInput(v)
+      if (minor === null) ctx.addIssue({ code: "custom", message: "Enter the bank balance as an amount, e.g. 12,500.00" })
+      return minor
+    }),
+  bankBalanceDate: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]).default(""),
   taxRegistered: checkbox,
   smallBusinessExempt: checkbox,
   vatFilingFrequency: z.enum(["monthly", "quarterly", "none"]),
@@ -79,10 +91,23 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   const ctx = await requireReadyOrg()
   const parsed = profileSchema.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
-  const { businessName, advisoryOptIn, taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist, lateFeePercent, ...profile } =
-    parsed.data
+  const {
+    businessName,
+    advisoryOptIn,
+    taxRegistered,
+    smallBusinessExempt,
+    vatFilingFrequency,
+    vatPeriodEndMonth,
+    deDauerfrist,
+    lateFeePercent,
+    bankBalance,
+    bankBalanceDate,
+    ...profile
+  } = parsed.data
   const next = {
     ...profile,
+    bankBalanceMinor: bankBalance,
+    bankBalanceDate: bankBalance === null ? null : bankBalanceDate || ctx.today,
     lateFeeBp: Math.round(lateFeePercent * 100),
     ...normalizeTaxProfile(ctx.jurisdiction, { taxRegistered, smallBusinessExempt, vatFilingFrequency, vatPeriodEndMonth, deDauerfrist }),
     advisoryOptIn,
