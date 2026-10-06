@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lte, ne } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { invoicePayments, invoices, ledgerAccounts, transactions } from "@/db/schema"
 import { defaultInputTaxBp, type Jurisdiction } from "@/jurisdictions"
+import { reclaimsInputTax } from "@/jurisdictions/tax-profile"
 import type { IsoDate } from "@/lib/dates"
 import { summarizeVat, type VatPurchase, type VatSalesDoc, type VatSummary } from "@/tax/vat-return"
 import type { WorkspaceSettings } from "./workspace"
@@ -40,7 +41,7 @@ export function vatSummary(db: Db, orgId: string, jurisdiction: Jurisdiction, se
   }))
 
   // Not registered (or §19): nothing to reclaim, whatever the receipts say.
-  const reclaims = settings.taxRegistered && !settings.smallBusinessExempt
+  const reclaims = reclaimsInputTax(jurisdiction, settings)
   const expenses = db
     .select({ date: transactions.date, amountMinor: transactions.amountMinor, vatRateBp: transactions.vatRateBp, code: ledgerAccounts.code })
     .from(transactions)

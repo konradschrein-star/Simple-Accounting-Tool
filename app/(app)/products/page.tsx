@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { db } from "@/db/client"
+import { invoiceRatesBp } from "@/jurisdictions/tax-profile"
 import { formatMoney, formatRate } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { archiveProductAction } from "@/server/actions/products"
@@ -17,7 +18,7 @@ export const metadata: Metadata = { title: "Products" }
 export default async function ProductsPage() {
   const ctx = await requireReadyOrg()
   const { currency, locale } = ctx.settings
-  const taxRatesBp = ctx.settings.smallBusinessExempt || !ctx.settings.taxRegistered ? [0] : ctx.jurisdiction.taxRatesBp
+  const taxRatesBp = invoiceRatesBp(ctx.jurisdiction, ctx.settings)
   const products = listProducts(db, ctx.orgId)
   const addButton = (
     <ProductDialog

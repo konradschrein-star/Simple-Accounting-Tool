@@ -4,8 +4,7 @@ import type { Db } from "@/db/client"
 import { fxRates } from "@/db/schema"
 import { DomainError } from "@/lib/action-result"
 import { addDays, type IsoDate } from "@/lib/dates"
-
-const ONE = 1_000_000
+import { FX_ONE } from "@/lib/money"
 
 const frankfurterSchema = z.object({ date: z.string(), rates: z.record(z.string(), z.number()) })
 
@@ -16,13 +15,13 @@ async function fetchRates(db: Db, date: IsoDate): Promise<void> {
   const data = frankfurterSchema.parse(await response.json())
   // The ECB publishes on working days; Frankfurter answers with the latest available date.
   db.insert(fxRates)
-    .values(Object.entries({ ...data.rates, EUR: 1 }).map(([currency, rate]) => ({ date: data.date, currency, ratePerEurMicro: Math.round(rate * ONE) })))
+    .values(Object.entries({ ...data.rates, EUR: 1 }).map(([currency, rate]) => ({ date: data.date, currency, ratePerEurMicro: Math.round(rate * FX_ONE) })))
     .onConflictDoNothing()
     .run()
 }
 
 function cachedRate(db: Db, currency: string, date: IsoDate): number | null {
-  if (currency === "EUR") return ONE
+  if (currency === "EUR") return FX_ONE
   return (
     db
       .select({ rate: fxRates.ratePerEurMicro })
@@ -39,7 +38,7 @@ function cachedRate(db: Db, currency: string, date: IsoDate): number | null {
  * Locked into the invoice at finalize so reports never shift with later rate moves.
  */
 export async function exchangeRateMicro(db: Db, from: string, to: string, date: IsoDate): Promise<number> {
-  if (from === to) return ONE
+  if (from === to) return FX_ONE
   let fromRate = cachedRate(db, from, date)
   let toRate = cachedRate(db, to, date)
   if (fromRate === null || toRate === null) {
@@ -52,5 +51,5 @@ export async function exchangeRateMicro(db: Db, from: string, to: string, date: 
     toRate = cachedRate(db, to, date)
   }
   if (fromRate === null || toRate === null) throw new DomainError(`No ${from}/${to} exchange rate available right now — please try again shortly.`)
-  return Math.round((toRate * ONE) / fromRate)
+  return Math.round((toRate * FX_ONE) / fromRate)
 }

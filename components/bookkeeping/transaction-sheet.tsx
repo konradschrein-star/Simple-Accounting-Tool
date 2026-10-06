@@ -18,25 +18,11 @@ import { useServerAction } from "@/components/use-server-action"
 import { formatDate } from "@/lib/dates"
 import { formatMoney, formatRate, type CurrencyCode } from "@/lib/money"
 import { cn } from "@/lib/utils"
-import { assignAccount, saveTransactionDetails } from "@/server/actions/bookkeeping"
+import { assignAccount, setTransactionNote, setTransactionVatRate } from "@/server/actions/bookkeeping"
 import { unlinkReceipt } from "@/server/actions/receipts"
+import type { TransactionDetail } from "@/server/repos/transaction-detail"
+import { uploadReceipt } from "@/components/receipts/upload-receipt"
 import { AccountSelect } from "./account-select"
-
-export type TransactionDetail = {
-  id: string
-  date: string
-  description: string
-  counterparty: string
-  amountMinor: number
-  accountId: string | null
-  note: string
-  vatRateBp: number | null
-  /** Rate the VAT return uses when none is set: the account's usual one. */
-  defaultVatRateBp: number | null
-  locked: boolean
-  invoice: { id: string; number: string | null } | null
-  receipt: { id: string; filename: string; mimeType: string; vendor: string | null; totalMinor: number | null; currency: string | null } | null
-}
 
 const DEFAULT = "default"
 
@@ -75,12 +61,9 @@ export function TransactionSheet({
 
   async function upload(file: File) {
     setUploading(true)
-    const body = new FormData()
-    body.set("file", file)
-    body.set("transactionId", detail.id)
-    const response = await fetch("/api/receipts", { method: "POST", body }).catch(() => null)
+    const error = await uploadReceipt(file, detail.id)
     setUploading(false)
-    if (!response?.ok) return void toast.error((await response?.json().catch(() => null))?.error ?? "Upload failed")
+    if (error) return void toast.error(error)
     toast.success("Receipt attached — we’ll read the details in a moment")
     router.refresh()
   }
@@ -125,7 +108,7 @@ export function TransactionSheet({
               <Select
                 value={detail.vatRateBp === null ? DEFAULT : String(detail.vatRateBp)}
                 disabled={detail.locked || pending}
-                onValueChange={(v) => run(() => saveTransactionDetails(detail.id, { vatRateBp: v === DEFAULT ? null : Number(v) }), { success: "Saved" })}
+                onValueChange={(v) => run(() => setTransactionVatRate(detail.id, v === DEFAULT ? null : Number(v)), { success: "Saved" })}
               >
                 <SelectTrigger id="txn-vat" className="w-full">
                   <SelectValue />
@@ -154,7 +137,7 @@ export function TransactionSheet({
               disabled={detail.locked}
               placeholder="What was this for? Helps at year end."
               onChange={(e) => setNote(e.target.value)}
-              onBlur={() => note !== detail.note && run(() => saveTransactionDetails(detail.id, { note }), { success: "Note saved" })}
+              onBlur={() => note !== detail.note && run(() => setTransactionNote(detail.id, note), { success: "Note saved" })}
             />
           </Field>
 
@@ -192,7 +175,7 @@ export function TransactionSheet({
                 </a>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {detail.receipt.vendor ?? "Reading…"}
+                    {detail.receipt.reading ? "Reading…" : (detail.receipt.vendor ?? detail.receipt.filename)}
                     {detail.receipt.totalMinor !== null ? ` · ${money(detail.receipt.totalMinor, detail.receipt.currency)}` : ""}
                   </span>
                   <Button

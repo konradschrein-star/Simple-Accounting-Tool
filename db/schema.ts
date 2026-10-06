@@ -531,7 +531,7 @@ export const attachments = sqliteTable(
     transactionId: text("transaction_id").references(() => transactions.id, { onDelete: "set null" }),
     filePath: text("file_path").notNull(),
     filename: text("filename").notNull(),
-    mimeType: text("mime_type").notNull(),
+    mimeType: text("mime_type", { enum: ["application/pdf", "image/png", "image/jpeg"] }).notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     /** What the AI read off the receipt (vendor, date, total, VAT). */
     extracted: json<{
@@ -542,12 +542,17 @@ export const attachments = sqliteTable(
       currency: string | null
       invoiceNumber?: string | null
     }>("extracted"),
-    /** processing → (AI read it) suggested | unmatched → matched. `failed`: unreadable, can still be linked by hand. */
-    status: text("status", { enum: ["processing", "unmatched", "suggested", "matched", "failed"] })
+    /**
+     * Only whether the document has been read. Whether it is matched follows from the links:
+     * `transactionId` set = attached, `suggestedTransactionId` set = a match is proposed.
+     */
+    readStatus: text("read_status", { enum: ["processing", "read", "failed"] })
       .notNull()
       .default("processing"),
-    suggestedTransactionId: text("suggested_transaction_id"),
+    suggestedTransactionId: text("suggested_transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+    /** The VAT rate this receipt wrote onto its transaction, so detaching only undoes what the receipt did. */
+    appliedVatRateBp: integer("applied_vat_rate_bp"),
     createdAt: createdAt(),
   },
-  (t) => [index("attachments_org_status").on(t.orgId, t.status), index("attachments_txn").on(t.transactionId)]
+  (t) => [index("attachments_org_txn").on(t.orgId, t.transactionId), index("attachments_txn").on(t.transactionId)]
 )

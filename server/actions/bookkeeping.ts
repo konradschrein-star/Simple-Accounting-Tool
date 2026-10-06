@@ -40,17 +40,33 @@ export async function assignAccount(transactionIds: string[], accountId: string)
   return result
 }
 
-const detailsSchema = z.object({ note: z.string().max(2000).optional(), vatRateBp: z.number().int().min(0).max(10_000).nullable().optional() })
+/** A ledger line changed in a way the transactions list and the VAT return read. */
+function afterDetailsChange() {
+  revalidatePath("/transactions")
+  revalidatePath("/books")
+}
 
-export async function saveTransactionDetails(id: string, input: unknown): Promise<ActionResult> {
+export async function setTransactionNote(id: string, note: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  const parsed = detailsSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: "Invalid details" }
+  const parsed = z.string().max(2000).safeParse(note)
+  if (!parsed.success) return { ok: false, error: "Notes are limited to 2,000 characters" }
   const result = await guarded(() => {
-    updateTransactionDetails(db, ctx.orgId, id, parsed.data)
-    audit(ctx, "transaction.details", "transaction", id, parsed.data)
+    updateTransactionDetails(db, ctx.orgId, id, { note: parsed.data })
+    audit(ctx, "transaction.note", "transaction", id)
   })
-  if (result.ok) revalidatePath("/transactions")
+  if (result.ok) afterDetailsChange()
+  return result
+}
+
+/** Input-tax rate of one payment; null hands it back to the account's default. Only the jurisdiction's own rates. */
+export async function setTransactionVatRate(id: string, rateBp: number | null): Promise<ActionResult> {
+  const ctx = await requireReadyOrg()
+  if (rateBp !== null && rateBp !== 0 && !ctx.jurisdiction.taxRatesBp.includes(rateBp)) return { ok: false, error: "That rate isn’t used here" }
+  const result = await guarded(() => {
+    updateTransactionDetails(db, ctx.orgId, id, { vatRateBp: rateBp })
+    audit(ctx, "transaction.vat_rate", "transaction", id, { vatRateBp: rateBp })
+  })
+  if (result.ok) afterDetailsChange()
   return result
 }
 

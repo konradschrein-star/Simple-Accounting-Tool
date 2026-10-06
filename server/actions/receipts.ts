@@ -1,11 +1,10 @@
 "use server"
 
-import fs from "node:fs"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db/client"
 import { guarded, type ActionResult } from "@/lib/action-result"
-import { dataPath } from "@/lib/data-path"
 import { formatRate } from "@/lib/money"
+import { removeUpload } from "@/lib/storage"
 import { audit, requireReadyOrg } from "@/server/context"
 import { deleteReceipt, matchReceipt, unmatchReceipt } from "@/server/repos/receipts"
 
@@ -18,7 +17,7 @@ function refresh() {
 export async function linkReceipt(id: string, transactionId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   return guarded(() => {
-    const { vatRateBp } = matchReceipt(db, ctx.orgId, id, transactionId, ctx.jurisdiction.taxRatesBp)
+    const { vatRateBp } = matchReceipt(db, ctx.orgId, id, transactionId, ctx.jurisdiction)
     audit(ctx, "receipt.matched", "receipt", id, { transactionId, vatRateBp })
     refresh()
     return {
@@ -41,7 +40,7 @@ export async function removeReceipt(id: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   return guarded(() => {
     const receipt = deleteReceipt(db, ctx.orgId, id)
-    if (receipt) fs.rmSync(dataPath(receipt.filePath), { force: true })
+    if (receipt) removeUpload(receipt.filePath)
     audit(ctx, "receipt.deleted", "receipt", id)
     refresh()
     return { message: "Receipt deleted" }

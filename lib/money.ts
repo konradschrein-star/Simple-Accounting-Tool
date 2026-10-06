@@ -12,9 +12,12 @@ export function lineNetMinor(quantityMilli: number, unitPriceMinor: number, disc
   return roundHalfAwayFromZero((quantityMilli * unitPriceMinor * (10_000 - discountBp)) / 10_000_000)
 }
 
+/** Exchange rates are stored ×1e6; this is the rate between a currency and itself. */
+export const FX_ONE = 1_000_000
+
 /** Converts an amount in a document currency to the workspace currency with a locked rate (×1e6). */
 export function toBaseMinor(minor: number, fxRateMicro: number): number {
-  return roundHalfAwayFromZero((minor * fxRateMicro) / 1_000_000)
+  return roundHalfAwayFromZero((minor * fxRateMicro) / FX_ONE)
 }
 
 export function taxOnNetMinor(netMinor: number, rateBp: number): number {

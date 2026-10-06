@@ -8,7 +8,8 @@ import { createClient, listClients } from "@/server/repos/clients"
 import { requestEngagement, staffMayAccess, updateEngagement } from "@/server/repos/engagements"
 import { getInvoice, listDocuments } from "@/server/repos/invoices"
 import { listTransactions, reviewQueue } from "@/server/repos/ledger"
-import { bootstrapWorkspace } from "@/server/repos/workspace"
+import { listReceipts } from "@/server/repos/receipts"
+import { bootstrapWorkspace, getSettings } from "@/server/repos/workspace"
 import { createUser, testDatabase } from "./helpers"
 
 const TODAY = "2026-10-06"
@@ -35,6 +36,9 @@ describe.each(JURISDICTION_CODES)("demo workspace (%s)", (code) => {
     expect(listDocuments(db, orgId, "credit_note")).toHaveLength(1)
     expect(new Set(listDocuments(db, orgId, "quote").map((r) => r.invoice.status))).toEqual(new Set(["draft", "finalized", "accepted"]))
     expect(listDocuments(db, orgId, "invoice").some((r) => r.paidMinor > 0 && r.invoice.status === "finalized")).toBe(true)
+    expect(listReceipts(db, orgId, "matched")).toHaveLength(2)
+    expect(listReceipts(db, orgId, "inbox").map((r) => r.match)).toEqual(["suggested"])
+    expect(getSettings(db, orgId).bankBalanceMinor).not.toBeNull()
   })
 })
 
@@ -75,7 +79,6 @@ describe("tenant isolation", () => {
 describe("demo cleanup", () => {
   it("deletes only expired demo workspaces and orphaned guests", async () => {
     const { cleanupExpiredDemos } = await import("@/demo/cleanup")
-    const { getSettings } = await import("@/server/repos/workspace")
     const guest = createUser(db, { isAnonymous: true })
     const real = createUser(db)
     const demoOrg = bootstrapWorkspace(db, guest, "Demo", { isDemo: true, demoExpiresAt: new Date(Date.now() - 1000) })

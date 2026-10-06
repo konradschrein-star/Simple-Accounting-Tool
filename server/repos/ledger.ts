@@ -1,21 +1,13 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, asc, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import {
-  categorizationRules,
-  importBatches,
-  importRows,
-  invoiceEvents,
-  invoicePayments,
-  invoices,
-  ledgerAccounts,
-  periodCloses,
-  transactions,
-  workspaceSettings,
-} from "@/db/schema"
+import { containsText } from "@/db/like"
+import { categorizationRules, importBatches, importRows, invoices, ledgerAccounts, periodCloses, transactions, workspaceSettings } from "@/db/schema"
 import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
 import { hashBankRows } from "@/ingest/dedupe"
 import { DomainError } from "@/lib/action-result"
 import { monthKey } from "@/lib/dates"
+import { applyInvoicePayment } from "./invoices"
+import { hasReceipt } from "./receipt-link"
 
 export type Transaction = typeof transactions.$inferSelect
 
@@ -43,6 +35,11 @@ export function closedPeriods(db: Db, orgId: string): Set<string> {
       .all()
       .map((p) => p.period)
   )
+}
+
+/** Whether bookings dated `date` can still change (their month isn't closed). */
+export function isPeriodOpen(db: Db, orgId: string, date: string): boolean {
+  return !closedPeriods(db, orgId).has(monthKey(date))
 }
 
 function assertOpen(db: Db, orgId: string, dates: string[]) {
@@ -101,28 +98,20 @@ export function commitBatch(db: Db, orgId: string, batchId: string): { inserted:
           .where(and(eq(invoices.orgId, orgId), eq(invoices.id, row.matchedInvoiceId), eq(invoices.status, "finalized")))
           .get()
         if (!invoice) continue
-        tx.insert(invoicePayments)
-          .values({ orgId, invoiceId: invoice.id, date: row.date!, amountMinor: row.amountMinor!, method: "bank", transactionId: booked.id })
-          .run()
-        const paid = tx
-          .select({ paid: sql<number>`coalesce(sum(${invoicePayments.amountMinor}), 0)` })
-          .from(invoicePayments)
-          .where(eq(invoicePayments.invoiceId, invoice.id))
-          .get()!.paid
-        if (paid >= invoice.totalMinor) {
-          tx.update(invoices).set({ status: "paid", paidDate: row.date }).where(eq(invoices.id, invoice.id)).run()
-          invoicesPaid++
-        }
-        tx.insert(invoiceEvents)
-          .values({ orgId, invoiceId: invoice.id, type: "payment", detail: { amountMinor: row.amountMinor, date: row.date, method: "bank" } })
-          .run()
+        const { paidInFull } = applyInvoicePayment(db, orgId, invoice, {
+          date: row.date!,
+          amountMinor: row.amountMinor!,
+          method: "bank",
+          transactionId: booked.id,
+        })
+        if (paidInFull) invoicesPaid++
       }
     }
     tx.update(importBatches).set({ status: "committed", committedAt: new Date() }).where(eq(importBatches.id, batchId)).run()
     // A statement that prints its closing balance tells us the bank balance on its last day — keep the newest one.
     const closing = batch.reconciliation?.closingMinor
     const lastDay = rows.reduce<string | null>((max, r) => (r.date && (!max || r.date > max) ? r.date : max), null)
-    if (closing !== null && closing !== undefined && lastDay) {
+    if (typeof closing === "number" && lastDay) {
       tx.update(workspaceSettings)
         .set({ bankBalanceMinor: closing, bankBalanceDate: lastDay })
         .where(
@@ -227,7 +216,7 @@ export function setAccounts(db: Db, orgId: string, decisions: Map<string, string
 }
 
 /** Note and input-tax rate (null = the account's default). Closed months stay locked. */
-export function updateTransactionDetails(db: Db, orgId: string, id: string, patch: { note?: string; vatRateBp?: number | null }) {
+export function updateTransactionDetails(db: Db, orgId: string, id: string, patch: { note: string } | { vatRateBp: number | null }) {
   const txn = getTransaction(db, orgId, id)
   if (!txn) throw new LedgerError("Transaction not found")
   assertOpen(db, orgId, [txn.date])
@@ -310,9 +299,14 @@ export function listTransactions(db: Db, orgId: string, filter: { month?: string
   if (filter.month) conditions.push(sql`substr(${transactions.date}, 1, 7) = ${filter.month}`)
   if (filter.accountId === "none") conditions.push(isNull(transactions.ledgerAccountId))
   else if (filter.accountId) conditions.push(eq(transactions.ledgerAccountId, filter.accountId))
-  if (filter.q) conditions.push(sql`(${transactions.description} like ${`%${filter.q}%`} or ${transactions.counterparty} like ${`%${filter.q}%`})`)
+  if (filter.q) conditions.push(or(containsText(transactions.description, filter.q), containsText(transactions.counterparty, filter.q))!)
   return db
-    .select({ txn: transactions, accountCode: ledgerAccounts.code, accountName: ledgerAccounts.name })
+    .select({
+      txn: transactions,
+      accountCode: ledgerAccounts.code,
+      accountName: ledgerAccounts.name,
+      hasReceipt: sql<boolean>`${exists(hasReceipt(db, transactions.id))}`.mapWith(Boolean),
+    })
     .from(transactions)
     .leftJoin(ledgerAccounts, eq(ledgerAccounts.id, transactions.ledgerAccountId))
     .where(and(...conditions))
@@ -329,4 +323,16 @@ export function transactionMonths(db: Db, orgId: string): string[] {
     .orderBy(desc(sql`substr(${transactions.date}, 1, 7)`))
     .all()
     .map((r) => r.month)
+}
+
+export type NewLedgerRow = Omit<typeof transactions.$inferInsert, "orgId" | "id" | "createdAt">
+
+/** Books already-categorized rows directly (demo data, migrations) — statements go through `commitBatch`. */
+export function insertTransactions(db: Db, orgId: string, rows: NewLedgerRow[]): { id: string }[] {
+  if (!rows.length) return []
+  return db
+    .insert(transactions)
+    .values(rows.map((r) => ({ ...r, orgId })))
+    .returning({ id: transactions.id })
+    .all()
 }

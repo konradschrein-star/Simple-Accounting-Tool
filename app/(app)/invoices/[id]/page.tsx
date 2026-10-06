@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CURRENCIES } from "@/db/schema"
 import { db } from "@/db/client"
+import { invoiceRatesBp } from "@/jurisdictions/tax-profile"
 import { eInvoiceReadiness } from "@/einvoice/service"
 import { displayStatus, KIND_LABELS, openAmount } from "@/invoicing/documents"
 import { publicLink } from "@/invoicing/service"
@@ -79,7 +80,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             taxRateBp: p.taxRateBp,
           }))}
           currencies={CURRENCIES}
-          taxRatesBp={ctx.settings.smallBusinessExempt || !ctx.settings.taxRegistered ? [0] : ctx.jurisdiction.taxRatesBp}
+          taxRatesBp={invoiceRatesBp(ctx.jurisdiction, ctx.settings)}
           taxLabel={ctx.jurisdiction.taxLabel}
           locale={locale}
           serviceDateLabel={ctx.jurisdiction.code === "de" ? "Leistungsdatum" : "Date of supply"}

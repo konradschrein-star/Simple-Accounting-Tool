@@ -346,16 +346,29 @@ export function recordPayment(
   if (!found || found.invoice.kind !== "invoice") throw new InvoiceError("Invoice not found")
   if (found.invoice.status !== "finalized") throw new InvoiceError("Only open invoices can receive payments")
   if (payment.amountMinor <= 0) throw new InvoiceError("Enter a positive amount")
-  const paidAfter = found.paidMinor + payment.amountMinor
-  db.transaction((tx) => {
-    tx.insert(invoicePayments)
-      .values({ orgId, invoiceId: id, ...payment, transactionId: payment.transactionId ?? null })
-      .run()
-    if (paidAfter >= found.invoice.totalMinor) tx.update(invoices).set({ status: "paid", paidDate: payment.date }).where(eq(invoices.id, id)).run()
-    tx.insert(invoiceEvents)
-      .values({ orgId, invoiceId: id, type: "payment", detail: { amountMinor: payment.amountMinor, date: payment.date, method: payment.method } })
-      .run()
-  })
+  db.transaction(() => applyInvoicePayment(db, orgId, found.invoice, payment))
+}
+
+/**
+ * The one way money lands on an invoice: payment row, event, and the flip to paid once covered.
+ * Call inside a transaction (better-sqlite3 is synchronous, so `db` there runs in that transaction).
+ */
+export function applyInvoicePayment(
+  db: Db,
+  orgId: string,
+  invoice: { id: string; totalMinor: number },
+  payment: { date: IsoDate; amountMinor: number; method: InvoicePayment["method"]; transactionId?: string | null }
+): { paidInFull: boolean } {
+  db.insert(invoicePayments)
+    .values({ orgId, invoiceId: invoice.id, ...payment, transactionId: payment.transactionId ?? null })
+    .run()
+  const paid = paidAmounts(db, orgId, [invoice.id]).get(invoice.id) ?? 0
+  const paidInFull = paid >= invoice.totalMinor
+  if (paidInFull) db.update(invoices).set({ status: "paid", paidDate: payment.date }).where(eq(invoices.id, invoice.id)).run()
+  db.insert(invoiceEvents)
+    .values({ orgId, invoiceId: invoice.id, type: "payment", detail: { amountMinor: payment.amountMinor, date: payment.date, method: payment.method } })
+    .run()
+  return { paidInFull }
 }
 
 /** Undo all payments (e.g. recorded by mistake). */

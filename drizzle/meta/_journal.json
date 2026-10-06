@@ -36,6 +36,20 @@
       "when": 1791319595265,
       "tag": "0004_silly_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791320473206,
+      "tag": "0005_silent_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791320483718,
+      "tag": "0006_illegal_molecule_man",
+      "breakpoints": true
     }
   ]
 }

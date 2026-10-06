@@ -85,3 +85,20 @@ export function suggestTransaction(receipt: ReceiptData, candidates: CandidateTr
     .sort((a, b) => b.score - a.score)
   return scored[0]?.t ?? null
 }
+
+export const RECEIPT_MIME_TYPES = ["application/pdf", "image/png", "image/jpeg"] as const
+export type ReceiptMimeType = (typeof RECEIPT_MIME_TYPES)[number]
+
+/** One definition of what may be uploaded, shared by the dropzones and the upload route. */
+export const RECEIPT_UPLOAD = {
+  maxBytes: 10 * 1024 * 1024,
+  accept: { "application/pdf": [".pdf"], "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"] } satisfies Record<ReceiptMimeType, string[]>,
+}
+
+/** The real type of an upload, from its first bytes — never the browser's claim. HEIC is not accepted; phones share JPEG. */
+export function sniffReceipt(bytes: Uint8Array): { ext: "pdf" | "png" | "jpg"; mimeType: ReceiptMimeType } | null {
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return { ext: "pdf", mimeType: "application/pdf" }
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return { ext: "png", mimeType: "image/png" }
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { ext: "jpg", mimeType: "image/jpeg" }
+  return null
+}

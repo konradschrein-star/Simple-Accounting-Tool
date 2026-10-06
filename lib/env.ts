@@ -29,6 +29,8 @@ const schema = z.object({
   LLM_VISION_MODEL: z.string().default("qwen/qwen3-vl-30b-a3b-instruct"),
   LLM_ESCALATION_MODEL: z.string().default("qwen/qwen3-vl-235b-a22b-instruct"),
   PDF_IMPORTS_PER_MONTH: z.coerce.number().int().default(10),
+  /** Receipts read by AI per workspace and month (demo workspaces get a tenth); beyond it receipts are matched by hand. */
+  RECEIPT_READS_PER_MONTH: z.coerce.number().int().default(100),
   MAX_PDF_PAGES: z.coerce.number().int().default(30),
   DELETE_SOURCE_AFTER_COMMIT: bool.default(true),
   MARGIN_ALERT_BP: z.coerce.number().int().default(2500),

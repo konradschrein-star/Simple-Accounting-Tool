@@ -1,14 +1,11 @@
-import { and, desc, eq, or, sql, type AnyColumn } from "drizzle-orm"
+import { and, desc, eq, or, type AnyColumn } from "drizzle-orm"
 import type { Db } from "@/db/client"
+import { containsText } from "@/db/like"
 import { clients, invoices, transactions } from "@/db/schema"
-
-/** LIKE pattern with the user's wildcards escaped, so "50%" searches for a literal percent sign. */
-const pattern = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
 
 /** Quick lookup for the command menu: a handful of hits per kind, newest first. */
 export function searchWorkspace(db: Db, orgId: string, q: string) {
-  const p = pattern(q)
-  const escaped = (column: AnyColumn) => sql`${column} like ${p} escape ${"\\"}`
+  const contains = (column: AnyColumn) => containsText(column, q)
   const docs = db
     .select({
       id: invoices.id,
@@ -22,14 +19,14 @@ export function searchWorkspace(db: Db, orgId: string, q: string) {
     })
     .from(invoices)
     .leftJoin(clients, and(eq(clients.id, invoices.clientId), eq(clients.orgId, invoices.orgId)))
-    .where(and(eq(invoices.orgId, orgId), or(escaped(invoices.number), escaped(clients.name), escaped(invoices.notes))))
+    .where(and(eq(invoices.orgId, orgId), or(contains(invoices.number), contains(clients.name), contains(invoices.notes))))
     .orderBy(desc(invoices.issueDate))
     .limit(6)
     .all()
   const people = db
     .select({ id: clients.id, name: clients.name, email: clients.email })
     .from(clients)
-    .where(and(eq(clients.orgId, orgId), or(escaped(clients.name), escaped(clients.email))))
+    .where(and(eq(clients.orgId, orgId), or(contains(clients.name), contains(clients.email))))
     .limit(5)
     .all()
   const txns = db
@@ -41,7 +38,7 @@ export function searchWorkspace(db: Db, orgId: string, q: string) {
       amountMinor: transactions.amountMinor,
     })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), or(escaped(transactions.description), escaped(transactions.counterparty))))
+    .where(and(eq(transactions.orgId, orgId), or(contains(transactions.description), contains(transactions.counterparty))))
     .orderBy(desc(transactions.date))
     .limit(6)
     .all()

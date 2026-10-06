@@ -19,16 +19,7 @@ const TABS = [
 export default async function ReceiptsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const ctx = await requireReadyOrg()
   const tab = parseTab(TABS, (await searchParams).tab)
-  const rows = listReceipts(db, ctx.orgId, tab)
-  const receipts = rows.map(({ receipt: r, transaction, suggestion }) => ({
-    id: r.id,
-    filename: r.filename,
-    mimeType: r.mimeType,
-    status: r.status,
-    extracted: r.extracted,
-    transaction,
-    suggestion,
-  }))
+  const receipts = listReceipts(db, ctx.orgId, tab)
   return (
     <PageBody>
       <PageHeader

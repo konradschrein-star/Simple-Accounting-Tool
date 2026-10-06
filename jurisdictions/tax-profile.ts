@@ -24,3 +24,15 @@ export function normalizeTaxProfile(jurisdiction: Jurisdiction, input: TaxProfil
     defaultTaxRateBp: taxRegistered ? jurisdiction.defaultTaxRateBp : 0,
   }
 }
+
+type ChargeProfile = { taxRegistered: boolean; smallBusinessExempt: boolean }
+
+/** Rates a workspace may put on its own invoices: none (0) unless registered and not exempt. */
+export function invoiceRatesBp(jurisdiction: Jurisdiction, profile: ChargeProfile): number[] {
+  return profile.smallBusinessExempt || !profile.taxRegistered ? [0] : jurisdiction.taxRatesBp
+}
+
+/** Whether VAT/GST paid on expenses can be reclaimed (US sales tax has no input credit). */
+export function reclaimsInputTax(jurisdiction: Jurisdiction, profile: ChargeProfile): boolean {
+  return jurisdiction.inputTax.standardBp > 0 && profile.taxRegistered && !profile.smallBusinessExempt
+}

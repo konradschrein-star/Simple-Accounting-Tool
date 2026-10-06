@@ -1,7 +1,6 @@
 import "server-only"
 import { createHash } from "node:crypto"
 import fs from "node:fs"
-import path from "node:path"
 import { and, eq, gte, isNull, notInArray, or, sum } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { db } from "@/db/client"
@@ -10,6 +9,7 @@ import type { JurisdictionCode } from "@/jurisdictions/types"
 import { dataPath } from "@/lib/data-path"
 import { fromIso, monthKey } from "@/lib/dates"
 import { env } from "@/lib/env"
+import { removeUpload, storeUpload } from "@/lib/storage"
 import { createBatch, findBatchBySha, findMappingProfile, getBatch, saveMappingProfile, stageRows, updateBatch, type ImportBatch } from "@/server/repos/imports"
 import { decodeCsv, detectCsv } from "./csv/detect"
 import { normalizeRows } from "./csv/normalize"
@@ -94,9 +94,7 @@ export function startImport(ctx: ImportContext & { today: string; filename: stri
   if (kind === "pdf" && pdfImportsThisMonth(orgId, ctx.today) >= env().PDF_IMPORTS_PER_MONTH) throw new ImportRejected("QUOTA_EXCEEDED", 402)
 
   const id = nanoid()
-  const filePath = path.join("uploads", orgId, "imports", `${id}.${kind}`)
-  fs.mkdirSync(path.dirname(dataPath(filePath)), { recursive: true })
-  fs.writeFileSync(dataPath(filePath), bytes)
+  const filePath = storeUpload(orgId, "imports", id, kind, bytes)
   const batch = createBatch(db, orgId, { id, source: kind, filename: ctx.filename.slice(0, 200), fileSha256: sha, filePath })
 
   if (kind === "pdf") enqueuePdfImport(orgId, id)
@@ -136,5 +134,5 @@ export function applyCsvMapping(ctx: ImportContext, batch: ImportBatch, mapping:
 }
 
 export function removeImportFile(batch: ImportBatch) {
-  if (batch.filePath) fs.rmSync(dataPath(batch.filePath), { force: true })
+  if (batch.filePath) removeUpload(batch.filePath)
 }
