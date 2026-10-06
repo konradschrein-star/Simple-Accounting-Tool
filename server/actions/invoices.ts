@@ -5,16 +5,9 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import { evaluateTriggers } from "@/advisory/evaluate"
 import { db } from "@/db/client"
-import { audit, requireReadyOrg } from "@/server/context"
-import {
-  createDraft,
-  deleteDraft,
-  duplicateInvoice,
-  finalizeInvoice,
-  InvoiceError,
-  saveDraft,
-  setInvoiceStatus,
-} from "@/server/repos/invoices"
+import { guarded, type ActionResult } from "@/lib/action-result"
+import { audit, requireReadyOrg, type ReadyOrgContext } from "@/server/context"
+import { createDraft, deleteDraft, duplicateInvoice, finalizeInvoice, saveDraft, setInvoiceStatus, type StatusChange } from "@/server/repos/invoices"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -38,16 +31,10 @@ const draftSchema = z.object({
     .max(200),
 })
 
-export type InvoiceActionResult = { ok: true } | { ok: false; error: string }
-
-async function guarded(fn: () => void | Promise<void>): Promise<InvoiceActionResult> {
-  try {
-    await fn()
-    return { ok: true }
-  } catch (error) {
-    if (error instanceof InvoiceError) return { ok: false, error: error.message }
-    throw error
-  }
+/** Anything that changes what is owed or paid feeds the advisory metrics and the invoice screens. */
+function afterMoneyChange(ctx: ReadyOrgContext) {
+  evaluateTriggers(db, ctx.orgId)
+  revalidatePath("/", "layout")
 }
 
 export async function newInvoice(clientId?: string) {
@@ -57,70 +44,63 @@ export async function newInvoice(clientId?: string) {
   redirect(`/invoices/${id}`)
 }
 
-export async function saveInvoiceDraft(id: string, input: unknown): Promise<InvoiceActionResult> {
+export async function saveInvoiceDraft(id: string, input: unknown): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const parsed = draftSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid invoice" }
-  return guarded(() => saveDraft(db, ctx.orgId, id, parsed.data))
+  return guarded(() => {
+    saveDraft(db, ctx.orgId, id, parsed.data)
+    // Autosave fires constantly; only bookkeeper edits on a client's invoice are worth an audit row.
+    if (ctx.actor === "staff") audit(ctx, "invoice.draft_saved", "invoice", id)
+  })
 }
 
-export async function finalize(id: string): Promise<InvoiceActionResult> {
+export async function finalize(id: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const result = await guarded(() => {
     const number = finalizeInvoice(db, ctx.orgId, ctx.jurisdiction, id)
     audit(ctx, "invoice.finalized", "invoice", id, { number })
   })
-  if (result.ok) {
-    evaluateTriggers(db, ctx.orgId)
-    revalidatePath("/invoices")
-  }
+  if (result.ok) afterMoneyChange(ctx)
   return result
 }
 
-export async function markPaid(id: string, paidDate: string): Promise<InvoiceActionResult> {
+const statusChange = z.discriminatedUnion("to", [
+  z.object({ to: z.literal("paid"), paidDate: isoDate }),
+  z.object({ to: z.literal("finalized") }),
+  z.object({ to: z.literal("void") }),
+])
+
+/** Mark paid / unpaid / void. */
+export async function changeInvoiceStatus(id: string, change: StatusChange): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  if (!isoDate.safeParse(paidDate).success) return { ok: false, error: "Invalid date" }
+  const parsed = statusChange.safeParse(change)
+  if (!parsed.success) return { ok: false, error: "Invalid status change" }
   const result = await guarded(() => {
-    setInvoiceStatus(db, ctx.orgId, id, { to: "paid", paidDate })
-    audit(ctx, "invoice.paid", "invoice", id, { paidDate })
+    setInvoiceStatus(db, ctx.orgId, id, parsed.data)
+    audit(ctx, `invoice.${parsed.data.to === "finalized" ? "unpaid" : parsed.data.to}`, "invoice", id, parsed.data)
   })
-  if (result.ok) {
-    evaluateTriggers(db, ctx.orgId)
-    revalidatePath("/invoices")
-  }
+  if (result.ok) afterMoneyChange(ctx)
   return result
 }
 
-export async function markUnpaid(id: string): Promise<InvoiceActionResult> {
-  const ctx = await requireReadyOrg()
-  const result = await guarded(() => {
-    setInvoiceStatus(db, ctx.orgId, id, { to: "finalized" })
-    audit(ctx, "invoice.unpaid", "invoice", id)
-  })
-  revalidatePath("/invoices")
-  return result
-}
-
-export async function voidInvoice(id: string): Promise<InvoiceActionResult> {
+export async function removeDraft(id: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const result = await guarded(() => {
-    setInvoiceStatus(db, ctx.orgId, id, { to: "void" })
-    audit(ctx, "invoice.voided", "invoice", id)
+    deleteDraft(db, ctx.orgId, id)
+    audit(ctx, "invoice.deleted", "invoice", id)
   })
-  revalidatePath("/invoices")
+  if (result.ok) redirect("/invoices")
   return result
 }
 
-export async function removeDraft(id: string) {
+export async function duplicate(id: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  deleteDraft(db, ctx.orgId, id)
-  audit(ctx, "invoice.deleted", "invoice", id)
-  redirect("/invoices")
-}
-
-export async function duplicate(id: string) {
-  const ctx = await requireReadyOrg()
-  const copy = duplicateInvoice(db, ctx.orgId, ctx.settings, ctx.today, id)
-  audit(ctx, "invoice.duplicated", "invoice", copy, { from: id })
-  redirect(`/invoices/${copy}`)
+  let copy = ""
+  const result = await guarded(() => {
+    copy = duplicateInvoice(db, ctx.orgId, ctx.settings, ctx.today, id)
+    audit(ctx, "invoice.duplicated", "invoice", copy, { from: id })
+  })
+  if (result.ok) redirect(`/invoices/${copy}`)
+  return result
 }

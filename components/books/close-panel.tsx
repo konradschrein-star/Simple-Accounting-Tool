@@ -1,16 +1,16 @@
 "use client"
 
 import { CheckCircle2Icon, CircleIcon, LockIcon, SparklesIcon, UnlockIcon } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import type { CloseChecklist, CloseSummary } from "@/db/schema"
-import { closeMonth, prepareClose, reopenMonth, type BooksResult } from "@/server/actions/books"
+import { useServerAction } from "@/components/use-server-action"
+import type { ActionResult } from "@/lib/action-result"
+import { closeMonth, prepareClose, reopenMonth } from "@/server/actions/books"
 
 export function ClosePanel({
   period,
@@ -27,18 +27,11 @@ export function ClosePanel({
   summary: CloseSummary | null
   ended: boolean
 }) {
-  const router = useRouter()
-  const [pending, start] = useTransition()
+  const { pending, run: runAction } = useServerAction()
+  const run = (fn: () => Promise<ActionResult>, success: string) => runAction(fn, { success })
   const [headline, setHeadline] = useState(summary?.headline ?? "")
   const [bullets, setBullets] = useState(summary?.bullets.join("\n") ?? "")
   const [watch, setWatch] = useState(summary?.watchItems.join("\n") ?? "")
-  const run = (fn: () => Promise<BooksResult>, success: string) =>
-    start(async () => {
-      const result = await fn()
-      if (!result.ok) return void toast.error(result.error)
-      toast.success(success)
-      router.refresh()
-    })
   const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean)
   const items = [
     { ok: checklist.transactions > 0, label: `${checklist.transactions} transactions booked for ${label}` },
@@ -84,27 +77,25 @@ export function ClosePanel({
             <p className="text-sm text-muted-foreground">No summary yet. Draft one to see how {label} went.</p>
           )}
         </CardContent>
-        {(
-          <CardFooter className="flex flex-wrap justify-end gap-2">
-            {closed ? (
-              <Button variant="outline" onClick={() => run(() => reopenMonth(period), `${label} reopened`)} disabled={pending}>
-                <UnlockIcon /> Reopen month
+        <CardFooter className="flex flex-wrap justify-end gap-2">
+          {closed ? (
+            <Button variant="outline" onClick={() => run(() => reopenMonth(period), `${label} reopened`)} disabled={pending}>
+              <UnlockIcon /> Reopen month
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => run(() => prepareClose(period), "Summary drafted")} disabled={pending}>
+                {pending ? <Spinner /> : <SparklesIcon />} {summary ? "Redraft summary" : "Draft summary"}
               </Button>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => run(() => prepareClose(period), "Summary drafted")} disabled={pending}>
-                  {pending ? <Spinner /> : <SparklesIcon />} {summary ? "Redraft summary" : "Draft summary"}
-                </Button>
-                <Button
-                  disabled={pending || !ready || !ended || !headline}
-                  onClick={() => run(() => closeMonth(period, { headline, bullets: lines(bullets), watchItems: lines(watch) }), `${label} closed`)}
-                >
-                  <LockIcon /> Close {label}
-                </Button>
-              </>
-            )}
-          </CardFooter>
-        )}
+              <Button
+                disabled={pending || !ready || !ended || !headline}
+                onClick={() => run(() => closeMonth(period, { headline, bullets: lines(bullets), watchItems: lines(watch) }), `${label} closed`)}
+              >
+                <LockIcon /> Close {label}
+              </Button>
+            </>
+          )}
+        </CardFooter>
       </Card>
     </div>
   )

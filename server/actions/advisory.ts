@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { workspaceMetrics } from "@/advisory/evaluate"
 import { db } from "@/db/client"
+import type { ActionResult } from "@/lib/action-result"
 import { env } from "@/lib/env"
 import { notifyLead } from "@/lib/lead-webhook"
 import { limits } from "@/lib/rate-limit"
@@ -11,7 +12,7 @@ import { audit, requireReadyOrg, type ReadyOrgContext } from "@/server/context"
 import { createAdvisoryRequest, getAlert, hasOpenRequest, setAlertStatus } from "@/server/repos/advisory"
 import { requestEngagement } from "@/server/repos/engagements"
 
-export type CtaResult = { ok: true; bookingUrl: string | null; alreadyRequested?: boolean } | { ok: false; error: string }
+type CtaResult = ActionResult<{ bookingUrl: string | null; alreadyRequested?: boolean }>
 
 function snapshot(ctx: ReadyOrgContext) {
   const m = workspaceMetrics(db, ctx.orgId, ctx.today)

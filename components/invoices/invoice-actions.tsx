@@ -1,9 +1,7 @@
 "use client"
 
 import { BanIcon, CheckIcon, CopyIcon, DownloadIcon, Undo2Icon } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,22 +14,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useServerAction } from "@/components/use-server-action"
 import type { DisplayStatus } from "@/invoicing/rules"
-import { duplicate, markPaid, markUnpaid, voidInvoice } from "@/server/actions/invoices"
+import { changeInvoiceStatus, duplicate } from "@/server/actions/invoices"
 
 export function InvoiceActions({ id, status, today }: { id: string; status: DisplayStatus; today: string }) {
-  const router = useRouter()
-  const [pending, start] = useTransition()
+  const { pending, run } = useServerAction()
   const [paidDate, setPaidDate] = useState(today)
-  const run = (fn: () => Promise<{ ok: boolean; error?: string }>, success: string) =>
-    start(async () => {
-      const result = await fn()
-      if (!result.ok) return void toast.error(result.error)
-      toast.success(success)
-      router.refresh()
-    })
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -48,24 +40,24 @@ export function InvoiceActions({ id, status, today }: { id: string; status: Disp
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 space-y-3">
-            <p className="text-sm font-medium">Payment received on</p>
-            <Input type="date" value={paidDate} max={today} onChange={(e) => setPaidDate(e.target.value)} />
-            <Button className="w-full" onClick={() => run(() => markPaid(id, paidDate), "Marked as paid")}>
+            <Field>
+              <FieldLabel htmlFor="paid-date">Payment received on</FieldLabel>
+              <Input id="paid-date" type="date" value={paidDate} max={today} onChange={(e) => setPaidDate(e.target.value)} />
+            </Field>
+            <Button className="w-full" onClick={() => run(() => changeInvoiceStatus(id, { to: "paid", paidDate }), { success: "Marked as paid" })}>
               Confirm payment
             </Button>
           </PopoverContent>
         </Popover>
       ) : null}
       {status === "paid" ? (
-        <Button variant="outline" disabled={pending} onClick={() => run(() => markUnpaid(id), "Marked as unpaid")}>
+        <Button variant="outline" disabled={pending} onClick={() => run(() => changeInvoiceStatus(id, { to: "finalized" }), { success: "Marked as unpaid" })}>
           <Undo2Icon /> Mark unpaid
         </Button>
       ) : null}
-      <form action={duplicate.bind(null, id)}>
-        <Button variant="ghost">
-          <CopyIcon /> Duplicate
-        </Button>
-      </form>
+      <Button variant="ghost" disabled={pending} onClick={() => run(() => duplicate(id))}>
+        <CopyIcon /> Duplicate
+      </Button>
       {status !== "void" ? (
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -82,7 +74,7 @@ export function InvoiceActions({ id, status, today }: { id: string; status: Disp
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => run(() => voidInvoice(id), "Invoice voided")}>Void invoice</AlertDialogAction>
+              <AlertDialogAction onClick={() => run(() => changeInvoiceStatus(id, { to: "void" }), { success: "Invoice voided" })}>Void invoice</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

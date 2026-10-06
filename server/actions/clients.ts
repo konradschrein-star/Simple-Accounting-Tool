@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "@/db/client"
+import type { ActionResult } from "@/lib/action-result"
 import { audit, requireReadyOrg } from "@/server/context"
 import { clientInputSchema, createClient, deleteClient, updateClient, type Client } from "@/server/repos/clients"
 
-export type ClientActionResult = { ok: true; client?: Client } | { ok: false; error: string }
+type ClientActionResult = ActionResult<{ client?: Client }>
 
 export async function saveClient(id: string | null, input: unknown): Promise<ClientActionResult> {
   const ctx = await requireReadyOrg()

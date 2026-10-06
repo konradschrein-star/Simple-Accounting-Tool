@@ -9,13 +9,14 @@ import { db } from "@/db/client"
 import { enqueuePdfImport } from "@/ingest/jobs"
 import { csvMappingSchema } from "@/ingest/csv/types"
 import { applyCsvMapping, pdfImportsThisMonth, removeImportFile } from "@/ingest/service"
+import { isRetryable } from "@/ingest/status"
+import type { ActionResult } from "@/lib/action-result"
 import { env } from "@/lib/env"
 import { audit, requireReadyOrg } from "@/server/context"
 import { deleteBatch, editRows, getBatch, updateBatch } from "@/server/repos/imports"
 import { commitBatch, LedgerError } from "@/server/repos/ledger"
 
 
-export type ActionResult = { ok: true; message?: string } | { ok: false; error: string }
 
 async function loadBatch(id: string) {
   const ctx = await requireReadyOrg()
@@ -82,11 +83,9 @@ export async function commitImport(id: string): Promise<ActionResult> {
   return { ok: true, message: `${result.inserted} transactions booked · ${categorized.deterministic + categorized.ai} auto-categorized${paid}` }
 }
 
-export const MAX_IMPORT_ATTEMPTS = 3
-
 export async function retryImport(id: string) {
   const { ctx, batch } = await loadBatch(id)
-  if (batch.status !== "failed" || batch.source !== "pdf" || !batch.filePath || batch.attempts >= MAX_IMPORT_ATTEMPTS) return
+  if (!isRetryable(batch)) return
   if (pdfImportsThisMonth(ctx.orgId, ctx.today) >= env().PDF_IMPORTS_PER_MONTH) return
   enqueuePdfImport(ctx.orgId, id)
   revalidatePath(`/imports/${id}`)

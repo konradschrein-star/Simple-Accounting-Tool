@@ -5,6 +5,7 @@ import { z } from "zod"
 import { draftCloseSummary } from "@/bookkeeping/close-service"
 import { closeReady } from "@/bookkeeping/pnl"
 import { db } from "@/db/client"
+import type { ActionResult } from "@/lib/action-result"
 import { defaultLlm } from "@/ingest/llm/client"
 import { limits } from "@/lib/rate-limit"
 import { audit, requireReadyOrg } from "@/server/context"
@@ -17,9 +18,8 @@ const summarySchema = z.object({
   watchItems: z.array(z.string().trim().max(400)).max(6),
 })
 
-export type BooksResult = { ok: true } | { ok: false; error: string }
 
-export async function prepareClose(period: string): Promise<BooksResult> {
+export async function prepareClose(period: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   if (!month.safeParse(period).success) return { ok: false, error: "Invalid month" }
   const checklist = monthChecklist(db, ctx.orgId, period)
@@ -30,7 +30,7 @@ export async function prepareClose(period: string): Promise<BooksResult> {
   return { ok: true }
 }
 
-export async function closeMonth(period: string, summary: unknown): Promise<BooksResult> {
+export async function closeMonth(period: string, summary: unknown): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const parsedSummary = summarySchema.safeParse(summary)
   if (!month.safeParse(period).success || !parsedSummary.success) return { ok: false, error: "Invalid close" }
@@ -43,7 +43,7 @@ export async function closeMonth(period: string, summary: unknown): Promise<Book
   return { ok: true }
 }
 
-export async function reopenMonth(period: string): Promise<BooksResult> {
+export async function reopenMonth(period: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   if (!month.safeParse(period).success) return { ok: false, error: "Invalid month" }
   reopenPeriod(db, ctx.orgId, period)

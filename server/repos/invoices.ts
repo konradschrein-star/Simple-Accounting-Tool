@@ -179,7 +179,9 @@ export function finalizeInvoice(db: Db, orgId: string, jurisdiction: Jurisdictio
   })
 }
 
-export function setInvoiceStatus(db: Db, orgId: string, id: string, change: { to: "paid"; paidDate: IsoDate } | { to: "finalized" } | { to: "void" }) {
+export type StatusChange = { to: "paid"; paidDate: IsoDate } | { to: "finalized" } | { to: "void" }
+
+export function setInvoiceStatus(db: Db, orgId: string, id: string, change: StatusChange) {
   const current = db.select().from(invoices).where(and(eq(invoices.orgId, orgId), eq(invoices.id, id))).get()
   if (!current) throw new InvoiceError("Invoice not found")
   if (current.status === "draft" || current.status === "void") throw new InvoiceError(`A ${current.status} invoice cannot change status`)

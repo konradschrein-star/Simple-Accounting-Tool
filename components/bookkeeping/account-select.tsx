@@ -13,6 +13,7 @@ const KIND_LABELS: Record<AccountRef["kind"], string> = {
 }
 
 export function AccountSelect({
+  label,
   accounts,
   value,
   onChange,
@@ -20,6 +21,8 @@ export function AccountSelect({
   className,
   sign,
 }: {
+  /** Accessible name, e.g. the transaction it categorizes. */
+  label: string
   accounts: AccountRef[]
   value: string | null
   onChange: (accountId: string) => void
@@ -31,7 +34,7 @@ export function AccountSelect({
   const order: AccountRef["kind"][] = sign === "in" ? ["income", "owner", "transfer", "expense", "tax"] : ["expense", "tax", "owner", "transfer", "income"]
   return (
     <Select value={value ?? undefined} onValueChange={onChange}>
-      <SelectTrigger className={cn("h-8 w-full", className)}>
+      <SelectTrigger aria-label={label} className={cn("h-8 w-full", className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

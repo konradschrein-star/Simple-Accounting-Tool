@@ -11,13 +11,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { computeTotals, formatMoney, formatRate, minorToInput, parseAmountInput, parseQuantityInput, type CurrencyCode } from "@/lib/money"
+import { useServerAction } from "@/components/use-server-action"
+import { computeTotals, formatMoney, formatRate, minorToInput, parseAmountInput, parsePercentInput, parseQuantityInput, type CurrencyCode } from "@/lib/money"
 import { finalize, removeDraft, saveInvoiceDraft } from "@/server/actions/invoices"
 
-type LineForm = { description: string; quantity: string; unitPrice: string; taxRateBp: string }
+/** All numeric fields are kept as typed strings and parsed on save, so partial input like "7." stays editable. */
+type LineForm = { description: string; quantity: string; unitPrice: string; taxRate: string }
 type EditorForm = {
   clientId: string
   issueDate: string
@@ -57,14 +59,16 @@ function toPayload(values: EditorForm) {
       description: l.description,
       quantityMilli: parseQuantityInput(l.quantity) ?? 0,
       unitPriceMinor: parseAmountInput(l.unitPrice) ?? 0,
-      taxRateBp: Number(l.taxRateBp) || 0,
+      taxRateBp: parsePercentInput(l.taxRate) ?? 0,
     })),
   }
 }
 
 export function InvoiceEditor(props: InvoiceEditorProps) {
   const router = useRouter()
-  const [clients, setClients] = useState(props.clients)
+  const [addedClients, setAddedClients] = useState<{ id: string; name: string }[]>([])
+  const clients = [...props.clients, ...addedClients.filter((a) => !props.clients.some((c) => c.id === a.id))].sort((a, b) => a.name.localeCompare(b.name))
+  const { pending: deleting, run } = useServerAction()
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved")
   const [previewVersion, setPreviewVersion] = useState(0)
   const [finalizing, startFinalize] = useTransition()
@@ -75,7 +79,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
         description: l.description,
         quantity: String(l.quantityMilli / 1000),
         unitPrice: minorToInput(l.unitPriceMinor),
-        taxRateBp: String(l.taxRateBp),
+        taxRate: String(l.taxRateBp / 100),
       })),
     },
   })
@@ -132,10 +136,10 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
           <CardContent>
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
               <Field className="sm:col-span-2">
-                <FieldLabel>Client</FieldLabel>
+                <FieldLabel htmlFor="client">Client</FieldLabel>
                 <div className="flex gap-2">
                   <Select value={values.clientId || undefined} onValueChange={(v) => form.setValue("clientId", v)}>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger id="client" className="flex-1">
                       <SelectValue placeholder="Choose a client" />
                     </SelectTrigger>
                     <SelectContent>
@@ -144,7 +148,6 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
                           {c.name}
                         </SelectItem>
                       ))}
-                      {clients.length === 0 ? <SelectSeparator /> : null}
                     </SelectContent>
                   </Select>
                   <ClientDialog
@@ -155,7 +158,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
                     }
                     onSaved={(client) => {
                       if (!client) return
-                      setClients((cs) => [...cs, { id: client.id, name: client.name }].sort((a, b) => a.name.localeCompare(b.name)))
+                      setAddedClients((cs) => [...cs, { id: client.id, name: client.name }])
                       form.setValue("clientId", client.id)
                     }}
                   />
@@ -199,20 +202,20 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
                 <Input aria-label="Quantity" inputMode="decimal" className="text-right tabular-nums" {...form.register(`lines.${index}.quantity`)} />
                 <Input aria-label="Unit price" inputMode="decimal" className="text-right tabular-nums" {...form.register(`lines.${index}.unitPrice`)} />
                 {rateOptions ? (
-                  <Select value={values.lines?.[index]?.taxRateBp} onValueChange={(v) => form.setValue(`lines.${index}.taxRateBp`, v)}>
+                  <Select value={values.lines?.[index]?.taxRate} onValueChange={(v) => form.setValue(`lines.${index}.taxRate`, v)}>
                     <SelectTrigger aria-label="Tax rate">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {props.taxRatesBp.map((bp) => (
-                        <SelectItem key={bp} value={String(bp)}>
+                        <SelectItem key={bp} value={String(bp / 100)}>
                           {formatRate(bp, props.locale)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input aria-label="Sales tax %" inputMode="decimal" placeholder="0" value={Number(values.lines?.[index]?.taxRateBp ?? 0) / 100 || ""} onChange={(e) => form.setValue(`lines.${index}.taxRateBp`, String(Math.round(Number(e.target.value.replace(",", ".")) * 100) || 0))} />
+                  <Input aria-label="Sales tax %" inputMode="decimal" placeholder="0" {...form.register(`lines.${index}.taxRate`)} />
                 )}
                 <Button type="button" variant="ghost" size="icon" aria-label="Remove line" onClick={() => lines.remove(index)} disabled={lines.fields.length === 1}>
                   <Trash2Icon />
@@ -223,7 +226,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => lines.append({ description: "", quantity: "1", unitPrice: "0.00", taxRateBp: values.lines?.[values.lines.length - 1]?.taxRateBp ?? String(props.taxRatesBp[0]) })}
+              onClick={() => lines.append({ description: "", quantity: "1", unitPrice: "0.00", taxRate: values.lines?.[values.lines.length - 1]?.taxRate ?? String(props.taxRatesBp[0] / 100) })}
             >
               <PlusIcon /> Add line
             </Button>
@@ -288,11 +291,9 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
               </>
             )}
           </span>
-          <form action={removeDraft.bind(null, props.invoiceId)}>
-            <Button variant="ghost" size="sm">
-              Delete draft
-            </Button>
-          </form>
+          <Button variant="ghost" size="sm" disabled={deleting} onClick={() => run(() => removeDraft(props.invoiceId))}>
+            Delete draft
+          </Button>
           <Button onClick={onFinalize} disabled={finalizing || props.blockers.length > 0}>
             {finalizing ? <Spinner /> : null} Finalize invoice
           </Button>

@@ -20,13 +20,18 @@ export function StatementUploader({ pdfRemaining }: { pdfRemaining: number }) {
       toast.error(importErrorMessage(rejection?.errors[0]?.code === "file-too-large" ? "FILE_TOO_LARGE" : "UNSUPPORTED_TYPE")),
     onDropAccepted: async ([file]) => {
       setUploading(file.name)
-      const body = new FormData()
-      body.set("file", file)
-      const response = await fetch("/api/imports", { method: "POST", body })
-      const json = await response.json().catch(() => ({}))
-      setUploading(null)
-      if (!response.ok) return void toast.error(importErrorMessage(json.code))
-      router.push(`/imports/${json.id}`)
+      try {
+        const body = new FormData()
+        body.set("file", file)
+        const response = await fetch("/api/imports", { method: "POST", body })
+        const json = await response.json().catch(() => ({}))
+        if (!response.ok) return void toast.error(importErrorMessage(json.code))
+        router.push(`/imports/${json.id}`)
+      } catch {
+        toast.error("Upload failed — check your connection and try again.")
+      } finally {
+        setUploading(null)
+      }
     },
   })
 

@@ -21,11 +21,16 @@ export function LogoUpload({ hasLogo }: { hasLogo: boolean }) {
     onDropRejected: () => toast.error("Use a PNG or JPG under 1 MB"),
     onDropAccepted: async ([file]) => {
       setUploading(true)
-      const body = new FormData()
-      body.set("logo", file)
-      const response = await fetch("/api/settings/logo", { method: "POST", body })
-      setUploading(false)
-      if (!response.ok) return void toast.error((await response.json()).error ?? "Upload failed")
+      try {
+        const body = new FormData()
+        body.set("logo", file)
+        const response = await fetch("/api/settings/logo", { method: "POST", body })
+        if (!response.ok) return void toast.error((await response.json().catch(() => ({}))).error ?? "Upload failed")
+      } catch {
+        return void toast.error("Upload failed — check your connection and try again.")
+      } finally {
+        setUploading(false)
+      }
       toast.success("Logo updated")
       setVersion((v) => v + 1)
       router.refresh()

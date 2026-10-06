@@ -2,7 +2,7 @@
 
 import { CheckCircle2Icon, CircleAlertIcon, LinkIcon, XIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -59,17 +59,20 @@ export function ReviewTable({
   const money = (minor: number) => formatMoney(minor, currency, locale)
   const visible = flaggedOnly ? rows.filter((r) => r.issues.length) : rows
   const included = rows.filter((r) => r.include && r.date && r.amountMinor !== null)
-  const totals = useMemo(
-    () => ({
-      in: included.filter((r) => r.amountMinor! > 0).reduce((s, r) => s + r.amountMinor!, 0),
-      out: included.filter((r) => r.amountMinor! < 0).reduce((s, r) => s + r.amountMinor!, 0),
-    }),
-    [included],
-  )
+  const totals = {
+    in: included.reduce((s, r) => s + Math.max(0, r.amountMinor!), 0),
+    out: included.reduce((s, r) => s + Math.min(0, r.amountMinor!), 0),
+  }
 
-  function update(id: string, patch: Partial<ReviewRow>, persist: Record<string, unknown>) {
+  /** Optimistic edit; rolled back if the server refuses it. */
+  async function update(id: string, patch: Partial<ReviewRow>, persist: Record<string, unknown>) {
+    const before = rows.find((r) => r.id === id)
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)))
-    void saveImportEdits(batchId, [{ id, ...persist }]).then((res) => !res.ok && toast.error(res.error))
+    const result = await saveImportEdits(batchId, [{ id, ...persist }])
+    if (!result.ok) {
+      toast.error(result.error)
+      if (before) setRows((rs) => rs.map((r) => (r.id === id ? before : r)))
+    }
   }
 
   function commit() {
@@ -134,6 +137,7 @@ export function ReviewTable({
                 <TableCell>
                   <Input
                     type="date"
+                    aria-label="Booking date"
                     defaultValue={r.date ?? ""}
                     className="h-8"
                     onBlur={(e) => e.target.value && e.target.value !== r.date && update(r.id, { date: e.target.value, issues: r.issues.filter((i) => i !== "unparseable_date") }, { date: e.target.value })}
@@ -141,6 +145,7 @@ export function ReviewTable({
                 </TableCell>
                 <TableCell>
                   <Input
+                    aria-label="Description"
                     defaultValue={r.description}
                     className="h-8"
                     onBlur={(e) => e.target.value !== r.description && update(r.id, { description: e.target.value }, { description: e.target.value })}
@@ -149,6 +154,7 @@ export function ReviewTable({
                 </TableCell>
                 <TableCell>
                   <Input
+                    aria-label="Amount"
                     defaultValue={r.amountMinor === null ? "" : minorToInput(r.amountMinor)}
                     inputMode="decimal"
                     className={cn("h-8 text-right tabular-nums", (r.amountMinor ?? 0) > 0 && "text-success")}

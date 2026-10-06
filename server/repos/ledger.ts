@@ -133,16 +133,41 @@ export function humanExamples(db: Db, orgId: string) {
     .all()
 }
 
-/** Human decision on one or many transactions (review queue / transactions screen). */
-export function setAccount(db: Db, orgId: string, ids: string[], accountId: string) {
-  const owned = db.select({ id: ledgerAccounts.id }).from(ledgerAccounts).where(and(eq(ledgerAccounts.orgId, orgId), eq(ledgerAccounts.id, accountId))).get()
-  if (!owned) throw new LedgerError("Unknown account")
+/** Human decisions: each transaction gets its chosen account. All-or-nothing, and closed months stay locked. */
+export function setAccounts(db: Db, orgId: string, decisions: Map<string, string>) {
+  const ids = [...decisions.keys()]
+  const accountIds = new Set(decisions.values())
+  const owned = db
+    .select({ id: ledgerAccounts.id })
+    .from(ledgerAccounts)
+    .where(and(eq(ledgerAccounts.orgId, orgId), inArray(ledgerAccounts.id, [...accountIds])))
+    .all()
+  if (owned.length !== accountIds.size) throw new LedgerError("Unknown account")
   const rows = db.select({ date: transactions.date }).from(transactions).where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids))).all()
   assertOpen(db, orgId, rows.map((r) => r.date))
-  db.update(transactions)
-    .set({ ledgerAccountId: accountId, categorizationSource: "human", reviewStatus: "ok" })
-    .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids)))
-    .run()
+  db.transaction((tx) => {
+    for (const [id, accountId] of decisions)
+      tx.update(transactions)
+        .set({ ledgerAccountId: accountId, categorizationSource: "human", reviewStatus: "ok" })
+        .where(and(eq(transactions.orgId, orgId), eq(transactions.id, id)))
+        .run()
+  })
+}
+
+export function getTransaction(db: Db, orgId: string, id: string): Transaction | null {
+  return db.select().from(transactions).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).get() ?? null
+}
+
+/** The account currently suggested (by AI or rules) for each of the given transactions. */
+export function suggestedAccounts(db: Db, orgId: string, ids: string[]): Map<string, string> {
+  return new Map(
+    db
+      .select({ id: transactions.id, accountId: transactions.ledgerAccountId })
+      .from(transactions)
+      .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids)))
+      .all()
+      .flatMap((r) => (r.accountId ? [[r.id, r.accountId] as const] : [])),
+  )
 }
 
 export function deleteTransaction(db: Db, orgId: string, id: string) {

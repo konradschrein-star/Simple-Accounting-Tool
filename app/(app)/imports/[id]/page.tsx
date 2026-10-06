@@ -13,6 +13,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Spinner } from "@/components/ui/spinner"
 import { db } from "@/db/client"
 import { csvPreview } from "@/ingest/service"
+import { isBatchPending, isRetryable } from "@/ingest/status"
 import { importErrorMessage } from "@/lib/import-errors"
 import { requireReadyOrg } from "@/server/context"
 import { deleteImport, retryImport } from "@/server/actions/imports"
@@ -28,7 +29,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
   const { currency, locale } = ctx.settings
 
   let body: React.ReactNode
-  if (batch.status === "parsing" || batch.status === "uploaded") {
+  if (isBatchPending(batch.status)) {
     body = (
       <Empty className="border">
         <ImportStatusPoller batchId={batch.id} />
@@ -51,7 +52,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
         <AlertDescription>
           <p>{importErrorMessage(batch.errorCode, batch.errorMessage)}</p>
           <div className="mt-3 flex gap-2">
-            {batch.source === "pdf" && batch.filePath && !["ENCRYPTED_PDF", "TOO_MANY_PAGES", "CURRENCY_MISMATCH"].includes(batch.errorCode ?? "") ? (
+            {isRetryable(batch) ? (
               <form action={retryImport.bind(null, batch.id)}>
                 <Button size="sm" variant="outline">Retry</Button>
               </form>
@@ -81,6 +82,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
     const numbers = invoiceNumbers(db, ctx.orgId, rows.flatMap((r) => (r.matchedInvoiceId ? [r.matchedInvoiceId] : [])))
     body = (
       <ReviewTable
+        key={rows[0]?.id ?? batch.id /* re-staging creates new rows → fresh local state */}
         batchId={batch.id}
         reconciliation={batch.reconciliation}
         currency={currency}
