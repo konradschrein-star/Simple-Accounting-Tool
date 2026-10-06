@@ -95,7 +95,7 @@ export const invoices = sqliteTable(
   {
     id: id(),
     orgId: orgId(),
-    clientId: text("client_id").references(() => clients.id, { onDelete: "restrict" }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
     number: text("number"),
     status: text("status", { enum: ["draft", "finalized", "paid", "void"] }).notNull().default("draft"),
     issueDate: text("issue_date").notNull(),

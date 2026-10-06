@@ -8,6 +8,13 @@
       "when": 1791307222847,
       "tag": "0000_sudden_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791308351281,
+      "tag": "0001_sparkling_scarecrow",
+      "breakpoints": true
     }
   ]
 }
