@@ -15,10 +15,9 @@ import { formatDate } from "@/lib/dates"
 import { formatMoney, type CurrencyCode } from "@/lib/money"
 import { newDocument } from "@/server/actions/invoices"
 import { commandSearch } from "@/server/actions/search"
+import { EMPTY_RESULTS, MIN_QUERY_LENGTH } from "@/lib/search"
 import type { SearchResults } from "@/server/repos/search"
-import { navGroups, type ShellRole } from "./app-sidebar"
-
-const NONE: SearchResults = { documents: [], clients: [], transactions: [] }
+import { navGroups, type ShellRole } from "./nav"
 
 /** ⌘K / Ctrl+K: jump anywhere, create anything, find any invoice, client or bank line. */
 export function CommandMenu({ role, currency, locale, today }: { role: ShellRole; currency: CurrencyCode; locale: string; today: string }) {
@@ -26,7 +25,8 @@ export function CommandMenu({ role, currency, locale, today }: { role: ShellRole
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<SearchResults>(NONE)
+  // Results remember the query they answer, so a slow response never shows up under a newer query.
+  const [results, setResults] = useState<{ query: string; hits: SearchResults }>({ query: "", hits: EMPTY_RESULTS })
   const [searching, startSearch] = useTransition()
 
   useEffect(() => {
@@ -41,8 +41,9 @@ export function CommandMenu({ role, currency, locale, today }: { role: ShellRole
   }, [])
 
   useEffect(() => {
-    if (query.trim().length < 2) return
-    const timer = setTimeout(() => startSearch(async () => setResults(await commandSearch(query))), 180)
+    const q = query.trim()
+    if (q.length < MIN_QUERY_LENGTH) return
+    const timer = setTimeout(() => startSearch(async () => setResults({ query: q, hits: await commandSearch(q) })), 180)
     return () => clearTimeout(timer)
   }, [query])
 
@@ -54,7 +55,7 @@ export function CommandMenu({ role, currency, locale, today }: { role: ShellRole
     setOpen(false)
     fn()
   }
-  const hits = query.trim().length >= 2 ? results : NONE
+  const hits = results.query === query.trim() ? results.hits : EMPTY_RESULTS
   // Server hits are already filtered by the database; only static commands go through cmdk's fuzzy matching.
   const tag = (id: string) => `hit:${id}`
 
@@ -83,7 +84,7 @@ export function CommandMenu({ role, currency, locale, today }: { role: ShellRole
                     <span className="truncate text-muted-foreground">{d.clientName}</span>
                     <span className="ml-auto flex items-center gap-2">
                       <span className="tabular-nums">{formatMoney(d.totalMinor, d.currency, locale)}</span>
-                      <InvoiceStatusBadge status={displayStatus(d, today)} />
+                      <InvoiceStatusBadge status={displayStatus(d, today, d.paidMinor)} />
                     </span>
                   </CommandItem>
                 ))}
@@ -92,7 +93,8 @@ export function CommandMenu({ role, currency, locale, today }: { role: ShellRole
             {hits.clients.length ? (
               <CommandGroup heading="Clients">
                 {hits.clients.map((c) => (
-                  <CommandItem key={c.id} value={tag(c.id)} onSelect={() => go(`/clients?q=${encodeURIComponent(c.name)}`)}>
+                  // There is no client page: open the clients table filtered to this one (by email when there is one — names can repeat).
+                  <CommandItem key={c.id} value={tag(c.id)} onSelect={() => go(`/clients?q=${encodeURIComponent(c.email || c.name)}`)}>
                     <UserIcon /> {c.name} <span className="truncate text-muted-foreground">{c.email}</span>
                   </CommandItem>
                 ))}
@@ -125,7 +127,7 @@ export function CommandMenu({ role, currency, locale, today }: { role: ShellRole
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
-            {navGroups(role, 0).map((group) => (
+            {navGroups(role).map((group) => (
               <CommandGroup key={group.label} heading={group.label}>
                 {group.items.map((item) => (
                   <CommandItem key={item.url} onSelect={() => go(item.url)}>

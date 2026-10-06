@@ -1,6 +1,7 @@
 import { BriefcaseBusinessIcon, FlaskConicalIcon } from "lucide-react"
 import Link from "next/link"
-import { AppSidebar, type ShellRole } from "@/components/shell/app-sidebar"
+import { AppSidebar } from "@/components/shell/app-sidebar"
+import type { ShellRole } from "@/components/shell/nav"
 import { CommandMenu } from "@/components/shell/command-menu"
 import { ModeToggle } from "@/components/shell/mode-toggle"
 import { Button } from "@/components/ui/button"

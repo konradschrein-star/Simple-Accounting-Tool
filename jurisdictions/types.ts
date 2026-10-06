@@ -38,6 +38,19 @@ export type LedgerAccountTemplate = {
   outOfScope?: true
 }
 
+/** Wording of the tax section in Settings. */
+export type TaxSettingsLabels = {
+  taxNumber: string
+  vatId: string
+  vatAccounting: string
+  accrual: string
+  cash: string
+  /** The small-business exemption switch, where the jurisdiction has one (DE §19). */
+  smallBusinessExemption: string | null
+  /** A filing-extension switch (DE Dauerfristverlängerung). */
+  filingExtension: string | null
+}
+
 /** How a jurisdiction's VAT/GST/sales-tax return looks and when it applies. */
 export type VatReturnForm = {
   name: string
@@ -81,6 +94,7 @@ export interface Jurisdiction {
   /** Income account used for tax-exempt small businesses (e.g. DE §19), if the chart has one. */
   exemptIncomeCode?: string
   vatReturn: VatReturnForm
+  settingsLabels: TaxSettingsLabels
   requiredInvoiceFields(profile: TaxProfile): InvoiceRequirement[]
   /** Note printed on invoices that carry no tax (e.g. §19 UStG), or null. */
   exemptionNote(profile: TaxProfile): string | null

@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { formatDocumentNumber } from "@/invoicing/documents"
 import { minorToInput } from "@/lib/money"
-import type { BankField, JurisdictionCode } from "@/jurisdictions/types"
+import type { BankField, TaxSettingsLabels } from "@/jurisdictions/types"
 import { saveSettings } from "@/server/actions/settings"
 import type { WorkspaceSettings } from "@/server/repos/workspace"
 
@@ -22,8 +22,6 @@ const BANK_LABELS: Record<BankField, { name: keyof WorkspaceSettings; label: str
   accountNumber: { name: "ukAccountNumber", label: "Account number" },
   routingNumber: { name: "usRoutingNumber", label: "Routing number (ABA)" },
 }
-
-const nextNumber = (prefix: string, seq: number) => formatDocumentNumber(prefix, new Date().getFullYear(), seq)
 
 function TextField({ name, label, value, description, className }: { name: string; label: string; value: string; description?: string; className?: string }) {
   return (
@@ -38,26 +36,33 @@ function TextField({ name, label, value, description, className }: { name: strin
 export function SettingsForm({
   orgName,
   settings,
-  jurisdiction,
+  year,
   taxLabel,
   taxIdLabel,
+  labels,
+  staggeredQuarters,
   bankFields,
   emailEnabled,
 }: {
   orgName: string
   settings: WorkspaceSettings
-  jurisdiction: JurisdictionCode
+  /** The workspace's current year, for the "next number" previews. */
+  year: number
   taxLabel: string
   taxIdLabel: string
+  labels: TaxSettingsLabels
+  /** Whether returns follow the workspace's own quarter stagger (UK, JE) rather than calendar quarters. */
+  staggeredQuarters: boolean
   bankFields: BankField[]
   emailEnabled: boolean
 }) {
-  const [state, action, pending] = useActionState(saveSettings, {})
+  const nextNumber = (prefix: string, seq: number) => formatDocumentNumber(prefix, year, seq)
+  const [state, action, pending] = useActionState(saveSettings, null)
   const [registered, setRegistered] = useState(settings.taxRegistered || settings.smallBusinessExempt)
   const [smallBusiness, setSmallBusiness] = useState(settings.smallBusinessExempt)
   useEffect(() => {
-    if (state.ok) toast.success("Settings saved")
-    if (state.error) toast.error(state.error)
+    if (state?.ok) toast.success("Settings saved")
+    else if (state) toast.error(state.error)
   }, [state])
   const s = settings
 
@@ -95,15 +100,15 @@ export function SettingsForm({
               <Switch id="taxRegistered" name="taxRegistered" checked={registered} onCheckedChange={setRegistered} />
               <FieldLabel htmlFor="taxRegistered">Registered for {taxLabel}</FieldLabel>
             </Field>
-            {jurisdiction === "de" && registered ? (
+            {labels.smallBusinessExemption && registered ? (
               <Field orientation="horizontal">
                 <Switch id="smallBusinessExempt" name="smallBusinessExempt" checked={smallBusiness} onCheckedChange={setSmallBusiness} />
-                <FieldLabel htmlFor="smallBusinessExempt">Kleinunternehmer (§19 UStG)</FieldLabel>
+                <FieldLabel htmlFor="smallBusinessExempt">{labels.smallBusinessExemption}</FieldLabel>
               </Field>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="taxNumber" label={jurisdiction === "de" ? "Steuernummer" : "Tax reference"} value={s.taxNumber} description={taxIdLabel} />
-              <TextField name="vatId" label={jurisdiction === "de" ? "USt-IdNr." : `${taxLabel} number`} value={s.vatId} />
+              <TextField name="taxNumber" label={labels.taxNumber} value={s.taxNumber} description={taxIdLabel} />
+              <TextField name="vatId" label={labels.vatId} value={s.vatId} />
               <Field>
                 <FieldLabel>Return frequency</FieldLabel>
                 <Select name="vatFilingFrequency" defaultValue={s.vatFilingFrequency}>
@@ -118,23 +123,24 @@ export function SettingsForm({
                 </Select>
               </Field>
               <Field>
-                <FieldLabel>{jurisdiction === "de" ? "Versteuerung" : "VAT accounting"}</FieldLabel>
+                <FieldLabel>{labels.vatAccounting}</FieldLabel>
                 <Select name="vatAccounting" defaultValue={s.vatAccounting}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="accrual">{jurisdiction === "de" ? "Soll (on invoice date)" : "Standard (on invoice date)"}</SelectItem>
-                    <SelectItem value="cash">{jurisdiction === "de" ? "Ist (on payment)" : "Cash accounting (on payment)"}</SelectItem>
+                    <SelectItem value="accrual">{labels.accrual}</SelectItem>
+                    <SelectItem value="cash">{labels.cash}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
-              {jurisdiction === "de" ? (
+              {labels.filingExtension ? (
                 <Field orientation="horizontal" className="self-end">
                   <Switch id="deDauerfrist" name="deDauerfrist" defaultChecked={s.deDauerfrist} />
-                  <FieldLabel htmlFor="deDauerfrist">Dauerfristverlängerung</FieldLabel>
+                  <FieldLabel htmlFor="deDauerfrist">{labels.filingExtension}</FieldLabel>
                 </Field>
-              ) : (
+              ) : null}
+              {staggeredQuarters ? (
                 <Field>
                   <FieldLabel>First quarter ends in</FieldLabel>
                   <Select name="vatPeriodEndMonth" defaultValue={String(s.vatPeriodEndMonth)}>
@@ -148,7 +154,7 @@ export function SettingsForm({
                     </SelectContent>
                   </Select>
                 </Field>
-              )}
+              ) : null}
             </div>
           </FieldGroup>
         </CardContent>

@@ -98,6 +98,15 @@ export const je: Jurisdiction = {
     { code: "3100", name: "Capital introduced", kind: "owner", taxLine: null },
   ],
   vatReturn,
+  settingsLabels: {
+    taxNumber: "Tax reference",
+    vatId: "GST number",
+    vatAccounting: "GST accounting",
+    accrual: "Standard (on invoice date)",
+    cash: "Cash accounting (on payment)",
+    smallBusinessExemption: null,
+    filingExtension: null,
+  },
   requiredInvoiceFields: (profile) =>
     profile.taxRegistered ? ["sellerAddress", "clientAddress", "sellerTaxId", "serviceDate"] : ["sellerAddress", "clientAddress"],
   exemptionNote: (profile) => (profile.taxRegistered ? null : "Not registered for GST — no GST charged."),

@@ -42,9 +42,11 @@ export default async function SettingsPage() {
       <SettingsForm
         orgName={ctx.orgName}
         settings={ctx.settings}
-        jurisdiction={ctx.jurisdiction.code}
+        year={Number(ctx.today.slice(0, 4))}
         taxLabel={ctx.jurisdiction.taxLabel}
         taxIdLabel={ctx.jurisdiction.taxIdLabel}
+        labels={ctx.jurisdiction.settingsLabels}
+        staggeredQuarters={!ctx.jurisdiction.vatReturn.calendarQuarters}
         bankFields={ctx.jurisdiction.bankFields}
         emailEnabled={workspaceCanEmail(ctx.settings)}
       />

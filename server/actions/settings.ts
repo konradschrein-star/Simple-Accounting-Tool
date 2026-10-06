@@ -11,6 +11,7 @@ import { dataPath } from "@/lib/data-path"
 import { checkbox, reminderDays, text as textField } from "@/lib/form"
 import { parseAmountInput } from "@/lib/money"
 import { accountNumberField, bicField, ibanField, routingNumberField, sortCodeField, vatIdField } from "@/lib/validation"
+import { fail, type ActionResult } from "@/lib/action-result"
 import { audit, requireReadyOrg } from "@/server/context"
 import { eraseWorkspace, renameOrganization, updateSettings } from "@/server/repos/workspace"
 
@@ -67,12 +68,10 @@ const profileSchema = z.object({
   advisoryOptIn: checkbox,
 })
 
-export type SettingsState = { ok?: boolean; error?: string }
-
-export async function saveSettings(_prev: SettingsState, form: FormData): Promise<SettingsState> {
+export async function saveSettings(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const parsed = profileSchema.safeParse(Object.fromEntries(form))
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form" }
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Please check the form")
   const {
     businessName,
     advisoryOptIn,
@@ -95,15 +94,18 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     advisoryOptIn,
     advisoryOptInAt: advisoryOptIn && !ctx.settings.advisoryOptIn ? new Date() : advisoryOptIn ? ctx.settings.advisoryOptInAt : null,
   }
-  renameOrganization(db, ctx.orgId, businessName)
-  updateSettings(db, ctx.orgId, next)
-  // Bank details and tax ids end up on invoices: keep a before/after trail, especially for bookkeeper edits.
-  const changed = Object.fromEntries(
-    (Object.keys(profile) as (keyof typeof profile)[])
-      .filter((k) => JSON.stringify(ctx.settings[k]) !== JSON.stringify(profile[k]))
-      .map((k) => [k, { from: ctx.settings[k], to: profile[k] }])
+  // Bank details and tax ids end up on invoices: keep a before/after trail of every field, especially for bookkeeper edits.
+  const changed: Record<string, { from: unknown; to: unknown }> = Object.fromEntries(
+    (Object.keys(next) as (keyof typeof next)[])
+      .filter((k) => JSON.stringify(ctx.settings[k]) !== JSON.stringify(next[k]))
+      .map((k) => [k, { from: ctx.settings[k], to: next[k] }])
   )
-  audit(ctx, "settings.updated", "workspace", ctx.orgId, changed)
+  if (businessName !== ctx.orgName) changed.businessName = { from: ctx.orgName, to: businessName }
+  db.transaction(() => {
+    renameOrganization(db, ctx.orgId, businessName)
+    updateSettings(db, ctx.orgId, next)
+    audit(ctx, "settings.updated", "workspace", ctx.orgId, changed)
+  })
   evaluateTriggers(db, ctx.orgId)
   revalidatePath("/", "layout")
   return { ok: true }

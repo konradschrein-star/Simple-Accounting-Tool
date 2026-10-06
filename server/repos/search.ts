@@ -2,6 +2,7 @@ import { and, desc, eq, or, type AnyColumn } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { containsText } from "@/db/like"
 import { clients, invoices, transactions } from "@/db/schema"
+import { paidAmounts } from "./invoices"
 
 /** Quick lookup for the command menu: a handful of hits per kind, newest first. */
 export function searchWorkspace(db: Db, orgId: string, q: string) {
@@ -42,7 +43,12 @@ export function searchWorkspace(db: Db, orgId: string, q: string) {
     .orderBy(desc(transactions.date))
     .limit(6)
     .all()
-  return { documents: docs, clients: people, transactions: txns }
+  const paid = paidAmounts(
+    db,
+    orgId,
+    docs.map((d) => d.id)
+  )
+  return { documents: docs.map((d) => ({ ...d, paidMinor: paid.get(d.id) ?? 0 })), clients: people, transactions: txns }
 }
 
 export type SearchResults = ReturnType<typeof searchWorkspace>

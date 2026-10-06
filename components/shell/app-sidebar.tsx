@@ -1,21 +1,5 @@
 "use client"
 
-import {
-  BookOpenCheckIcon,
-  BriefcaseBusinessIcon,
-  FileSignatureIcon,
-  FileTextIcon,
-  LayoutDashboardIcon,
-  ListChecksIcon,
-  PackageIcon,
-  PaperclipIcon,
-  type LucideIcon,
-  ReceiptTextIcon,
-  SettingsIcon,
-  ShieldIcon,
-  UploadIcon,
-  UsersIcon,
-} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -32,41 +16,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { BrandMark } from "./brand"
+import { navGroups, REVIEW_URL, type ShellRole } from "./nav"
 import { NavUser } from "./nav-user"
-
-type NavItem = { title: string; url: string; icon: LucideIcon; badge?: number }
-
-export type ShellRole = "admin" | "staff" | "user"
-
-export function navGroups(role: ShellRole, reviewCount: number): { label: string; items: NavItem[] }[] {
-  const groups = [
-    { label: "Overview", items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon }] },
-    {
-      label: "Get paid",
-      items: [
-        { title: "Invoices", url: "/invoices", icon: FileTextIcon },
-        { title: "Quotes", url: "/quotes", icon: FileSignatureIcon },
-        { title: "Products", url: "/products", icon: PackageIcon },
-        { title: "Clients", url: "/clients", icon: UsersIcon },
-      ],
-    },
-    {
-      label: "Bank & books",
-      items: [
-        { title: "Imports", url: "/imports", icon: UploadIcon },
-        { title: "Transactions", url: "/transactions", icon: ReceiptTextIcon },
-        { title: "Receipts", url: "/receipts", icon: PaperclipIcon },
-        { title: "Review queue", url: "/review", icon: ListChecksIcon, badge: reviewCount },
-        { title: "Books & P&L", url: "/books", icon: BookOpenCheckIcon },
-      ],
-    },
-    { label: "Workspace", items: [{ title: "Settings", url: "/settings", icon: SettingsIcon }] },
-  ]
-  if (role === "user") return groups
-  const team: NavItem[] = [{ title: "Bookkeeper console", url: "/console", icon: BriefcaseBusinessIcon }]
-  if (role === "admin") team.push({ title: "Admin & leads", url: "/admin", icon: ShieldIcon })
-  return [...groups, { label: "Team", items: team }]
-}
 
 export function AppSidebar({
   brandName,
@@ -100,7 +51,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {navGroups(role, reviewCount).map((group) => (
+        {navGroups(role).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
@@ -112,7 +63,7 @@ export function AppSidebar({
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
+                  {item.url === REVIEW_URL && reviewCount ? <SidebarMenuBadge>{reviewCount}</SidebarMenuBadge> : null}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
