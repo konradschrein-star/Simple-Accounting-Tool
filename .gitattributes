@@ -4,3 +4,5 @@
 *.ico binary
 *.ttf binary
 *.pdf binary
+tests/fixtures/** binary
+public/samples/** binary
