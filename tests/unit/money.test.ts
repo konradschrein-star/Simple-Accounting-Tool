@@ -34,3 +34,22 @@ describe("money", () => {
     expect(parseDecimalToMinor("abc")).toBeNull()
   })
 })
+
+describe("dates & percent helpers", async () => {
+  const { addMonths, monthRange, shiftMonths } = await import("@/lib/dates")
+  const { parsePercentInput } = await import("@/lib/money")
+  const { toCsv } = await import("@/lib/csv")
+  it("month arithmetic", () => {
+    expect(addMonths("2026-01", -1)).toBe("2025-12")
+    expect(monthRange("2028-02")).toEqual({ from: "2028-02-01", to: "2028-02-29" })
+    expect(shiftMonths("2026-03-31", -1)).toBe("2026-02-28")
+  })
+  it("percent input", () => {
+    expect(parsePercentInput("7.25")).toBe(725)
+    expect(parsePercentInput("19 %")).toBe(1900)
+    expect(parsePercentInput("abc")).toBeNull()
+  })
+  it("csv neutralises formulas", () => {
+    expect(toCsv([["=HYPERLINK(1)", 5]])).toBe('﻿"\'=HYPERLINK(1)",5')
+  })
+})

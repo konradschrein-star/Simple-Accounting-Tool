@@ -9,10 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { computePnl } from "@/bookkeeping/pnl"
-import { priorMonth } from "@/bookkeeping/close-service"
-import { RANGE_KEYS, RANGE_LABELS, reportRange, type RangeKey } from "@/bookkeeping/ranges"
+import { parseRangeKey, RANGE_KEYS, RANGE_LABELS, reportRange } from "@/bookkeeping/ranges"
 import { db } from "@/db/client"
-import { formatDate, monthLabel } from "@/lib/dates"
+import { formatDate, monthLabel, priorMonth } from "@/lib/dates"
 import { formatMoney } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { removeRule } from "@/server/actions/bookkeeping"
@@ -37,7 +36,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
 
   let body: React.ReactNode
   if (tab === "pnl") {
-    const key: RangeKey = RANGE_KEYS.includes(params.range as RangeKey) ? (params.range as RangeKey) : "ytd"
+    const key = parseRangeKey(params.range)
     const range = reportRange(key, ctx.today)
     const pnl = computePnl({ ...pnlInputs(db, ctx.orgId), accounts, ...range })
     body = (

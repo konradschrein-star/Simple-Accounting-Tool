@@ -1,7 +1,9 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { importBatches, importRows, invoices, periodCloses, transactions, type CloseChecklist, type CloseSummary } from "@/db/schema"
-import type { PnlTransaction } from "@/bookkeeping/pnl"
+import { computePnl, type Pnl, type PnlTransaction } from "@/bookkeeping/pnl"
+import { monthRange, priorMonth } from "@/lib/dates"
+import { listAccounts } from "./ledger"
 
 export type PeriodClose = typeof periodCloses.$inferSelect
 
@@ -93,4 +95,8 @@ export function uncategorizedInMonth(db: Db, orgId: string, month: string): numb
       .where(and(eq(transactions.orgId, orgId), isNull(transactions.ledgerAccountId), sql`substr(${transactions.date}, 1, 7) = ${month}`))
       .get()?.n ?? 0
   )
+}
+
+export function monthPnl(db: Db, orgId: string, month: string): Pnl {
+  return computePnl({ ...pnlInputs(db, orgId), accounts: listAccounts(db, orgId), period: monthRange(month), prior: monthRange(priorMonth(month)) })
 }

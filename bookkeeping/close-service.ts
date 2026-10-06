@@ -5,29 +5,12 @@ import type { Db } from "@/db/client"
 import type { CloseSummary } from "@/db/schema"
 import { openRouterStructured, type LlmPort } from "@/ingest/llm/client"
 import type { Jurisdiction } from "@/jurisdictions"
-import { addDays, lastDayOfMonth } from "@/lib/dates"
+import { addDays, monthLabel } from "@/lib/dates"
 import { env } from "@/lib/env"
-import { listAccounts } from "@/server/repos/ledger"
-import { pnlInputs } from "@/server/repos/books"
+import { monthPnl } from "@/server/repos/books"
 import type { WorkspaceSettings } from "@/server/repos/workspace"
 import { taxProfileOf } from "@/server/repos/workspace"
-import { computePnl, draftSummary, type Pnl } from "./pnl"
-
-export function monthRange(month: string) {
-  const [y, m] = month.split("-").map(Number)
-  return { from: `${month}-01`, to: lastDayOfMonth(y, m) }
-}
-
-export function priorMonth(month: string): string {
-  const [y, m] = month.split("-").map(Number)
-  const d = new Date(Date.UTC(y, m - 2, 1))
-  return d.toISOString().slice(0, 7)
-}
-
-export function monthPnl(db: Db, orgId: string, month: string): Pnl {
-  const inputs = pnlInputs(db, orgId)
-  return computePnl({ ...inputs, accounts: listAccounts(db, orgId), period: monthRange(month), prior: monthRange(priorMonth(month)) })
-}
+import { draftSummary } from "./pnl"
 
 const summarySchema = z.object({ headline: z.string(), bullets: z.array(z.string()).max(6), watchItems: z.array(z.string()).max(4) })
 
@@ -48,8 +31,7 @@ export async function draftCloseSummary(input: {
   const pnl = monthPnl(db, orgId, month)
   const metrics = workspaceMetrics(db, orgId, input.today)
   const next = jurisdiction.taxDeadlines(taxProfileOf(settings), input.today, addDays(input.today, 45))[0] ?? null
-  const monthLabel = new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })
-  const draft = draftSummary({ monthLabel, pnl, currency: settings.currency, locale: settings.locale, overdueMinor: metrics.overdueMinor, nextDeadline: next })
+  const draft = draftSummary({ monthLabel: monthLabel(month), pnl, currency: settings.currency, locale: settings.locale, overdueMinor: metrics.overdueMinor, nextDeadline: next })
   const llm = input.llm ?? (env().OPENROUTER_API_KEY ? openRouterStructured : null)
   if (!llm) return draft
   try {

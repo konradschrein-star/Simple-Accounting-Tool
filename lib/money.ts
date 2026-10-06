@@ -88,3 +88,15 @@ export function parseQuantityInput(input: string): number | null {
 export function minorToInput(minor: number): string {
   return (minor / 100).toFixed(2)
 }
+
+/** Percent typed by users ("7.25", "7,25 %") to basis points; null when unparseable. */
+export function parsePercentInput(input: string): number | null {
+  const trimmed = input.trim().replace("%", "").replace(",", ".").trim()
+  if (!trimmed) return 0
+  const value = Number(trimmed)
+  return Number.isFinite(value) && value >= 0 && value <= 100 ? Math.round(value * 100) : null
+}
+
+export function formatMarginBp(bp: number | null, locale: string): string {
+  return bp === null ? "—" : `${(bp / 100).toLocaleString(locale, { maximumFractionDigits: 1 })} %`
+}

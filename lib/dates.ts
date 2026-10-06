@@ -100,3 +100,26 @@ export function formatDate(iso: IsoDate | null | undefined, locale: string, styl
 export function monthLabel(month: string, style: "long" | "short" = "long"): string {
   return new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: style, year: style === "long" ? "numeric" : "2-digit", timeZone: "UTC" })
 }
+
+/** "YYYY-MM" of the month `offset` months away from the month containing `iso`. */
+export function addMonths(month: string, offset: number): string {
+  const [y, m] = month.split("-").map(Number)
+  const d = new Date(Date.UTC(y, m - 1 + offset, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+}
+
+export const priorMonth = (month: string) => addMonths(month, -1)
+
+/** First and last calendar day of a "YYYY-MM" month. */
+export function monthRange(month: string): { from: IsoDate; to: IsoDate } {
+  const [y, m] = month.split("-").map(Number)
+  return { from: `${month}-01`, to: lastDayOfMonth(y, m) }
+}
+
+/** The same calendar day `offset` months away, clamped to month end (31 Mar − 1 month → 28/29 Feb). */
+export function shiftMonths(iso: IsoDate, offset: number): IsoDate {
+  const target = addMonths(monthKey(iso), offset)
+  const { to } = monthRange(target)
+  const day = Math.min(Number(iso.slice(8)), Number(to.slice(8)))
+  return `${target}-${String(day).padStart(2, "0")}`
+}

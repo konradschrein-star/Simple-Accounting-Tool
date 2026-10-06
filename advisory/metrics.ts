@@ -1,5 +1,5 @@
 import type { LedgerAccountKind } from "@/jurisdictions/types"
-import { addDays, monthKey, type IsoDate } from "@/lib/dates"
+import { addDays, addMonths, monthKey, monthRange, type IsoDate } from "@/lib/dates"
 
 export type MetricInvoice = { id: string; status: "draft" | "finalized" | "paid" | "void"; issueDate: IsoDate; dueDate: IsoDate; paidDate: IsoDate | null; totalMinor: number }
 export type MetricTransaction = { date: IsoDate; amountMinor: number; kind: LedgerAccountKind | null; invoiceId: string | null }
@@ -52,26 +52,20 @@ function period(invoices: MetricInvoice[], txns: MetricTransaction[], from: IsoD
   return { invoicedMinor, cashInMinor, expensesMinor, netMinor, marginBp: cashInMinor > 0 ? Math.round((netMinor / cashInMinor) * 10000) : null }
 }
 
-function monthStart(iso: IsoDate, offset: number): IsoDate {
-  const [y, m] = iso.split("-").map(Number)
-  const d = new Date(Date.UTC(y, m - 1 + offset, 1))
-  return d.toISOString().slice(0, 10)
-}
-
 export function computeMetrics(invoices: MetricInvoice[], txns: MetricTransaction[], today: IsoDate): Metrics {
   const months: MonthPoint[] = []
   for (let offset = -11; offset <= 0; offset++) {
-    const start = monthStart(today, offset)
-    const end = addDays(monthStart(today, offset + 1), -1)
-    const p = period(invoices, txns, start, end)
-    months.push({ month: monthKey(start), invoicedMinor: p.invoicedMinor, cashInMinor: p.cashInMinor, expensesMinor: p.expensesMinor })
+    const month = addMonths(monthKey(today), offset)
+    const { from, to } = monthRange(month)
+    const p = period(invoices, txns, from, to)
+    months.push({ month, invoicedMinor: p.invoicedMinor, cashInMinor: p.cashInMinor, expensesMinor: p.expensesMinor })
   }
   const open = invoices.filter((i) => i.status === "finalized")
   const overdue = open.filter((i) => i.dueDate < today)
   const dates = [...txns.map((t) => t.date), ...invoices.filter((i) => i.status !== "draft").map((i) => i.issueDate)].sort()
   return {
-    thisMonth: period(invoices, txns, monthStart(today, 0), today),
-    trailing12: period(invoices, txns, monthStart(today, -11), today),
+    thisMonth: period(invoices, txns, monthRange(monthKey(today)).from, today),
+    trailing12: period(invoices, txns, monthRange(addMonths(monthKey(today), -11)).from, today),
     trailing90: period(invoices, txns, addDays(today, -89), today),
     lifetime: period(invoices, txns, null, today),
     months,

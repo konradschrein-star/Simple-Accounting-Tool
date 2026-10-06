@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto"
 import { evaluateTriggers, workspaceMetrics } from "@/advisory/evaluate"
-import { draftSummary, computePnl } from "@/bookkeeping/pnl"
+import { draftSummary } from "@/bookkeeping/pnl"
 import type { Db } from "@/db/client"
 import { categorizationRules, transactions } from "@/db/schema"
 import { getJurisdiction, type JurisdictionCode } from "@/jurisdictions"
-import { addDays, dayOfMonth, lastDayOfMonth, monthKey, type IsoDate } from "@/lib/dates"
+import { addDays, addMonths, dayOfMonth, daysBetween, lastDayOfMonth, monthKey, monthLabel, type IsoDate } from "@/lib/dates"
 import { computeTotals } from "@/lib/money"
-import { closePeriod, monthChecklist, pnlInputs } from "@/server/repos/books"
+import { closePeriod, monthChecklist, monthPnl } from "@/server/repos/books"
 import { createClient } from "@/server/repos/clients"
 import { createDraft, finalizeInvoice, saveDraft, setInvoiceStatus } from "@/server/repos/invoices"
 import { listAccounts } from "@/server/repos/ledger"
@@ -25,10 +25,6 @@ function rng(seed: number) {
   }
 }
 
-const monthOf = (today: IsoDate, offset: number) => {
-  const [y, m] = today.split("-").map(Number)
-  return { y: new Date(Date.UTC(y, m - 1 + offset, 1)).getUTCFullYear(), m: new Date(Date.UTC(y, m - 1 + offset, 1)).getUTCMonth() + 1 }
-}
 
 /**
  * Fills a fresh workspace with nine months of believable activity: invoices in every state, a categorized
@@ -56,7 +52,7 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
   // ── Invoices: a revenue ramp that crosses the 10k milestone in the current month ──
   const paidInvoices: { id: string; number: string; paidDate: IsoDate; total: number; client: string }[] = []
   for (let offset = -8; offset <= 0; offset++) {
-    const { y, m } = monthOf(today, offset)
+    const [y, m] = addMonths(monthKey(today), offset).split("-").map(Number)
     const monthTarget = 520000 + (offset + 8) * 70000 + Math.round(random() * 60000)
     const issueDays = offset === 0 ? [1, 3, Math.min(5, Number(today.slice(8)))] : [3, 17]
     issueDays.forEach((day, i) => {
@@ -81,7 +77,7 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
       })
       if (isDraft) return
       const number = finalizeInvoice(db, orgId, jurisdiction, id)
-      const ageDays = Math.round((Date.parse(today) - Date.parse(issueDate)) / 86_400_000)
+      const ageDays = daysBetween(issueDate, today)
       const overdueOne = offset === -2 && i === 1 // stays unpaid → overdue
       if (ageDays > 14 && !overdueOne) {
         const paidDate = addDays(issueDate, 9 + Math.round(random() * 12))
@@ -97,7 +93,7 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
   type Row = { date: IsoDate; description: string; counterparty: string; amountMinor: number; code: string | null; source: "rule" | "ai" | "heuristic" | null; review: "ok" | "needs_review"; confidence?: number; invoiceId?: string }
   const rows: Row[] = paidInvoices.map((p) => ({ date: p.paidDate, description: `Payment ${p.number}`, counterparty: p.client, amountMinor: p.total, code: incomeAccount, source: "heuristic", review: "ok", invoiceId: p.id }))
   for (let offset = -8; offset <= 0; offset++) {
-    const { y, m } = monthOf(today, offset)
+    const [y, m] = addMonths(monthKey(today), offset).split("-").map(Number)
     for (const v of persona.vendors) {
       if (v.every === "quarter" && m % 3 !== 1) continue
       const date = dayOfMonth(y, m, v.day)
@@ -164,19 +160,10 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
     .run()
 
   // ── One closed month with a written summary ──
-  const closed = monthOf(today, -2)
-  const period = `${closed.y}-${String(closed.m).padStart(2, "0")}`
-  const prior = monthOf(today, -3)
-  const pnl = computePnl({
-    ...pnlInputs(db, orgId),
-    accounts: listAccounts(db, orgId),
-    period: { from: `${period}-01`, to: lastDayOfMonth(closed.y, closed.m) },
-    prior: { from: dayOfMonth(prior.y, prior.m, 1), to: lastDayOfMonth(prior.y, prior.m) },
-  })
-  const monthLabel = new Date(`${period}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })
-  const summary = draftSummary({ monthLabel, pnl, currency: settings.currency, locale: settings.locale, overdueMinor: 0, nextDeadline: null })
+  const period = addMonths(monthKey(today), -2)
+  const summary = draftSummary({ monthLabel: monthLabel(period), pnl: monthPnl(db, orgId, period), currency: settings.currency, locale: settings.locale, overdueMinor: 0, nextDeadline: null })
   closePeriod(db, orgId, period, userId, monthChecklist(db, orgId, period), summary)
 
   evaluateTriggers(db, orgId)
-  return { invoices: paidInvoices.length, transactions: rows.length, closedPeriod: monthKey(`${period}-01`) }
+  return { invoices: paidInvoices.length, transactions: rows.length, closedPeriod: period }
 }

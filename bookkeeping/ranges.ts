@@ -1,4 +1,4 @@
-import { addDays, type IsoDate } from "@/lib/dates"
+import { monthKey, monthRange, shiftMonths, type IsoDate } from "@/lib/dates"
 
 export const RANGE_KEYS = ["month", "last_month", "quarter", "ytd", "ttm"] as const
 export type RangeKey = (typeof RANGE_KEYS)[number]
@@ -11,24 +11,34 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
   ttm: "Last 12 months",
 }
 
-const monthStart = (y: number, m: number) => new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10)
+export function parseRangeKey(value: string | null | undefined, fallback: RangeKey = "ytd"): RangeKey {
+  return RANGE_KEYS.includes(value as RangeKey) ? (value as RangeKey) : fallback
+}
 
-/** Reporting window plus the equally long window right before it (for comparison). */
-export function reportRange(key: RangeKey, today: IsoDate): { period: { from: IsoDate; to: IsoDate }; prior: { from: IsoDate; to: IsoDate } } {
-  const [y, m] = today.split("-").map(Number)
-  const span = (from: IsoDate, to: IsoDate, priorFrom: IsoDate) => ({ period: { from, to }, prior: { from: priorFrom, to: addDays(from, -1) } })
+type Span = { from: IsoDate; to: IsoDate }
+
+/**
+ * Reporting window plus a like-for-like comparison: the same span shifted back by one period
+ * (month-to-date vs. the same days last month, YTD vs. the same days last year).
+ */
+export function reportRange(key: RangeKey, today: IsoDate): { period: Span; prior: Span } {
+  const month = monthKey(today)
+  const shifted = (period: Span, months: number) => ({ period, prior: { from: shiftMonths(period.from, -months), to: shiftMonths(period.to, -months) } })
   switch (key) {
     case "month":
-      return span(monthStart(y, m), today, monthStart(y, m - 1))
-    case "last_month":
-      return span(monthStart(y, m - 1), addDays(monthStart(y, m), -1), monthStart(y, m - 2))
+      return shifted({ from: monthRange(month).from, to: today }, 1)
+    case "last_month": {
+      const last = monthRange(shiftMonths(today, -1).slice(0, 7))
+      return { period: last, prior: monthRange(shiftMonths(last.from, -1).slice(0, 7)) }
+    }
     case "quarter": {
-      const q = Math.floor((m - 1) / 3) * 3 + 1
-      return span(monthStart(y, q), today, monthStart(y, q - 3))
+      const m = Number(today.slice(5, 7))
+      const start = `${today.slice(0, 4)}-${String(Math.floor((m - 1) / 3) * 3 + 1).padStart(2, "0")}-01`
+      return shifted({ from: start, to: today }, 3)
     }
     case "ytd":
-      return span(`${y}-01-01`, today, `${y - 1}-01-01`)
+      return shifted({ from: `${today.slice(0, 4)}-01-01`, to: today }, 12)
     case "ttm":
-      return span(monthStart(y, m - 11), today, monthStart(y, m - 23))
+      return shifted({ from: monthRange(shiftMonths(today, -11).slice(0, 7)).from, to: today }, 12)
   }
 }
