@@ -14,7 +14,7 @@ import { formatDate, todayIn } from "@/lib/dates"
 import { env } from "@/lib/env"
 import { formatMoney } from "@/lib/money"
 import { displayIban } from "@/lib/validation"
-import { findByPublicToken, markViewed } from "@/server/repos/invoices"
+import { findByPublicToken, markViewed } from "@/server/repos/public-links"
 import { getSettings } from "@/server/repos/workspace"
 
 export const metadata: Metadata = { title: "Document", robots: { index: false, follow: false } }

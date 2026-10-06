@@ -3,7 +3,7 @@ import { db } from "@/db/client"
 import { invoicePdf } from "@/pdf/invoice-file"
 import { clientIp } from "@/lib/client-ip"
 import { limits } from "@/lib/rate-limit"
-import { findByPublicToken } from "@/server/repos/invoices"
+import { findByPublicToken } from "@/server/repos/public-links"
 
 /** The PDF behind a public link — same file the owner downloads, no login. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {

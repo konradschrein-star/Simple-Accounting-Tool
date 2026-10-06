@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { workspaceMetrics } from "@/advisory/evaluate"
 import { addDays, addMonths, dayOfMonth, lastDayOfMonth, monthKey } from "@/lib/dates"
-import { recordPayment } from "@/server/repos/invoices"
+import { recordPayment } from "@/server/repos/invoice-payments"
 import { createRule, insertTransactions, type NewLedgerRow } from "@/server/repos/ledger"
 import { byRole, type SeedContext } from "./context"
 import type { PaidInvoice } from "./invoices"

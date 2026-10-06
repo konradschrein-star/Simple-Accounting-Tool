@@ -9,14 +9,13 @@ import {
   createDraft,
   deleteDraft,
   finalizeDocument,
-  findByPublicToken,
   getInvoice,
   listDocuments,
-  recordPayment,
-  removePayment,
   saveDraft,
   setQuoteOutcome,
 } from "@/server/repos/invoices"
+import { recordPayment, removePayment } from "@/server/repos/invoice-payments"
+import { findByPublicToken } from "@/server/repos/public-links"
 import { createSeries, getSeries, setSeriesPaused } from "@/server/repos/recurring"
 import { runRecurringInvoices } from "@/server/services/invoicing"
 import { applyJurisdiction, bootstrapWorkspace, getSettings, updateSettings } from "@/server/repos/workspace"

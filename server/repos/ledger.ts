@@ -6,7 +6,7 @@ import type { AccountRef, Assignment, Rule } from "@/bookkeeping/categorize"
 import { hashBankRows } from "@/ingest/dedupe"
 import { DomainError } from "@/lib/action-result"
 import { monthKey } from "@/lib/dates"
-import { applyInvoicePayment } from "./invoices"
+import { applyInvoicePayment } from "./invoice-payments"
 import { hasReceipt } from "./receipt-link"
 
 export type Transaction = typeof transactions.$inferSelect

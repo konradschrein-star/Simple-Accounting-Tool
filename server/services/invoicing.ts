@@ -9,17 +9,8 @@ import { formatMoney, roundHalfAwayFromZero } from "@/lib/money"
 import { limits } from "@/lib/rate-limit"
 import { invoicePdf } from "@/pdf/invoice-file"
 import { exchangeRateMicro } from "@/server/repos/fx"
-import {
-  cancelInvoice,
-  documentContext,
-  finalizeDocument,
-  getInvoice,
-  InvoiceError,
-  logEvent,
-  markSent,
-  overdueForReminders,
-  recordReminder,
-} from "@/server/repos/invoices"
+import { cancelInvoice, documentContext, finalizeDocument, getInvoice, InvoiceError, logEvent, markSent } from "@/server/repos/invoices"
+import { overdueForReminders, recordReminder } from "@/server/repos/invoice-payments"
 import { dueSeries, failSeries, getSeries, issueNextInSeries, templateCurrency } from "@/server/repos/recurring"
 import { getOrganizationName, getSettings, workspacesWithReminders, type WorkspaceSettings } from "@/server/repos/workspace"
 

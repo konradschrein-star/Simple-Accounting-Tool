@@ -7,7 +7,8 @@ import { guarded, type ActionResult } from "@/lib/action-result"
 import { clientIp } from "@/lib/client-ip"
 import { todayIn } from "@/lib/dates"
 import { limits } from "@/lib/rate-limit"
-import { findByPublicToken, setQuoteOutcome } from "@/server/repos/invoices"
+import { setQuoteOutcome } from "@/server/repos/invoices"
+import { findByPublicToken } from "@/server/repos/public-links"
 import { getSettings } from "@/server/repos/workspace"
 
 /** A client answering a quote from its share link — while it is still valid. The 32-character token is the only credential. */
