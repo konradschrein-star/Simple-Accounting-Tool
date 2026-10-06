@@ -38,7 +38,7 @@ type NavItem = { title: string; url: string; icon: LucideIcon; badge?: number }
 
 export type ShellRole = "admin" | "staff" | "user"
 
-function navGroups(role: ShellRole, reviewCount: number): { label: string; items: NavItem[] }[] {
+export function navGroups(role: ShellRole, reviewCount: number): { label: string; items: NavItem[] }[] {
   const groups = [
     { label: "Overview", items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon }] },
     {

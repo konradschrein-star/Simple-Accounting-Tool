@@ -6,7 +6,9 @@ import { defaultLlm, imagePart, type LlmContent } from "@/ingest/llm/client"
 import { pdfPageImages, pdfPageTexts } from "@/ingest/pdf/poppler"
 import { dataPath } from "@/lib/data-path"
 import { env } from "@/lib/env"
+import { getJurisdiction } from "@/jurisdictions"
 import { getReceipt, recordExtraction } from "@/server/repos/receipts"
+import { getSettings } from "@/server/repos/workspace"
 import { normalizeReceipt, RECEIPT_PROMPT, receiptExtractionSchema } from "./receipts"
 
 const jobs = pLimit(3)
@@ -37,7 +39,8 @@ async function processReceipt(orgId: string, id: string) {
       user: content,
       maxTokens: 800,
     })
-    recordExtraction(db, orgId, id, normalizeReceipt(data))
+    const code = getSettings(db, orgId).jurisdiction
+    recordExtraction(db, orgId, id, normalizeReceipt(data), code ? getJurisdiction(code).taxRatesBp : [])
   } catch (error) {
     console.warn(`[receipt ${id}]`, error instanceof Error ? error.message : error)
     recordExtraction(db, orgId, id, null)

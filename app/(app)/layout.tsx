@@ -1,6 +1,7 @@
 import { BriefcaseBusinessIcon, FlaskConicalIcon } from "lucide-react"
 import Link from "next/link"
 import { AppSidebar, type ShellRole } from "@/components/shell/app-sidebar"
+import { CommandMenu } from "@/components/shell/command-menu"
 import { ModeToggle } from "@/components/shell/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -43,10 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
-          <span className="truncate text-sm text-muted-foreground">
+          <span className="hidden truncate text-sm text-muted-foreground lg:inline">
             {ctx.orgName} · {ctx.jurisdiction.name} · {ctx.settings.currency}
           </span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <CommandMenu role={role} currency={ctx.settings.currency} locale={ctx.settings.locale} today={ctx.today} />
             <ModeToggle />
           </div>
         </header>

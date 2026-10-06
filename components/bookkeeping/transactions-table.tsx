@@ -1,6 +1,8 @@
 "use client"
 
-import { Trash2Icon } from "lucide-react"
+import { PaperclipIcon, Trash2Icon } from "lucide-react"
+import Link from "next/link"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -23,12 +25,20 @@ export type LedgerRow = {
   source: string | null
   needsReview: boolean
   locked: boolean
+  hasReceipt: boolean
 }
 
 const SOURCE_LABEL: Record<string, string> = { rule: "Rule", ai: "AI", human: "You", heuristic: "Auto" }
 
 export function TransactionsTable({ rows, accounts, currency, locale }: { rows: LedgerRow[]; accounts: AccountRef[]; currency: CurrencyCode; locale: string }) {
   const { pending, run } = useServerAction()
+  const pathname = usePathname()
+  const params = useSearchParams()
+  const sheetHref = (id: string) => {
+    const next = new URLSearchParams(params)
+    next.set("txn", id)
+    return `${pathname}?${next}`
+  }
   return (
     <Card className="py-0">
       <Table>
@@ -46,7 +56,10 @@ export function TransactionsTable({ rows, accounts, currency, locale }: { rows: 
             <TableRow key={r.id}>
               <TableCell className="pl-6 text-muted-foreground">{formatDate(r.date, locale, "short")}</TableCell>
               <TableCell>
-                <TxnDescription description={r.description} counterparty={r.counterparty} />
+                <Link href={sheetHref(r.id)} scroll={false} className="flex items-center gap-2 rounded-sm hover:underline focus-visible:outline-2">
+                  <TxnDescription description={r.description} counterparty={r.counterparty} />
+                  {r.hasReceipt ? <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" aria-label="Receipt attached" /> : null}
+                </Link>
               </TableCell>
               <TableCell className="text-right">
                 <SignedAmount minor={r.amountMinor} currency={currency} locale={locale} />

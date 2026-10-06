@@ -330,8 +330,6 @@ export const ledgerAccounts = sqliteTable(
     name: text("name").notNull(),
     kind: text("kind", { enum: ["income", "expense", "transfer", "owner", "tax"] }).notNull(),
     taxLine: text("tax_line"),
-    /** Default input-VAT rate for purchases booked here (null = no VAT, e.g. wages, insurance, bank fees). */
-    inputVatBp: integer("input_vat_bp"),
     archived: bool("archived"),
   },
   (t) => [uniqueIndex("ledger_accounts_org_code").on(t.orgId, t.code)],

@@ -3,13 +3,16 @@ import type { Db } from "@/db/client"
 import { attachments, transactions } from "@/db/schema"
 import { impliedVatRate, suggestTransaction, type CandidateTransaction, type ReceiptData } from "@/bookkeeping/receipts"
 import { DomainError } from "@/lib/action-result"
-import { addDays } from "@/lib/dates"
+import { addDays, monthKey } from "@/lib/dates"
+import { closedPeriods } from "./ledger"
 
 export type Receipt = typeof attachments.$inferSelect
 
 export class ReceiptError extends DomainError {}
 
-export function createReceipt(db: Db, orgId: string, values: { id: string; filePath: string; filename: string; mimeType: string; sizeBytes: number }): Receipt {
+export function createReceipt(db: Db, orgId: string, values: { id: string; filePath: string; filename: string; mimeType: string; sizeBytes: number; transactionId?: string | null }): Receipt {
+  if (values.transactionId && !db.select({ id: transactions.id }).from(transactions).where(and(eq(transactions.orgId, orgId), eq(transactions.id, values.transactionId))).get())
+    throw new ReceiptError("Transaction not found")
   return db.insert(attachments).values({ orgId, ...values }).returning().get()
 }
 
@@ -60,7 +63,14 @@ export function unreceiptedExpenses(db: Db, orgId: string, around?: string | nul
 }
 
 /** Stores what the AI read and the best bank match, if any. */
-export function recordExtraction(db: Db, orgId: string, id: string, data: ReceiptData | null) {
+export function recordExtraction(db: Db, orgId: string, id: string, data: ReceiptData | null, ratesBp: number[] = []) {
+  const receipt = getReceipt(db, orgId, id)
+  if (receipt?.transactionId) {
+    // Uploaded onto a transaction: keep the link, take the details (and VAT rate) from the document.
+    db.update(attachments).set({ extracted: data, status: "matched" }).where(eq(attachments.id, id)).run()
+    if (data) matchReceipt(db, orgId, id, receipt.transactionId, ratesBp)
+    return
+  }
   const suggestion = data ? suggestTransaction(data, unreceiptedExpenses(db, orgId, data.date)) : null
   db.update(attachments)
     .set({ extracted: data, status: data ? (suggestion ? "suggested" : "unmatched") : "failed", suggestedTransactionId: suggestion?.id ?? null })
@@ -81,19 +91,23 @@ export function matchReceipt(db: Db, orgId: string, id: string, transactionId: s
   if (taken && taken.id !== id) throw new ReceiptError("That transaction already has a receipt")
   // The ratio holds in any currency, so a USD receipt paid from a EUR account still yields its rate.
   const rate = receipt.extracted ? impliedVatRate(receipt.extracted.totalMinor, receipt.extracted.vatMinor, ratesBp) : null
+  // Closed months keep their VAT figures; the receipt is still attached as evidence.
+  const applyRate = rate !== null && !closedPeriods(db, orgId).has(monthKey(txn.date))
   db.transaction((tx) => {
     tx.update(attachments).set({ transactionId, status: "matched", suggestedTransactionId: null }).where(eq(attachments.id, id)).run()
-    if (rate !== null) tx.update(transactions).set({ vatRateBp: rate }).where(eq(transactions.id, transactionId)).run()
+    if (applyRate) tx.update(transactions).set({ vatRateBp: rate }).where(eq(transactions.id, transactionId)).run()
   })
-  return { vatRateBp: rate }
+  return { vatRateBp: applyRate ? rate : null }
 }
 
 /** Back to the inbox; the transaction falls back to its account's default rate. */
 export function unmatchReceipt(db: Db, orgId: string, id: string) {
   const receipt = getReceipt(db, orgId, id)
   if (!receipt?.transactionId) return
+  const txn = db.select({ date: transactions.date }).from(transactions).where(eq(transactions.id, receipt.transactionId)).get()
+  const open = !txn || !closedPeriods(db, orgId).has(monthKey(txn.date))
   db.transaction((tx) => {
-    tx.update(transactions).set({ vatRateBp: null }).where(and(eq(transactions.orgId, orgId), eq(transactions.id, receipt.transactionId!))).run()
+    if (open) tx.update(transactions).set({ vatRateBp: null }).where(and(eq(transactions.orgId, orgId), eq(transactions.id, receipt.transactionId!))).run()
     tx.update(attachments).set({ transactionId: null, status: receipt.extracted ? "unmatched" : "failed" }).where(eq(attachments.id, id)).run()
   })
 }
@@ -122,4 +136,9 @@ export function receiptIdsByTransaction(db: Db, orgId: string): Map<string, stri
 /** Extraction jobs live in memory: anything still "processing" after a restart gets handled by hand. */
 export function recoverInterruptedReceipts(db: Db) {
   db.update(attachments).set({ status: "failed" }).where(and(eq(attachments.status, "processing"), isNull(attachments.extracted))).run()
+}
+
+/** The receipt attached to a transaction (uploaded onto it, or matched), if any. */
+export function receiptForTransaction(db: Db, orgId: string, transactionId: string): Receipt | null {
+  return db.select().from(attachments).where(and(eq(attachments.orgId, orgId), eq(attachments.transactionId, transactionId))).orderBy(desc(attachments.createdAt)).get() ?? null
 }

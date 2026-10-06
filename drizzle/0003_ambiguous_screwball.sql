@@ -1,0 +1,1 @@
+ALTER TABLE `ledger_accounts` DROP COLUMN `input_vat_bp`;

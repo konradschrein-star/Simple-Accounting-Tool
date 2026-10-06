@@ -10,7 +10,7 @@ import { defaultLlm } from "@/ingest/llm/client"
 import { DomainError, guarded, type ActionResult } from "@/lib/action-result"
 import { limits } from "@/lib/rate-limit"
 import { audit, requireReadyOrg, type ReadyOrgContext } from "@/server/context"
-import { createRule, deleteRule, deleteTransaction, getTransaction, setAccounts, suggestedAccounts } from "@/server/repos/ledger"
+import { createRule, deleteRule, deleteTransaction, getTransaction, setAccounts, suggestedAccounts, updateTransactionDetails } from "@/server/repos/ledger"
 
 const ids = z.array(z.string()).min(1).max(500)
 
@@ -37,6 +37,20 @@ export async function assignAccount(transactionIds: string[], accountId: string)
     return { suggestRuleFor: single && suggestRule(single, accountId) ? single.id : undefined }
   })
   if (result.ok) afterLedgerChange(ctx)
+  return result
+}
+
+const detailsSchema = z.object({ note: z.string().max(2000).optional(), vatRateBp: z.number().int().min(0).max(10_000).nullable().optional() })
+
+export async function saveTransactionDetails(id: string, input: unknown): Promise<ActionResult> {
+  const ctx = await requireReadyOrg()
+  const parsed = detailsSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid details" }
+  const result = await guarded(() => {
+    updateTransactionDetails(db, ctx.orgId, id, parsed.data)
+    audit(ctx, "transaction.details", "transaction", id, parsed.data)
+  })
+  if (result.ok) revalidatePath("/transactions")
   return result
 }
 

@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, lte, ne } from "drizzle-orm"
 import type { Db } from "@/db/client"
 import { invoicePayments, invoices, ledgerAccounts, transactions } from "@/db/schema"
-import type { Jurisdiction } from "@/jurisdictions"
+import { defaultInputTaxBp, type Jurisdiction } from "@/jurisdictions"
 import type { IsoDate } from "@/lib/dates"
 import { summarizeVat, type VatPurchase, type VatSalesDoc, type VatSummary } from "@/tax/vat-return"
 import type { WorkspaceSettings } from "./workspace"
@@ -29,7 +29,7 @@ export function vatSummary(db: Db, orgId: string, jurisdiction: Jurisdiction, se
   // Not registered (or §19): nothing to reclaim, whatever the receipts say.
   const reclaims = settings.taxRegistered && !settings.smallBusinessExempt
   const expenses = db
-    .select({ date: transactions.date, amountMinor: transactions.amountMinor, vatRateBp: transactions.vatRateBp, code: ledgerAccounts.code, accountRate: ledgerAccounts.inputVatBp })
+    .select({ date: transactions.date, amountMinor: transactions.amountMinor, vatRateBp: transactions.vatRateBp, code: ledgerAccounts.code })
     .from(transactions)
     .innerJoin(ledgerAccounts, eq(ledgerAccounts.id, transactions.ledgerAccountId))
     .where(and(eq(transactions.orgId, orgId), eq(ledgerAccounts.kind, "expense"), gte(transactions.date, period.from), lte(transactions.date, period.to)))
@@ -37,7 +37,7 @@ export function vatSummary(db: Db, orgId: string, jurisdiction: Jurisdiction, se
   const purchases: VatPurchase[] = expenses.map((e) => ({
     date: e.date,
     amountMinor: e.amountMinor,
-    rateBp: reclaims ? (e.vatRateBp ?? e.accountRate ?? jurisdiction.inputTax.byAccount[e.code] ?? jurisdiction.inputTax.standardBp) : 0,
+    rateBp: reclaims ? (e.vatRateBp ?? defaultInputTaxBp(jurisdiction, e.code)) : 0,
   }))
   return summarizeVat(sales, purchases, period, settings.vatAccounting)
 }

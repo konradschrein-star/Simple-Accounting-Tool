@@ -7,7 +7,7 @@ import { db } from "@/db/client"
 import { dataPath } from "@/lib/data-path"
 import { limits } from "@/lib/rate-limit"
 import { audit, requireReadyOrg } from "@/server/context"
-import { createReceipt } from "@/server/repos/receipts"
+import { createReceipt, ReceiptError } from "@/server/repos/receipts"
 
 const MAX_BYTES = 10 * 1024 * 1024
 
@@ -22,7 +22,9 @@ function sniff(bytes: Uint8Array): { ext: string; mimeType: string } | null {
 export async function POST(request: Request) {
   const ctx = await requireReadyOrg()
   if (!limits.receipts(ctx.orgId)) return Response.json({ error: "That's a lot of receipts at once — please wait a few minutes." }, { status: 429 })
-  const file = (await request.formData()).get("file")
+  const form = await request.formData()
+  const file = form.get("file")
+  const transactionId = typeof form.get("transactionId") === "string" ? String(form.get("transactionId")) : null
   if (!(file instanceof File)) return Response.json({ error: "No file uploaded" }, { status: 400 })
   if (file.size > MAX_BYTES) return Response.json({ error: "Receipts must be under 10 MB" }, { status: 413 })
   const bytes = new Uint8Array(await file.arrayBuffer())
@@ -33,9 +35,16 @@ export async function POST(request: Request) {
   const filePath = path.join("uploads", ctx.orgId, "receipts", `${id}.${kind.ext}`)
   fs.mkdirSync(path.dirname(dataPath(filePath)), { recursive: true })
   fs.writeFileSync(dataPath(filePath), bytes)
-  createReceipt(db, ctx.orgId, { id, filePath, filename: file.name.slice(0, 200), mimeType: kind.mimeType, sizeBytes: file.size })
+  try {
+    createReceipt(db, ctx.orgId, { id, filePath, filename: file.name.slice(0, 200), mimeType: kind.mimeType, sizeBytes: file.size, transactionId })
+  } catch (error) {
+    fs.rmSync(dataPath(filePath), { force: true })
+    if (error instanceof ReceiptError) return Response.json({ error: error.message }, { status: 404 })
+    throw error
+  }
   enqueueReceipt(ctx.orgId, id)
   audit(ctx, "receipt.uploaded", "receipt", id, { filename: file.name })
   revalidatePath("/receipts")
+  if (transactionId) revalidatePath("/transactions")
   return Response.json({ id }, { status: 202 })
 }

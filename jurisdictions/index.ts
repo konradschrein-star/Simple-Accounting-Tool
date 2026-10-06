@@ -11,3 +11,8 @@ export const JURISDICTIONS: Record<JurisdictionCode, Jurisdiction> = { de, uk, u
 export function getJurisdiction(code: JurisdictionCode): Jurisdiction {
   return JURISDICTIONS[code]
 }
+
+/** Input tax usually contained in an expense booked to this account (when no receipt says otherwise). */
+export function defaultInputTaxBp(jurisdiction: Jurisdiction, accountCode: string): number {
+  return jurisdiction.inputTax.byAccount[accountCode] ?? jurisdiction.inputTax.standardBp
+}

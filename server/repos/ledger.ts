@@ -161,6 +161,14 @@ export function setAccounts(db: Db, orgId: string, decisions: Map<string, string
   })
 }
 
+/** Note and input-tax rate (null = the account's default). Closed months stay locked. */
+export function updateTransactionDetails(db: Db, orgId: string, id: string, patch: { note?: string; vatRateBp?: number | null }) {
+  const txn = getTransaction(db, orgId, id)
+  if (!txn) throw new LedgerError("Transaction not found")
+  assertOpen(db, orgId, [txn.date])
+  db.update(transactions).set(patch).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).run()
+}
+
 export function getTransaction(db: Db, orgId: string, id: string): Transaction | null {
   return db.select().from(transactions).where(and(eq(transactions.orgId, orgId), eq(transactions.id, id))).get() ?? null
 }
