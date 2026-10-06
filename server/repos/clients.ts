@@ -2,6 +2,7 @@ import { and, asc, count, eq } from "drizzle-orm"
 import { z } from "zod"
 import type { Db } from "@/db/client"
 import { CURRENCIES, clients, invoices } from "@/db/schema"
+import { vatIdProblem } from "@/lib/validation"
 
 export type Client = typeof clients.$inferSelect
 
@@ -15,7 +16,14 @@ export const clientInputSchema = z.object({
   postcode: z.string().trim().default(""),
   city: z.string().trim().default(""),
   country: z.string().trim().default(""),
-  vatId: z.string().trim().default(""),
+  vatId: z
+    .string()
+    .trim()
+    .default("")
+    .superRefine((value, ctx) => {
+      const message = vatIdProblem(value)
+      if (message) ctx.addIssue({ code: "custom", message })
+    }),
   /** Leitweg-ID / purchase order reference — required on XRechnung e-invoices to public bodies. */
   buyerReference: z.string().trim().max(100).default(""),
   /** Overrides the workspace language and currency for this client's documents and emails. */

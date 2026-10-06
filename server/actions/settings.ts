@@ -9,10 +9,16 @@ import { evaluateTriggers } from "@/advisory/evaluate"
 import { normalizeTaxProfile } from "@/jurisdictions/tax-profile"
 import { dataPath } from "@/lib/data-path"
 import { checkbox, text as textField } from "@/lib/form"
+import { bicProblem, ibanProblem, routingNumberProblem, sortCodeProblem, accountNumberProblem, vatIdProblem } from "@/lib/validation"
 import { audit, requireReadyOrg } from "@/server/context"
 import { eraseWorkspace, renameOrganization, updateSettings } from "@/server/repos/workspace"
 
 const text = textField()
+/** A text field whose content must pass a checksum validator (empty passes). */
+const checked = (problem: (value: string) => string | null) => text.superRefine((value, ctx) => {
+  const message = problem(value)
+  if (message) ctx.addIssue({ code: "custom", message })
+})
 const prefix = z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-_/]+$/, "Prefixes may only contain letters, digits, - _ /")
 
 const profileSchema = z.object({
@@ -27,12 +33,12 @@ const profileSchema = z.object({
   phone: text,
   website: text,
   taxNumber: text,
-  vatId: text,
-  bankIban: text,
-  bankBic: text,
-  ukSortCode: text,
-  ukAccountNumber: text,
-  usRoutingNumber: text,
+  vatId: checked(vatIdProblem),
+  bankIban: checked(ibanProblem),
+  bankBic: checked(bicProblem),
+  ukSortCode: checked(sortCodeProblem),
+  ukAccountNumber: checked(accountNumberProblem),
+  usRoutingNumber: checked(routingNumberProblem),
   invoicePrefix: prefix,
   quotePrefix: prefix,
   creditNotePrefix: prefix,

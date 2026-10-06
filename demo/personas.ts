@@ -16,7 +16,7 @@ export type Persona = {
 
 export const PERSONAS: Record<JurisdictionCode, Persona> = {
   de: {
-    business: { name: "Studio Nord", legalName: "Studio Nord – Lea Hartmann", addressLine1: "Torstraße 112", postcode: "10119", city: "Berlin", email: "hallo@studio-nord.example", phone: "+49 30 1234567", website: "studio-nord.example", taxNumber: "37/123/45678", vatId: "DE312345678", bankIban: "DE89 3704 0044 0532 0130 00", bankBic: "COBADEFFXXX", ukSortCode: "", ukAccountNumber: "", usRoutingNumber: "" },
+    business: { name: "Studio Nord", legalName: "Studio Nord – Lea Hartmann", addressLine1: "Torstraße 112", postcode: "10119", city: "Berlin", email: "hallo@studio-nord.example", phone: "+49 30 1234567", website: "studio-nord.example", taxNumber: "37/123/45678", vatId: "DE312345671", bankIban: "DE89 3704 0044 0532 0130 00", bankBic: "COBADEFFXXX", ukSortCode: "", ukAccountNumber: "", usRoutingNumber: "" },
     owner: "Lea Hartmann",
     clients: [
       { name: "Bäckerei Müller GmbH", email: "buchhaltung@baeckerei-mueller.example", addressLine1: "Hauptstraße 5", postcode: "80331", city: "München", country: "Deutschland" },
@@ -48,7 +48,7 @@ export const PERSONAS: Record<JurisdictionCode, Persona> = {
     ownerCode: "1800",
   },
   uk: {
-    business: { name: "Thornbury Digital", legalName: "Thornbury Digital Ltd", addressLine1: "14 Shoreditch High Street", postcode: "E1 6PG", city: "London", email: "hello@thornbury.example", phone: "+44 20 7946 0000", website: "thornbury.example", taxNumber: "1234567890", vatId: "GB123456789", bankIban: "", bankBic: "", ukSortCode: "20-00-00", ukAccountNumber: "55779911", usRoutingNumber: "" },
+    business: { name: "Thornbury Digital", legalName: "Thornbury Digital Ltd", addressLine1: "14 Shoreditch High Street", postcode: "E1 6PG", city: "London", email: "hello@thornbury.example", phone: "+44 20 7946 0000", website: "thornbury.example", taxNumber: "1234567890", vatId: "GB123456727", bankIban: "", bankBic: "", ukSortCode: "20-00-00", ukAccountNumber: "55779911", usRoutingNumber: "" },
     owner: "Oliver Grant",
     clients: [
       { name: "Acme Retail Ltd", email: "accounts@acme-retail.example", addressLine1: "1 Market Street", postcode: "M1 1AA", city: "Manchester", country: "United Kingdom" },

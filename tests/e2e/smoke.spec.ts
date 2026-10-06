@@ -35,7 +35,7 @@ test("real flow: test login → onboarding (UK) → client → invoice → final
   await page.fill("#addressLine1", "1 Test Street")
   await page.fill("#postcode", "E1 6PG")
   await page.fill("#city", "London")
-  await page.fill("#vatId", "GB123456789")
+  await page.fill("#vatId", "GB123456727")
   await page.getByRole("button", { name: "Create my workspace" }).click()
   await page.waitForURL("**/dashboard")
 

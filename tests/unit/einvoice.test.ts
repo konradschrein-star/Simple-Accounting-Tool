@@ -15,7 +15,7 @@ const lines = [
 function snapshot(overrides: Partial<InvoiceSnapshot> = {}, items = lines): InvoiceSnapshot {
   return {
     kind: "invoice",
-    seller: { name: "Studio Nord", legalName: "Studio Nord – Lea Hartmann", addressLine1: "Torstraße 112", addressLine2: "", postcode: "10119", city: "Berlin", country: "Deutschland", email: "hallo@studio-nord.example", phone: "+49 30 1234567", website: "", taxNumber: "37/123/45678", vatId: "DE312345678", bankIban: "DE89 3704 0044 0532 0130 00", bankBic: "COBADEFFXXX" },
+    seller: { name: "Studio Nord", legalName: "Studio Nord – Lea Hartmann", addressLine1: "Torstraße 112", addressLine2: "", postcode: "10119", city: "Berlin", country: "Deutschland", email: "hallo@studio-nord.example", phone: "+49 30 1234567", website: "", taxNumber: "37/123/45678", vatId: "DE312345671", bankIban: "DE89 3704 0044 0532 0130 00", bankBic: "COBADEFFXXX" },
     client: { name: "Bäckerei Müller GmbH", email: "buchhaltung@mueller.example", addressLine1: "Hauptstraße 5", addressLine2: "", postcode: "80331", city: "München", country: "", vatId: "", buyerReference: "04011000-12345-34" },
     jurisdiction: "de",
     language: "de",
