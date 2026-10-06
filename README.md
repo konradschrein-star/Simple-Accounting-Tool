@@ -2,11 +2,15 @@
 
 Self-hosted, multi-tenant invoicing, bank-statement ingestion, AI bookkeeping and cash-flow advisory for small businesses in **Germany, the UK, the US and Jersey** — a free product that qualifies leads for a strategic planning offer and a done-for-you bookkeeping service.
 
-- **Invoicing**: compliant PDFs (§14 UStG, UK VAT, Jersey GST, US), gap-free numbering, live preview, paid/overdue tracking, Stripe payment links.
-- **Bank imports without Plaid**: CSV with automatic column detection (Sparkasse, DKB, N26, Monzo, Barclays, Chase…) and PDF statements read by open-weight models (DeepSeek / Qwen via OpenRouter, zero-data-retention only), verified against the statement's own balances with automatic escalation.
+- **Invoicing**: invoices, quotes and credit notes (Stornorechnung) with compliant PDFs (§14 UStG, UK VAT, Jersey GST, US), gap-free numbering per kind, live preview, product catalog, line discounts, multi-currency with the ECB rate locked at finalize, part payments, recurring invoices, email sending and dunning reminders (Resend), public share links where clients pay or accept quotes.
+- **E-invoicing**: ZUGFeRD 2 / Factur-X (EN 16931) PDFs and XRechnung XML, validated in tests against the official XSD and Schematron.
+- **Bank imports without Plaid**: CAMT.053 and OFX (exact), CSV with automatic column detection (Sparkasse, DKB, N26, Monzo, Barclays, Chase…) and PDF statements read by open-weight models (via OpenRouter, zero-data-retention only), verified against the statement's own balances. Payments are matched to invoices by reference or exact open amount.
+- **Receipts**: upload PDFs/photos, AI reads vendor, total and VAT, and suggests the bank payment; the receipt's VAT rate feeds the return.
+- **Tax**: UStVA (Kz 81/86/66/83), UK 9-box VAT, Jersey GST and US sales-tax summaries — accrual or cash accounting, filing deadlines per jurisdiction.
 - **AI bookkeeping**: heuristics → rules → AI categorization into country-specific charts of accounts mapped to tax-return lines, review queue with confidence, rule learning, monthly close with written summary, P&L + CSV export, audit log.
 - **Advisory triggers**: €/£/$10k milestones, margin below 25 %, upcoming tax deadlines → “Request a Strategic Cash-Flow & Growth Plan”.
 - **Team**: admin lead list (opt-in only), bookkeeper console with consent-gated client access.
+- **Overview**: cash position, burn and runway, 30-day outlook, spending by category, ⌘K command menu.
 - **Demo**: one-click seeded sandbox per country, auto-deleted after 24 h.
 
 Stack: Next.js 16 (App Router) · TypeScript · SQLite (WAL) + Drizzle · Better Auth (Google) · shadcn/ui (light/dark) · @react-pdf/renderer · poppler · Docker Compose + Caddy.
@@ -23,6 +27,14 @@ pnpm test:e2e                    # Playwright smoke test (needs `pnpm dev` runni
 ```
 
 PDF statement import needs `poppler-utils` (`pdftotext`, `pdftoppm`, `pdfinfo`) on the PATH — included in the Docker image.
+
+Optional integrations (everything works without them, with graceful fallbacks):
+
+| Variable | Enables |
+|---|---|
+| `OPENROUTER_API_KEY` | PDF statement reading, AI categorization, receipt reading, month summaries |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Sending invoices/quotes by email and automatic payment reminders (otherwise: share links) |
+| `LEAD_WEBHOOK_URL` | Posting advisory/bookkeeping requests to your CRM |
 
 ## Deploy to a VPS (Ubuntu)
 
@@ -55,10 +67,12 @@ Moving to a real domain later: point an A record at the server, change `APP_HOST
 | Folder | Responsibility |
 |---|---|
 | `jurisdictions/` | Per-country packs: currency, tax rates, invoice rules, deadline generators, CSV synonyms, chart of accounts |
-| `invoicing/`, `pdf/` | Invoice rules, snapshot, react-pdf documents |
-| `ingest/` | CSV detection/normalization, PDF extraction (poppler + LLM), verification, jobs |
-| `bookkeeping/` | Categorization (rules + AI), P&L, monthly close |
-| `advisory/` | Metrics, trigger evaluation |
+| `invoicing/`, `pdf/` | Document lifecycle (invoices, quotes, credit notes), payment matching, recurring billing, emails, react-pdf documents |
+| `einvoice/` | EN 16931 CII builder (ZUGFeRD/XRechnung) |
+| `tax/` | VAT/GST/sales-tax return periods and form layouts |
+| `ingest/` | CSV detection/normalization, CAMT/OFX parsing, PDF extraction (poppler + LLM), verification, jobs |
+| `bookkeeping/` | Categorization (rules + AI), receipts, P&L, monthly close |
+| `advisory/` | Metrics, cash outlook, trigger evaluation |
 | `server/` | `requireOrg()` tenancy choke point, repositories, server actions |
 | `demo/` | Seeded sandbox workspaces |
 
