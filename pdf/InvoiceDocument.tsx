@@ -2,6 +2,7 @@ import { Document, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/
 import type { InvoiceSnapshot } from "@/invoicing/rules"
 import { fromIso } from "@/lib/dates"
 import { formatMoney, formatRate } from "@/lib/money"
+import { displayIban } from "@/lib/validation"
 import { LABELS } from "./labels"
 
 export type InvoiceDocumentProps = {
@@ -113,7 +114,7 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
   const sellerAddress = [seller.addressLine1, seller.addressLine2, [seller.postcode, seller.city].filter(Boolean).join(" "), seller.country].filter(Boolean)
   const clientAddress = [client.addressLine1, client.addressLine2, [client.postcode, client.city].filter(Boolean).join(" "), client.country].filter(Boolean)
   const bankLines = [
-    seller.bankIban && `IBAN ${seller.bankIban}`,
+    seller.bankIban && `IBAN ${displayIban(seller.bankIban)}`,
     seller.bankBic && `BIC ${seller.bankBic}`,
     seller.ukSortCode && `Sort code ${seller.ukSortCode}`,
     seller.ukAccountNumber && `Account ${seller.ukAccountNumber}`,

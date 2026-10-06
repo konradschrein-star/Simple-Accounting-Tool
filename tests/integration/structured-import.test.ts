@@ -3,7 +3,7 @@ import path from "node:path"
 import { beforeAll, describe, expect, it } from "vitest"
 import type { Db } from "@/db/client"
 import { startImport } from "@/ingest/service"
-import { createClient } from "@/server/repos/clients"
+import { clientInputSchema, createClient } from "@/server/repos/clients"
 import { listRows } from "@/server/repos/imports"
 import { createDraft, finalizeDocument, getInvoice, saveDraft } from "@/server/repos/invoices"
 import { commitBatch } from "@/server/repos/ledger"
@@ -20,7 +20,11 @@ describe("structured statement import", () => {
     const orgId = bootstrapWorkspace(db, createUser(db), "Studio")
     applyJurisdiction(db, orgId, "de")
     updateSettings(db, orgId, { addressLine1: "Torstraße 1", postcode: "10119", city: "Berlin", taxNumber: "37/123/45678" })
-    const clientId = createClient(db, orgId, { name: "Bäckerei Müller GmbH", addressLine1: "Hauptstraße 5", postcode: "80331", city: "München" }).id
+    const clientId = createClient(
+      db,
+      orgId,
+      clientInputSchema.parse({ name: "Bäckerei Müller GmbH", addressLine1: "Hauptstraße 5", postcode: "80331", city: "München" })
+    ).id
     const id = createDraft(db, orgId, getSettings(db, orgId), "2026-09-20", { clientId })
     saveDraft(db, orgId, id, {
       clientId,

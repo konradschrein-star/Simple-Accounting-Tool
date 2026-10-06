@@ -4,7 +4,7 @@ import { seedDemoWorkspace } from "@/demo/seed"
 import { JURISDICTION_CODES } from "@/jurisdictions"
 import { activeAlerts } from "@/server/repos/advisory"
 import { listCloses } from "@/server/repos/books"
-import { createClient, listClients } from "@/server/repos/clients"
+import { clientInputSchema, createClient, listClients } from "@/server/repos/clients"
 import { requestEngagement, staffMayAccess, updateEngagement } from "@/server/repos/engagements"
 import { getInvoice, listDocuments } from "@/server/repos/invoices"
 import { listTransactions, reviewQueue } from "@/server/repos/ledger"
@@ -49,7 +49,7 @@ describe("tenant isolation", () => {
     const orgA = bootstrapWorkspace(db, alice, "A")
     const orgB = bootstrapWorkspace(db, bob, "B")
     seedDemoWorkspace(db, orgA, alice, "de", TODAY)
-    createClient(db, orgB, { name: "Only B", email: "", addressLine1: "", addressLine2: "", postcode: "", city: "", country: "", vatId: "" })
+    createClient(db, orgB, clientInputSchema.parse({ name: "Only B" }))
 
     const invoiceOfA = listDocuments(db, orgA, "invoice")[0].invoice.id
     expect(getInvoice(db, orgB, invoiceOfA)).toBeNull()

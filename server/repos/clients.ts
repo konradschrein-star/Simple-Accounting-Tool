@@ -2,7 +2,7 @@ import { and, asc, count, eq } from "drizzle-orm"
 import { z } from "zod"
 import type { Db } from "@/db/client"
 import { CURRENCIES, clients, invoices } from "@/db/schema"
-import { vatIdProblem } from "@/lib/validation"
+import { vatIdField } from "@/lib/validation"
 
 export type Client = typeof clients.$inferSelect
 
@@ -16,14 +16,7 @@ export const clientInputSchema = z.object({
   postcode: z.string().trim().default(""),
   city: z.string().trim().default(""),
   country: z.string().trim().default(""),
-  vatId: z
-    .string()
-    .trim()
-    .default("")
-    .superRefine((value, ctx) => {
-      const message = vatIdProblem(value)
-      if (message) ctx.addIssue({ code: "custom", message })
-    }),
+  vatId: vatIdField,
   /** Leitweg-ID / purchase order reference — required on XRechnung e-invoices to public bodies. */
   buyerReference: z.string().trim().max(100).default(""),
   /** Overrides the workspace language and currency for this client's documents and emails. */
@@ -43,10 +36,11 @@ export function listClients(db: Db, orgId: string) {
     .all()
 }
 
-export function createClient(db: Db, orgId: string, input: z.input<typeof clientInputSchema>): Client {
+/** Callers validate first (`clientInputSchema`): the repo stores what it is given. */
+export function createClient(db: Db, orgId: string, input: ClientInput): Client {
   return db
     .insert(clients)
-    .values({ orgId, ...clientInputSchema.parse(input) })
+    .values({ orgId, ...input })
     .returning()
     .get()
 }

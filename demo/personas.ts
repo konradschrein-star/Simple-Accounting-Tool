@@ -68,7 +68,7 @@ export const PERSONAS: Record<JurisdictionCode, Persona> = {
       website: "studio-nord.example",
       taxNumber: "37/123/45678",
       vatId: "DE312345671",
-      bankIban: "DE89 3704 0044 0532 0130 00",
+      bankIban: "DE89370400440532013000",
       bankBic: "COBADEFFXXX",
       ukSortCode: "",
       ukAccountNumber: "",

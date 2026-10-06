@@ -10,17 +10,11 @@ import { normalizeTaxProfile } from "@/jurisdictions/tax-profile"
 import { dataPath } from "@/lib/data-path"
 import { checkbox, reminderDays, text as textField } from "@/lib/form"
 import { parseAmountInput } from "@/lib/money"
-import { bicProblem, ibanProblem, routingNumberProblem, sortCodeProblem, accountNumberProblem, vatIdProblem } from "@/lib/validation"
+import { accountNumberField, bicField, ibanField, routingNumberField, sortCodeField, vatIdField } from "@/lib/validation"
 import { audit, requireReadyOrg } from "@/server/context"
 import { eraseWorkspace, renameOrganization, updateSettings } from "@/server/repos/workspace"
 
 const text = textField()
-/** A text field whose content must pass a checksum validator (empty passes). */
-const checked = (problem: (value: string) => string | null) =>
-  text.superRefine((value, ctx) => {
-    const message = problem(value)
-    if (message) ctx.addIssue({ code: "custom", message })
-  })
 const prefix = z
   .string()
   .trim()
@@ -40,12 +34,12 @@ const profileSchema = z.object({
   phone: text,
   website: text,
   taxNumber: text,
-  vatId: checked(vatIdProblem),
-  bankIban: checked(ibanProblem),
-  bankBic: checked(bicProblem),
-  ukSortCode: checked(sortCodeProblem),
-  ukAccountNumber: checked(accountNumberProblem),
-  usRoutingNumber: checked(routingNumberProblem),
+  vatId: vatIdField,
+  bankIban: ibanField,
+  bankBic: bicField,
+  ukSortCode: sortCodeField,
+  ukAccountNumber: accountNumberField,
+  usRoutingNumber: routingNumberField,
   invoicePrefix: prefix,
   quotePrefix: prefix,
   creditNotePrefix: prefix,

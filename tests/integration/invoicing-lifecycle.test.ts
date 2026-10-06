@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { beforeAll, beforeEach, describe, expect, it } from "vitest"
 import type { Db } from "@/db/client"
 import { transactions } from "@/db/schema"
-import { createClient } from "@/server/repos/clients"
+import { clientInputSchema, createClient } from "@/server/repos/clients"
 import {
   cancelInvoice,
   convertQuote,
@@ -36,7 +36,7 @@ beforeEach(() => {
   orgId = bootstrapWorkspace(db, createUser(db), "Acme")
   applyJurisdiction(db, orgId, "us")
   updateSettings(db, orgId, { addressLine1: "1 Main St", city: "Austin", postcode: "73301", country: "USA", timezone: "UTC" })
-  clientId = createClient(db, orgId, { name: "Client Inc", email: "ap@client.test", addressLine1: "2 Side St", city: "Dallas" }).id
+  clientId = createClient(db, orgId, clientInputSchema.parse({ name: "Client Inc", email: "ap@client.test", addressLine1: "2 Side St", city: "Dallas" })).id
 })
 
 function document(kind: "invoice" | "quote", unitPriceMinor = 10_000, issueDate = "2026-10-01", dueDate = "2026-10-15") {

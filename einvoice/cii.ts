@@ -158,8 +158,8 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
 
   const lineTotal = snap.items.reduce((s, i) => s + i.netMinor, 0)
   const taxTotal = snap.taxGroups.reduce((s, g) => s + g.taxMinor, 0)
-  const iban = (seller.bankIban ?? "").replace(/\s+/g, "").toUpperCase()
-  const bic = (seller.bankBic ?? "").replace(/\s+/g, "").toUpperCase()
+  const iban = seller.bankIban ?? ""
+  const bic = seller.bankBic ?? ""
   const paymentMeans = iban
     ? `<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>58</ram:TypeCode><ram:PayeePartyCreditorFinancialAccount><ram:IBANID>${esc(iban)}</ram:IBANID>${tag("AccountName", seller.legalName || seller.name)}</ram:PayeePartyCreditorFinancialAccount>${bic ? `<ram:PayeeSpecifiedCreditorFinancialInstitution><ram:BICID>${esc(bic)}</ram:BICID></ram:PayeeSpecifiedCreditorFinancialInstitution>` : ""}</ram:SpecifiedTradeSettlementPaymentMeans>`
     : `<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>1</ram:TypeCode></ram:SpecifiedTradeSettlementPaymentMeans>`
@@ -169,7 +169,7 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
       ? `<ram:DefinedTradeContact>${tag("PersonName", seller.legalName || seller.name)}${seller.phone ? `<ram:TelephoneUniversalCommunication><ram:CompleteNumber>${esc(seller.phone)}</ram:CompleteNumber></ram:TelephoneUniversalCommunication>` : ""}${seller.email ? `<ram:EmailURIUniversalCommunication><ram:URIID>${esc(seller.email)}</ram:URIID></ram:EmailURIUniversalCommunication>` : ""}</ram:DefinedTradeContact>`
       : ""
   const sellerTax = [
-    seller.vatId && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(seller.vatId.replace(/\s+/g, ""))}</ram:ID></ram:SpecifiedTaxRegistration>`,
+    seller.vatId && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(seller.vatId)}</ram:ID></ram:SpecifiedTaxRegistration>`,
     seller.taxNumber && `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${esc(seller.taxNumber)}</ram:ID></ram:SpecifiedTaxRegistration>`,
   ]
     .filter(Boolean)
@@ -195,7 +195,7 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
     "<ram:ApplicableHeaderTradeAgreement>",
     tag("BuyerReference", input.buyerReference),
     `<ram:SellerTradeParty>${tag("Name", seller.legalName || seller.name)}${contact}${address(seller, input.homeCountry)}${email(seller.email)}${sellerTax}</ram:SellerTradeParty>`,
-    `<ram:BuyerTradeParty>${tag("Name", client.name)}${address(client, input.homeCountry)}${email(client.email)}${client.vatId ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(client.vatId.replace(/\s+/g, ""))}</ram:ID></ram:SpecifiedTaxRegistration>` : ""}</ram:BuyerTradeParty>`,
+    `<ram:BuyerTradeParty>${tag("Name", client.name)}${address(client, input.homeCountry)}${email(client.email)}${client.vatId ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(client.vatId)}</ram:ID></ram:SpecifiedTaxRegistration>` : ""}</ram:BuyerTradeParty>`,
     "</ram:ApplicableHeaderTradeAgreement>",
     `<ram:ApplicableHeaderTradeDelivery><ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime>${date102(input.serviceDate ?? input.issueDate)}</ram:OccurrenceDateTime></ram:ActualDeliverySupplyChainEvent></ram:ApplicableHeaderTradeDelivery>`,
     "<ram:ApplicableHeaderTradeSettlement>",

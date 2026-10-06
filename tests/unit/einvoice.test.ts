@@ -29,7 +29,7 @@ function snapshot(overrides: Partial<InvoiceSnapshot> = {}, items = lines): Invo
       website: "",
       taxNumber: "37/123/45678",
       vatId: "DE312345671",
-      bankIban: "DE89 3704 0044 0532 0130 00",
+      bankIban: "DE89370400440532013000",
       bankBic: "COBADEFFXXX",
       ukSortCode: "",
       ukAccountNumber: "",

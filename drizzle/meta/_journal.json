@@ -64,6 +64,13 @@
       "when": 1791321787053,
       "tag": "0008_tired_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791323369524,
+      "tag": "0009_normalize_identifiers",
+      "breakpoints": true
     }
   ]
 }

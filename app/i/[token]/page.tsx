@@ -13,6 +13,7 @@ import { allowedActions } from "@/invoicing/lifecycle"
 import { formatDate, todayIn } from "@/lib/dates"
 import { env } from "@/lib/env"
 import { formatMoney } from "@/lib/money"
+import { displayIban } from "@/lib/validation"
 import { findByPublicToken, markViewed } from "@/server/repos/invoices"
 import { getSettings } from "@/server/repos/workspace"
 
@@ -39,7 +40,7 @@ export default async function PublicDocumentPage({ params }: { params: Promise<{
   const payable = actions.has("pay")
   const sellerName = snap.seller.legalName || snap.seller.name
   const bank = [
-    snap.seller.bankIban && ["IBAN", snap.seller.bankIban],
+    snap.seller.bankIban && ["IBAN", displayIban(snap.seller.bankIban)],
     snap.seller.bankBic && ["BIC", snap.seller.bankBic],
     snap.seller.ukSortCode && ["Sort code", snap.seller.ukSortCode],
     snap.seller.ukAccountNumber && ["Account", snap.seller.ukAccountNumber],

@@ -5,7 +5,7 @@ import { getJurisdiction, type JurisdictionCode } from "@/jurisdictions"
 import { addDays, addMonths, monthKey, monthLabel, type IsoDate } from "@/lib/dates"
 import { writeUpload } from "@/lib/storage"
 import { closePeriod, monthChecklist, monthPnl } from "@/server/repos/books"
-import { createClient } from "@/server/repos/clients"
+import { clientInputSchema, createClient } from "@/server/repos/clients"
 import { listAccounts } from "@/server/repos/ledger"
 import { applyJurisdiction, getSettings, renameOrganization, updateSettings } from "@/server/repos/workspace"
 import { PERSONAS } from "../personas"
@@ -34,7 +34,7 @@ export function seedDemoWorkspace(db: Db, orgId: string, userId: string, code: J
       advisoryOptInAt: new Date(),
     })
     const accounts = new Map(listAccounts(db, orgId).map((a) => [a.code, a.id]))
-    const clients = new Map(persona.clients.map((c) => [c.role, createClient(db, orgId, { ...c, addressLine2: "", vatId: "" })]))
+    const clients = new Map(persona.clients.map((c) => [c.role, createClient(db, orgId, clientInputSchema.parse(c))]))
     const ctx: SeedContext = {
       db,
       orgId,
