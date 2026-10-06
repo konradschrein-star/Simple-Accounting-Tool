@@ -1,0 +1,18 @@
+# For a host that already runs nginx on :80/:443 (certbot-managed). Only the app runs here;
+# it listens on localhost and nginx proxies to it (see deploy/nginx.conf).
+#   docker compose -f deploy/docker-compose.nginx.yml --env-file .env up -d --build
+name: cashflow
+services:
+  app:
+    build: ..
+    image: cashflow-app
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - app_data:/data
+    ports:
+      - "127.0.0.1:3030:3000"
+    mem_limit: 1g
+
+volumes:
+  app_data:
