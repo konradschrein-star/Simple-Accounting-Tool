@@ -64,3 +64,27 @@ export function parseDecimalToMinor(input: string, decimalSeparator: "." | "," =
 
 export const toMinor = (major: number) => roundHalfAwayFromZero(major * 100)
 export const toMilli = (qty: number) => roundHalfAwayFromZero(qty * 1000)
+
+/**
+ * Lenient parser for amounts typed by users in any locale ("1.234,56", "1,234.56", "12,5", "12.50").
+ * The last separator followed by 1–2 digits is treated as the decimal point.
+ */
+export function parseAmountInput(input: string): number | null {
+  const s = input.trim().replace(/[\s' €£$]/g, "")
+  if (!s) return null
+  const lastComma = s.lastIndexOf(",")
+  const lastDot = s.lastIndexOf(".")
+  const decimal = lastComma > lastDot && /,\d{1,2}$/.test(s) ? "," : lastDot > lastComma && /\.\d{1,3}$/.test(s) ? "." : null
+  return parseDecimalToMinor(s, decimal ?? (lastComma > -1 ? "." : ","))
+}
+
+/** Quantities accept a comma or dot decimal separator; returned as milli-units. */
+export function parseQuantityInput(input: string): number | null {
+  const trimmed = input.trim()
+  const value = Number(trimmed.replace(",", "."))
+  return trimmed && Number.isFinite(value) ? roundHalfAwayFromZero(value * 1000) : null
+}
+
+export function minorToInput(minor: number): string {
+  return (minor / 100).toFixed(2)
+}

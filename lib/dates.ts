@@ -90,3 +90,8 @@ export function nextBusinessDay(iso: IsoDate, holidays: (year: number) => Set<Is
   while (isWeekend(date) || holidays(Number(date.slice(0, 4))).has(date)) date = addDays(date, 1)
   return date
 }
+
+export function formatDate(iso: IsoDate | null | undefined, locale: string, style: "medium" | "short" = "medium"): string {
+  if (!iso) return "—"
+  return new Intl.DateTimeFormat(locale, { dateStyle: style, timeZone: "UTC" }).format(fromIso(iso))
+}
