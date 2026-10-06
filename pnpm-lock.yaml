@@ -56,6 +56,9 @@ importers:
       jsvat:
         specifier: ^2.5.4
         version: 2.5.4
+      libxml2-wasm:
+        specifier: 0.7.2
+        version: 0.7.2
       lucide-react:
         specifier: ^1.52.0
         version: 1.52.0(@types/react@19.3.0)(react@19.3.0)
@@ -80,6 +83,9 @@ importers:
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
+      pdf-lib:
+        specifier: 1.17.1
+        version: 1.17.1
       radix-ui:
         specifier: ^1.7.0
         version: 1.7.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

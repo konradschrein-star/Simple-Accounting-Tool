@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CURRENCIES } from "@/db/schema"
 import { db } from "@/db/client"
+import { eInvoiceReadiness } from "@/einvoice/service"
 import { displayStatus, KIND_LABELS, openAmount } from "@/invoicing/documents"
 import { publicLink } from "@/invoicing/service"
 import { formatDate } from "@/lib/dates"
@@ -121,7 +122,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             clientEmail={client?.email ?? ""}
             publicUrl={invoice.publicToken ? publicLink(invoice.publicToken) : null}
             emailEnabled={emailConfigured()}
-            eInvoice={kind !== "quote"}
+            eInvoice={ctx.jurisdiction.code === "de" ? eInvoiceReadiness(found, ctx.jurisdiction) : null}
           />
         }
       />

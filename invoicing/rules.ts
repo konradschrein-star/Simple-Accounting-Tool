@@ -33,6 +33,8 @@ export type ClientInfo = {
   city: string
   country: string
   vatId: string
+  /** Leitweg-ID / PO reference (BT-10). Absent on snapshots frozen before it existed. */
+  buyerReference?: string
 }
 
 export type DraftLine = { description: string; quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number; unit?: string }

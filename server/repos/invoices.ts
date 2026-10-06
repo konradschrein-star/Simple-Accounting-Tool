@@ -209,8 +209,8 @@ export function sellerInfo(settings: WorkspaceSettings, orgName: string): Seller
 }
 
 function clientInfo(client: typeof clients.$inferSelect): ClientInfo {
-  const { name, email, addressLine1, addressLine2, postcode, city, country, vatId } = client
-  return { name, email, addressLine1, addressLine2, postcode, city, country, vatId }
+  const { name, email, addressLine1, addressLine2, postcode, city, country, vatId, buyerReference } = client
+  return { name, email, addressLine1, addressLine2, postcode, city, country, vatId, buyerReference }
 }
 
 const NO_CLIENT: ClientInfo = { name: "—", email: "", addressLine1: "", addressLine2: "", postcode: "", city: "", country: "", vatId: "" }

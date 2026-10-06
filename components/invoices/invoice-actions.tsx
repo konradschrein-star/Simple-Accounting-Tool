@@ -35,8 +35,14 @@ type Props = {
   clientEmail: string
   publicUrl: string | null
   emailEnabled: boolean
-  eInvoice: boolean
+  /** Blockers per e-invoice format (empty = ready); null when e-invoicing doesn't apply. */
+  eInvoice: { zugferd: string[]; xrechnung: string[] } | null
 }
+
+const E_INVOICE_FORMATS = [
+  { format: "zugferd", label: "ZUGFeRD PDF (e-invoice)" },
+  { format: "xrechnung", label: "XRechnung XML" },
+] as const
 
 type DialogName = "send" | "payment" | "recurring" | "cancel" | null
 
@@ -101,20 +107,22 @@ export function InvoiceActions(props: Props) {
               <LinkIcon /> Copy share link
             </DropdownMenuItem>
           ) : null}
-          {props.eInvoice ? (
-            <>
-              <DropdownMenuItem asChild>
-                <a href={`/api/invoices/${id}/einvoice?format=zugferd`}>
-                  <FileCode2Icon /> ZUGFeRD PDF (e-invoice)
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a href={`/api/invoices/${id}/einvoice?format=xrechnung`}>
-                  <FileCode2Icon /> XRechnung XML
-                </a>
-              </DropdownMenuItem>
-            </>
-          ) : null}
+          {props.eInvoice
+            ? E_INVOICE_FORMATS.map(({ format, label }) => {
+                const problems = props.eInvoice![format]
+                return problems.length ? (
+                  <DropdownMenuItem key={format} onSelect={() => toast.error(`${label} needs a few details`, { description: problems.join(" ") })}>
+                    <FileCode2Icon /> {label}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem key={format} asChild>
+                    <a href={`/api/invoices/${id}/einvoice?format=${format}`}>
+                      <FileCode2Icon /> {label}
+                    </a>
+                  </DropdownMenuItem>
+                )
+              })
+            : null}
           {kind === "quote" && status === "sent" ? (
             <>
               <DropdownMenuItem onSelect={() => run(() => quoteOutcome(id, "accepted"), { success: "Marked as accepted" })}>
