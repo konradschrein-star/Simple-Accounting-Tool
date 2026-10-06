@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { db } from "@/db/client"
 import { displayStatus, KIND_LABELS, openAmount } from "@/invoicing/documents"
+import { allowedActions } from "@/invoicing/lifecycle"
 import { formatDate, todayIn } from "@/lib/dates"
 import { env } from "@/lib/env"
 import { formatMoney } from "@/lib/money"
@@ -27,14 +28,15 @@ export default async function PublicDocumentPage({ params }: { params: Promise<{
   if (!getSessionCookie(await headers())) markViewed(db, invoice)
 
   const settings = getSettings(db, invoice.orgId)
-  const snap = invoice.snapshot!
+  const snap = invoice.snapshot
   const locale = snap.locale
   const today = todayIn(settings.timezone)
   const status = displayStatus(invoice, today, paidMinor)
   const label = KIND_LABELS[invoice.kind].singular
   const money = (minor: number) => formatMoney(minor, invoice.currency, locale)
   const open = openAmount(invoice.totalMinor, paidMinor)
-  const payable = invoice.kind === "invoice" && (status === "open" || status === "overdue" || status === "partial")
+  const actions = allowedActions(invoice, today, paidMinor)
+  const payable = actions.has("pay")
   const sellerName = snap.seller.legalName || snap.seller.name
   const bank = [
     snap.seller.bankIban && ["IBAN", snap.seller.bankIban],
@@ -88,7 +90,7 @@ export default async function PublicDocumentPage({ params }: { params: Promise<{
                   </a>
                 </Button>
               ) : null}
-              {invoice.kind === "quote" && status === "sent" ? <QuoteResponse token={token} /> : null}
+              {actions.has("respond") ? <QuoteResponse token={token} /> : null}
               <Button asChild variant="outline" className="w-full">
                 <a href={`/i/${token}/pdf`}>
                   <DownloadIcon /> Download PDF

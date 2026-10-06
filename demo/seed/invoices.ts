@@ -1,4 +1,3 @@
-import type { DocumentKind } from "@/invoicing/documents"
 import type { DraftLine } from "@/invoicing/rules"
 import { addDays, addMonths, dayOfMonth, daysBetween, monthKey, type IsoDate } from "@/lib/dates"
 import { computeTotals, FX_ONE } from "@/lib/money"
@@ -16,13 +15,13 @@ export type PaidInvoice = { id: string; number: string; paidDate: IsoDate; total
  * milestone this month, quotes in each state, a part-paid invoice, a Stornorechnung, a catalog and a retainer.
  */
 export function seedInvoices(ctx: SeedContext): PaidInvoice[] {
-  const { db, orgId, settings, today, persona, jurisdiction, random } = ctx
+  const { db, orgId, settings, today, persona, random } = ctx
   const rate = settings.defaultTaxRateBp
   const line = (role: ServiceRole, qty: number): DraftLine => {
     const s = ctx.service(role)
     return { description: s.description, quantityMilli: qty * 1000, unitPriceMinor: s.unitPriceMinor, taxRateBp: rate }
   }
-  const draft = (kind: DocumentKind, clientId: string, issueDate: IsoDate, lines: DraftLine[]) => {
+  const draft = (kind: "invoice" | "quote", clientId: string, issueDate: IsoDate, lines: DraftLine[]) => {
     const id = createDraft(db, orgId, settings, issueDate, { kind, clientId })
     const dueDate = addDays(issueDate, kind === "quote" ? 30 : settings.defaultPaymentTermsDays)
     saveDraft(db, orgId, id, {
@@ -38,7 +37,8 @@ export function seedInvoices(ctx: SeedContext): PaidInvoice[] {
     })
     return id
   }
-  const issue = (id: string) => finalizeDocument(db, orgId, jurisdiction, id, FX_ONE)
+  // Each document is issued on its own date, as if the owner had been using the app all along.
+  const issue = (id: string, on: IsoDate) => finalizeDocument(db, orgId, id, FX_ONE, on)
 
   const products = persona.services.map((s) =>
     saveProduct(db, orgId, null, { name: s.description, description: "", unit: "", unitPriceMinor: s.unitPriceMinor, taxRateBp: rate })
@@ -75,7 +75,7 @@ export function seedInvoices(ctx: SeedContext): PaidInvoice[] {
         run: () => {
           const id = draft("invoice", ctx.client(client.role).id, issueDate, lines)
           if (isDraft) return
-          const number = issue(id)
+          const number = issue(id, issueDate)
           if (getsPaid) paid.push({ id, number, paidDate, totalMinor: computeTotals(lines).totalMinor, clientName: client.name })
         },
       })
@@ -87,16 +87,16 @@ export function seedInvoices(ctx: SeedContext): PaidInvoice[] {
       date: addDays(today, -95),
       run: () => {
         const mistaken = draft("invoice", ctx.client("retainer").id, addDays(today, -95), [line("project", 1)])
-        issue(mistaken)
-        cancelInvoice(db, orgId, jurisdiction, mistaken, addDays(today, -95), FX_ONE)
+        issue(mistaken, addDays(today, -95))
+        cancelInvoice(db, orgId, mistaken, addDays(today, -95), FX_ONE)
       },
     },
     {
       date: addDays(today, -40),
       run: () => {
         const won = draft("quote", ctx.client("acceptedQuote").id, addDays(today, -40), [line("project", 1)])
-        issue(won)
-        setQuoteOutcome(db, orgId, won, "accepted")
+        issue(won, addDays(today, -40))
+        setQuoteOutcome(db, orgId, won, "accepted", "client", addDays(today, -35))
       },
     },
     {
@@ -104,25 +104,33 @@ export function seedInvoices(ctx: SeedContext): PaidInvoice[] {
       run: () => {
         const lines = [line("hourly", 24)]
         const partial = draft("invoice", ctx.client("partPaid").id, addDays(today, -12), lines)
-        issue(partial)
-        recordPayment(db, orgId, partial, { date: addDays(today, -4), amountMinor: Math.round(computeTotals(lines).totalMinor / 2), method: "manual" })
+        issue(partial, addDays(today, -12))
+        recordPayment(db, orgId, partial, { date: addDays(today, -4), amountMinor: Math.round(computeTotals(lines).totalMinor / 2), method: "manual" }, today)
       },
     },
-    { date: addDays(today, -6), run: () => void issue(draft("quote", ctx.client("openQuote").id, addDays(today, -6), [line("day", 2), line("hourly", 40)])) },
+    {
+      date: addDays(today, -6),
+      run: () => void issue(draft("quote", ctx.client("openQuote").id, addDays(today, -6), [line("day", 2), line("hourly", 40)]), addDays(today, -6)),
+    },
+    {
+      // The retainer client's monthly invoice, which then bills itself from the 1st of next month.
+      date: addDays(today, -20),
+      run: () => {
+        const retainer = draft("invoice", ctx.client("retainer").id, addDays(today, -20), [line("retainer", 1)])
+        issue(retainer, addDays(today, -20))
+        createSeries(
+          db,
+          orgId,
+          settings,
+          retainer,
+          { frequency: "monthly", startDate: `${addMonths(monthKey(today), 1)}-01`, totalCount: null, autoSend: false },
+          today
+        )
+      },
+    },
     { date: today, run: () => void draft("quote", ctx.client("partPaid").id, today, [line("day", 1)]) }
   )
   plan.sort((a, b) => a.date.localeCompare(b.date)).forEach((p) => p.run())
 
-  // A monthly retainer that bills itself from the 1st of next month.
-  const firstOfNextMonth = `${addMonths(monthKey(today), 1)}-01`
-  const template = draft("invoice", ctx.client("retainer").id, firstOfNextMonth, [line("retainer", 1)])
-  createSeries(db, orgId, {
-    templateInvoiceId: template,
-    frequency: "monthly",
-    nextIssueDate: firstOfNextMonth,
-    endDate: null,
-    remaining: null,
-    autoSend: false,
-  })
   return paid
 }

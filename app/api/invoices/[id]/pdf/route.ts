@@ -2,11 +2,11 @@ import type { NextRequest } from "next/server"
 import { db } from "@/db/client"
 import { invoicePdf } from "@/pdf/invoice-file"
 import { requireReadyOrg } from "@/server/context"
-import { previewContext } from "@/server/repos/invoices"
+import { documentContext } from "@/server/repos/invoices"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireReadyOrg()
-  const found = previewContext(db, ctx.orgId, ctx.jurisdiction, (await params).id)
+  const found = documentContext(db, ctx.orgId, (await params).id)
   if (!found) return new Response("Not found", { status: 404 })
   const pdf = await invoicePdf(db, ctx.orgId, found)
   const filename = `${found.invoice.number ?? "draft"}.pdf`.replace(/[^\w.-]/g, "_")

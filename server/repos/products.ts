@@ -2,6 +2,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import type { Db } from "@/db/client"
 import { products } from "@/db/schema"
+import { DomainError } from "@/lib/action-result"
 
 export type Product = typeof products.$inferSelect
 
@@ -25,25 +26,29 @@ export function listProducts(db: Db, orgId: string, includeArchived = false): Pr
 }
 
 export function saveProduct(db: Db, orgId: string, id: string | null, input: ProductInput): Product {
-  if (id)
+  if (!id)
     return db
-      .update(products)
-      .set(input)
-      .where(and(eq(products.orgId, orgId), eq(products.id, id)))
+      .insert(products)
+      .values({ orgId, ...input })
       .returning()
       .get()
-  return db
-    .insert(products)
-    .values({ orgId, ...input })
+  const updated = db
+    .update(products)
+    .set(input)
+    .where(and(eq(products.orgId, orgId), eq(products.id, id)))
     .returning()
     .get()
+  if (!updated) throw new DomainError("Product not found")
+  return updated
 }
 
 export function archiveProduct(db: Db, orgId: string, id: string) {
-  db.update(products)
+  const result = db
+    .update(products)
     .set({ archived: true })
     .where(and(eq(products.orgId, orgId), eq(products.id, id)))
     .run()
+  if (!result.changes) throw new DomainError("Product not found")
 }
 
 export function bumpProductUsage(db: Db, orgId: string, id: string) {

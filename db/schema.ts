@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm"
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { nanoid } from "nanoid"
 import type { CsvMapping, StoredCsvMapping } from "../ingest/csv/types"
+import type { InvoiceEvent, InvoiceEventType } from "../invoicing/events"
+import type { InvoiceSnapshot } from "../invoicing/rules"
 import { organization, user } from "./auth-schema"
 
 export * from "./auth-schema"
@@ -23,7 +25,8 @@ const bool = (name: string) => integer(name, { mode: "boolean" }).notNull().defa
 
 export const CURRENCIES = ["EUR", "GBP", "USD"] as const
 /** draft → finalized → paid (invoices) · accepted/declined → converted (quotes) · cancelled by a credit note. */
-export const DOCUMENT_STATUSES = ["draft", "finalized", "paid", "void", "cancelled", "accepted", "declined", "converted"] as const
+export const DOCUMENT_STATUSES = ["draft", "finalized", "paid", "cancelled", "accepted", "declined", "converted"] as const
+export const DOCUMENT_KINDS = ["invoice", "quote", "credit_note", "recurring_template"] as const
 
 // ─── Workspace ────────────────────────────────────────────────────────────────
 
@@ -129,23 +132,6 @@ export const products = sqliteTable(
   (t) => [index("products_org_name").on(t.orgId, t.name)]
 )
 
-export type InvoiceSnapshot = {
-  seller: Record<string, string>
-  client: Record<string, string>
-  jurisdiction: "de" | "uk" | "us" | "je"
-  language: "de" | "en"
-  currency: "EUR" | "GBP" | "USD"
-  locale: string
-  taxLabel: string
-  exemptionNote: string | null
-  logoPath: string | null
-  kind?: "invoice" | "quote" | "credit_note"
-  /** For a credit note: the number of the invoice it corrects. */
-  relatedNumber?: string | null
-  items: { description: string; quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number; unit?: string; netMinor: number }[]
-  taxGroups: { rateBp: number; netMinor: number; taxMinor: number }[]
-}
-
 export const invoices = sqliteTable(
   "invoices",
   {
@@ -153,9 +139,7 @@ export const invoices = sqliteTable(
     orgId: orgId(),
     clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
     /** One table, three document kinds: they share editor, PDF and numbering machinery. */
-    kind: text("kind", { enum: ["invoice", "quote", "credit_note"] })
-      .notNull()
-      .default("invoice"),
+    kind: text("kind", { enum: DOCUMENT_KINDS }).notNull().default("invoice"),
     number: text("number"),
     status: text("status", { enum: DOCUMENT_STATUSES }).notNull().default("draft"),
     issueDate: text("issue_date").notNull(),
@@ -182,6 +166,8 @@ export const invoices = sqliteTable(
     finalizedAt: integer("finalized_at", { mode: "timestamp_ms" }),
     paidDate: text("paid_date"),
     voidedAt: integer("voided_at", { mode: "timestamp_ms" }),
+    /** Highest payment reminder sent (0 = none) — the dunning state, kept on the invoice rather than read back from events. */
+    reminderLevel: integer("reminder_level").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdate(() => new Date()),
   },
@@ -223,8 +209,8 @@ export const invoiceEvents = sqliteTable(
     invoiceId: text("invoice_id")
       .notNull()
       .references(() => invoices.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
-    detail: json<Record<string, unknown>>("detail"),
+    type: text("type").$type<InvoiceEventType>().notNull(),
+    detail: json<InvoiceEvent["detail"]>("detail"),
     at: createdAt(),
   },
   (t) => [index("events_invoice").on(t.invoiceId, t.at)]
@@ -243,14 +229,18 @@ export const recurringSeries = sqliteTable(
     /** First issue date; the n-th invoice is anchor + n periods, so month-end dates never drift. */
     anchorDate: text("anchor_date").notNull(),
     nextIssueDate: text("next_issue_date").notNull(),
-    endDate: text("end_date"),
-    remaining: integer("remaining"),
     autoSend: bool("auto_send"),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    /** paused: by the user · failed: the template couldn't be issued (see lastError) · completed: all invoices sent. */
+    state: text("state", { enum: ["active", "paused", "failed", "completed"] })
+      .notNull()
+      .default("active"),
+    /** How many invoices the series issues in total; null = until stopped. */
+    totalCount: integer("total_count"),
+    lastError: text("last_error"),
     generatedCount: integer("generated_count").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [index("recurring_org_next").on(t.orgId, t.active, t.nextIssueDate)]
+  (t) => [index("recurring_state_next").on(t.state, t.nextIssueDate)]
 )
 
 /** Daily reference rates (ECB via Frankfurter), quoted per 1 EUR. */

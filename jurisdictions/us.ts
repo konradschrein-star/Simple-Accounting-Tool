@@ -27,6 +27,8 @@ function perYear(year: number): TaxDeadline[] {
 
 export const us: Jurisdiction = {
   code: "us",
+  countryCode: "US",
+  eInvoicing: false,
   name: "United States",
   currency: "USD",
   locale: "en-US",

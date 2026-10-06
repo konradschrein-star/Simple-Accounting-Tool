@@ -1,8 +1,7 @@
-import type { InvoiceSnapshot } from "@/db/schema"
-import type { Jurisdiction, TaxProfile } from "@/jurisdictions"
+import type { Jurisdiction, JurisdictionCode, TaxProfile } from "@/jurisdictions"
 import type { IsoDate } from "@/lib/dates"
-import { computeTotals, lineNetMinor } from "@/lib/money"
-import type { DocumentKind } from "./documents"
+import { computeTotals, lineNetMinor, type CurrencyCode } from "@/lib/money"
+import type { DocumentKind, IssuedKind } from "./documents"
 
 export type SellerInfo = {
   name: string
@@ -33,11 +32,31 @@ export type ClientInfo = {
   city: string
   country: string
   vatId: string
-  /** Leitweg-ID / PO reference (BT-10). Absent on snapshots frozen before it existed. */
-  buyerReference?: string
+  /** Leitweg-ID / PO reference (BT-10). */
+  buyerReference: string
 }
 
 export type DraftLine = { description: string; quantityMilli: number; unitPriceMinor: number; taxRateBp: number; discountBp?: number; unit?: string }
+
+export type TaxGroup = { rateBp: number; netMinor: number; taxMinor: number }
+
+/** Frozen copy of everything printed on an issued document — the PDF, e-invoice and public page all read only this. */
+export type InvoiceSnapshot = {
+  kind: IssuedKind
+  /** For a credit note: the number of the invoice it corrects. */
+  relatedNumber: string | null
+  seller: SellerInfo
+  client: ClientInfo
+  jurisdiction: JurisdictionCode
+  language: "de" | "en"
+  currency: CurrencyCode
+  locale: string
+  taxLabel: string
+  exemptionNote: string | null
+  logoPath: string | null
+  items: (DraftLine & { netMinor: number })[]
+  taxGroups: TaxGroup[]
+}
 
 /** Human-readable reasons why a document cannot be finalized yet (empty = OK). */
 export function finalizeBlockers(input: {
@@ -67,9 +86,9 @@ export function finalizeBlockers(input: {
   return problems
 }
 
-/** Frozen copy of everything printed on a finalized invoice. */
+/** Builds the snapshot frozen at finalize (and rendered live for drafts). */
 export function buildSnapshot(input: {
-  kind: DocumentKind
+  kind: IssuedKind
   relatedNumber?: string | null
   /** The client's preferred document language, if set. */
   language?: "de" | "en" | null
@@ -79,7 +98,7 @@ export function buildSnapshot(input: {
   client: ClientInfo
   lines: DraftLine[]
   logoPath: string | null
-  currency: InvoiceSnapshot["currency"]
+  currency: CurrencyCode
   locale: string
 }): InvoiceSnapshot {
   const lines = input.lines.filter((l) => l.description.trim() || l.unitPriceMinor !== 0)

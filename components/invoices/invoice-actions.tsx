@@ -13,7 +13,6 @@ import {
   RepeatIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
-  Undo2Icon,
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -36,23 +35,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { useServerAction } from "@/components/use-server-action"
-import type { DisplayStatus, DocumentKind } from "@/invoicing/documents"
+import type { DocAction } from "@/invoicing/lifecycle"
 import { minorToInput, parseAmountInput } from "@/lib/money"
-import {
-  addPayment,
-  cancelWithCreditNote,
-  convertToInvoice,
-  duplicate,
-  makeRecurring,
-  quoteOutcome,
-  sendByEmail,
-  undoPayments,
-} from "@/server/actions/invoices"
+import { addPayment, cancelWithCreditNote, convertToInvoice, duplicate, makeRecurring, quoteOutcome, sendByEmail } from "@/server/actions/invoices"
 
 type Props = {
   id: string
-  kind: DocumentKind
-  status: DisplayStatus
+  kind: "invoice" | "quote" | "credit_note"
+  /** What the lifecycle allows for this document right now — the only source for which controls appear. */
+  actions: DocAction[]
   today: string
   openMinor: number
   clientEmail: string
@@ -70,7 +61,8 @@ const E_INVOICE_FORMATS = [
 type DialogName = "send" | "payment" | "recurring" | "cancel" | null
 
 export function InvoiceActions(props: Props) {
-  const { id, kind, status, today } = props
+  const { id, kind, today } = props
+  const can = (action: DocAction) => props.actions.includes(action)
   const { pending, run } = useServerAction()
   const [open, setOpen] = useState<DialogName>(null)
   const [to, setTo] = useState(props.clientEmail)
@@ -82,8 +74,6 @@ export function InvoiceActions(props: Props) {
   const [autoSend, setAutoSend] = useState(false)
   const close = () => setOpen(null)
 
-  const payable = kind === "invoice" && (status === "open" || status === "overdue" || status === "partial")
-  const sendable = status !== "cancelled" && status !== "converted"
   const copyLink = async () => {
     if (!props.publicUrl) return
     await navigator.clipboard.writeText(props.publicUrl)
@@ -92,7 +82,7 @@ export function InvoiceActions(props: Props) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      {sendable ? (
+      {can("send") ? (
         props.emailEnabled ? (
           <Button onClick={() => setOpen("send")} disabled={pending}>
             <MailIcon /> Send
@@ -103,12 +93,12 @@ export function InvoiceActions(props: Props) {
           </Button>
         )
       ) : null}
-      {payable ? (
+      {can("pay") ? (
         <Button variant="outline" onClick={() => setOpen("payment")} disabled={pending}>
           <CheckIcon /> Record payment
         </Button>
       ) : null}
-      {kind === "quote" && (status === "sent" || status === "accepted" || status === "expired") ? (
+      {can("convert") ? (
         <Button variant="outline" onClick={() => run(() => convertToInvoice(id))} disabled={pending}>
           <ReceiptIcon /> Convert to invoice
         </Button>
@@ -146,30 +136,27 @@ export function InvoiceActions(props: Props) {
                 )
               })
             : null}
-          {kind === "quote" && status === "sent" ? (
-            <>
-              <DropdownMenuItem onSelect={() => run(() => quoteOutcome(id, "accepted"), { success: "Marked as accepted" })}>
-                <ThumbsUpIcon /> Mark accepted
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => run(() => quoteOutcome(id, "declined"), { success: "Marked as declined" })}>
-                <ThumbsDownIcon /> Mark declined
-              </DropdownMenuItem>
-            </>
+          {can("accept") ? (
+            <DropdownMenuItem onSelect={() => run(() => quoteOutcome(id, "accepted"), { success: "Marked as accepted" })}>
+              <ThumbsUpIcon /> Mark accepted
+            </DropdownMenuItem>
           ) : null}
-          {kind === "invoice" && status !== "cancelled" ? (
+          {can("decline") ? (
+            <DropdownMenuItem onSelect={() => run(() => quoteOutcome(id, "declined"), { success: "Marked as declined" })}>
+              <ThumbsDownIcon /> Mark declined
+            </DropdownMenuItem>
+          ) : null}
+          {can("makeRecurring") ? (
             <DropdownMenuItem onSelect={() => setOpen("recurring")}>
               <RepeatIcon /> Make recurring
             </DropdownMenuItem>
           ) : null}
-          {kind === "invoice" && status === "paid" ? (
-            <DropdownMenuItem onSelect={() => run(() => undoPayments(id), { success: "Payments removed" })}>
-              <Undo2Icon /> Undo payments
+          {can("duplicate") ? (
+            <DropdownMenuItem onSelect={() => run(() => duplicate(id))}>
+              <CopyIcon /> Duplicate
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => run(() => duplicate(id))}>
-            <CopyIcon /> Duplicate
-          </DropdownMenuItem>
-          {kind === "invoice" && status !== "cancelled" ? (
+          {can("cancel") ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onSelect={() => setOpen("cancel")}>

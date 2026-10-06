@@ -91,7 +91,7 @@ export function seedLedger(ctx: SeedContext, paid: PaidInvoice[]): BookedRow[] {
   const ids = insertTransactions(db, orgId, rows)
   planned.forEach((p, i) => {
     if (p.paysInvoice)
-      recordPayment(db, orgId, p.paysInvoice.id, { date: p.row.date, amountMinor: p.row.amountMinor, method: "bank", transactionId: ids[i].id })
+      recordPayment(db, orgId, p.paysInvoice.id, { date: p.row.date, amountMinor: p.row.amountMinor, method: "bank", transactionId: ids[i].id }, today)
   })
   return rows.map((row, i) => ({ id: ids[i].id, row, accountCode: planned[i].accountCode }))
 }

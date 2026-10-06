@@ -1,4 +1,4 @@
-import type { InvoiceSnapshot } from "@/db/schema"
+import type { ClientInfo, InvoiceSnapshot, SellerInfo } from "@/invoicing/rules"
 import type { IsoDate } from "@/lib/dates"
 import { roundHalfAwayFromZero } from "@/lib/money"
 import { countryCode } from "./countries"
@@ -22,7 +22,7 @@ export type EInvoiceInput = {
   snapshot: InvoiceSnapshot
   /** ISO country of the seller's jurisdiction, used when an address has no country. */
   homeCountry: string
-  /** Live client reference for documents frozen before the snapshot carried it. */
+  /** Leitweg-ID / PO reference (BT-10), resolved by the caller. */
   buyerReference: string
 }
 
@@ -31,7 +31,6 @@ const GUIDELINE: Record<EInvoiceProfile, string> = {
   xrechnung: "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
 }
 const PEPPOL_BILLING = "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
-const KLEINUNTERNEHMER = "Kleinunternehmer gemäß § 19 UStG"
 
 /** UN/ECE Recommendation 20 codes for the units people type. */
 const UNIT_CODES: Record<string, string> = {
@@ -94,13 +93,14 @@ const percent = (bp: number) => String(bp / 100)
 const tag = (name: string, value: string | null | undefined) => (value ? `<ram:${name}>${esc(value)}</ram:${name}>` : "")
 
 type Category = { code: "S" | "Z" | "E"; reason: string | null }
-function category(rateBp: number, exempt: boolean): Category {
+/** Standard-rated, zero-rated, or exempt with the reason printed on the invoice (e.g. §19 UStG). */
+function category(rateBp: number, exemptionNote: string | null): Category {
   if (rateBp > 0) return { code: "S", reason: null }
-  return exempt ? { code: "E", reason: KLEINUNTERNEHMER } : { code: "Z", reason: null }
+  return exemptionNote ? { code: "E", reason: exemptionNote } : { code: "Z", reason: null }
 }
 
-function address(party: Record<string, string>, homeCountry: string): string {
-  return `<ram:PostalTradeAddress>${tag("PostcodeCode", party.postcode)}${tag("LineOne", party.addressLine1)}${tag("LineTwo", party.addressLine2)}${tag("CityName", party.city)}<ram:CountryID>${countryCode(party.country ?? "", homeCountry)}</ram:CountryID></ram:PostalTradeAddress>`
+function address(party: SellerInfo | ClientInfo, homeCountry: string): string {
+  return `<ram:PostalTradeAddress>${tag("PostcodeCode", party.postcode)}${tag("LineOne", party.addressLine1)}${tag("LineTwo", party.addressLine2)}${tag("CityName", party.city)}<ram:CountryID>${countryCode(party.country, homeCountry)}</ram:CountryID></ram:PostalTradeAddress>`
 }
 
 const email = (value: string | undefined) =>
@@ -114,7 +114,7 @@ export function eInvoiceProblems(input: EInvoiceInput, profile: EInvoiceProfile)
   if (!seller.addressLine1 || !seller.postcode || !seller.city) problems.push("Complete your business address (street, postcode, city) in Settings.")
   if (!client.addressLine1 || !client.postcode || !client.city) problems.push(`Complete the address of ${client.name} (street, postcode, city).`)
   if (profile === "xrechnung") {
-    if (!(client.buyerReference || input.buyerReference)) problems.push(`Add the Leitweg-ID / buyer reference to ${client.name} — XRechnung requires it.`)
+    if (!input.buyerReference) problems.push(`Add the Leitweg-ID / buyer reference to ${client.name} — XRechnung requires it.`)
     if (!seller.email || !seller.phone) problems.push("Add your billing email and phone number in Settings — XRechnung requires a seller contact.")
     if (!client.email) problems.push(`Add an email address for ${client.name} — XRechnung requires the buyer's electronic address.`)
   }
@@ -124,17 +124,15 @@ export function eInvoiceProblems(input: EInvoiceInput, profile: EInvoiceProfile)
 export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): string {
   const { snapshot: snap } = input
   const { seller, client } = snap
-  const exempt = snap.exemptionNote !== null
   // A credit note (TypeCode 381) states positive amounts; ours are stored as negated invoice lines.
   const sign = input.kind === "credit_note" ? -1 : 1
   const currency = snap.currency
   const money = (minor: number) => decimalAmount(sign * minor)
-  const buyerReference = client.buyerReference || input.buyerReference
 
   const lines = snap.items.map((item, index) => {
     const gross = roundHalfAwayFromZero((item.quantityMilli * item.unitPriceMinor) / 1000)
     const discount = gross - item.netMinor
-    const cat = category(item.taxRateBp, exempt)
+    const cat = category(item.taxRateBp, snap.exemptionNote)
     const unit = UNIT_CODES[(item.unit ?? "").trim().toLowerCase()] ?? "C62"
     return [
       "<ram:IncludedSupplyChainTradeLineItem>",
@@ -154,7 +152,7 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
   })
 
   const taxes = snap.taxGroups.map((g) => {
-    const cat = category(g.rateBp, exempt)
+    const cat = category(g.rateBp, snap.exemptionNote)
     return `<ram:ApplicableTradeTax><ram:CalculatedAmount>${money(g.taxMinor)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>${tag("ExemptionReason", cat.reason)}<ram:BasisAmount>${money(g.netMinor)}</ram:BasisAmount><ram:CategoryCode>${cat.code}</ram:CategoryCode><ram:RateApplicablePercent>${percent(g.rateBp)}</ram:RateApplicablePercent></ram:ApplicableTradeTax>`
   })
 
@@ -165,7 +163,7 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
   const paymentMeans = iban
     ? `<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>58</ram:TypeCode><ram:PayeePartyCreditorFinancialAccount><ram:IBANID>${esc(iban)}</ram:IBANID>${tag("AccountName", seller.legalName || seller.name)}</ram:PayeePartyCreditorFinancialAccount>${bic ? `<ram:PayeeSpecifiedCreditorFinancialInstitution><ram:BICID>${esc(bic)}</ram:BICID></ram:PayeeSpecifiedCreditorFinancialInstitution>` : ""}</ram:SpecifiedTradeSettlementPaymentMeans>`
     : `<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>1</ram:TypeCode></ram:SpecifiedTradeSettlementPaymentMeans>`
-  const notes = [input.notes.trim(), exempt ? (snap.exemptionNote ?? "") : ""].filter(Boolean)
+  const notes = [input.notes.trim(), snap.exemptionNote ?? ""].filter(Boolean)
   const contact =
     seller.phone || seller.email
       ? `<ram:DefinedTradeContact>${tag("PersonName", seller.legalName || seller.name)}${seller.phone ? `<ram:TelephoneUniversalCommunication><ram:CompleteNumber>${esc(seller.phone)}</ram:CompleteNumber></ram:TelephoneUniversalCommunication>` : ""}${seller.email ? `<ram:EmailURIUniversalCommunication><ram:URIID>${esc(seller.email)}</ram:URIID></ram:EmailURIUniversalCommunication>` : ""}</ram:DefinedTradeContact>`
@@ -195,7 +193,7 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
     "<rsm:SupplyChainTradeTransaction>",
     ...lines,
     "<ram:ApplicableHeaderTradeAgreement>",
-    tag("BuyerReference", buyerReference),
+    tag("BuyerReference", input.buyerReference),
     `<ram:SellerTradeParty>${tag("Name", seller.legalName || seller.name)}${contact}${address(seller, input.homeCountry)}${email(seller.email)}${sellerTax}</ram:SellerTradeParty>`,
     `<ram:BuyerTradeParty>${tag("Name", client.name)}${address(client, input.homeCountry)}${email(client.email)}${client.vatId ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(client.vatId.replace(/\s+/g, ""))}</ram:ID></ram:SpecifiedTaxRegistration>` : ""}</ram:BuyerTradeParty>`,
     "</ram:ApplicableHeaderTradeAgreement>",
@@ -205,7 +203,7 @@ export function buildCiiXml(input: EInvoiceInput, profile: EInvoiceProfile): str
     `<ram:InvoiceCurrencyCode>${currency}</ram:InvoiceCurrencyCode>`,
     paymentMeans,
     ...taxes,
-    `<ram:SpecifiedTradePaymentTerms>${tag("Description", input.paymentTerms && !/^\d+$/.test(input.paymentTerms) ? input.paymentTerms : null)}<ram:DueDateDateTime>${date102(input.dueDate)}</ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>`,
+    `<ram:SpecifiedTradePaymentTerms>${tag("Description", input.paymentTerms || null)}<ram:DueDateDateTime>${date102(input.dueDate)}</ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>`,
     "<ram:SpecifiedTradeSettlementHeaderMonetarySummation>",
     `<ram:LineTotalAmount>${money(lineTotal)}</ram:LineTotalAmount>`,
     `<ram:TaxBasisTotalAmount>${money(lineTotal)}</ram:TaxBasisTotalAmount>`,

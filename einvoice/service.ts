@@ -3,40 +3,39 @@ import "./libxml-windows"
 import { generate } from "@stafyniaksacha/facturx"
 import { PDFDocument } from "pdf-lib"
 import type { Db } from "@/db/client"
-import type { Jurisdiction } from "@/jurisdictions"
 import { DomainError } from "@/lib/action-result"
 import { invoicePdf } from "@/pdf/invoice-file"
-import type { previewContext } from "@/server/repos/invoices"
+import type { DocumentContext } from "@/server/repos/invoices"
 import { buildCiiXml, eInvoiceProblems, type EInvoiceInput, type EInvoiceProfile } from "./cii"
 
-type Preview = NonNullable<ReturnType<typeof previewContext>>
-export type EInvoiceFormat = "zugferd" | "xrechnung"
+export const E_INVOICE_FORMATS = ["zugferd", "xrechnung"] as const
+export type EInvoiceFormat = (typeof E_INVOICE_FORMATS)[number]
 
 const PROFILE: Record<EInvoiceFormat, EInvoiceProfile> = { zugferd: "en16931", xrechnung: "xrechnung" }
-const HOME_COUNTRY: Record<Jurisdiction["code"], string> = { de: "DE", uk: "GB", us: "US", je: "JE" }
 
-/** E-invoices exist for issued invoices and credit notes — never drafts or quotes. */
-export function eInvoiceInput(ctx: Preview, jurisdiction: Jurisdiction): EInvoiceInput | null {
-  const { invoice, snapshot } = ctx
-  if (invoice.kind === "quote" || invoice.status === "draft" || !invoice.number) return null
+/** The e-invoice view of a document, or null where e-invoicing doesn't apply (other jurisdictions, drafts, quotes). */
+export function eInvoiceInput(ctx: DocumentContext): EInvoiceInput | null {
+  const { invoice, snapshot, jurisdiction } = ctx
+  if (!jurisdiction.eInvoicing || snapshot.kind === "quote" || invoice.status === "draft" || !invoice.number) return null
   return {
-    kind: invoice.kind,
+    kind: snapshot.kind,
     number: invoice.number,
     issueDate: invoice.issueDate,
     serviceDate: invoice.serviceDate,
     dueDate: invoice.dueDate,
     notes: invoice.notes,
     paymentTerms: invoice.paymentTerms,
-    relatedNumber: snapshot.relatedNumber ?? null,
+    relatedNumber: snapshot.relatedNumber,
     snapshot,
-    homeCountry: HOME_COUNTRY[jurisdiction.code],
-    buyerReference: ctx.client?.buyerReference ?? "",
+    homeCountry: jurisdiction.countryCode,
+    // Frozen with the document; documents issued before it was frozen fall back to the client's current reference.
+    buyerReference: snapshot.client.buyerReference || ctx.client?.buyerReference || "",
   }
 }
 
-/** What blocks each format for this document; `null` when e-invoicing does not apply at all. */
-export function eInvoiceReadiness(ctx: Preview, jurisdiction: Jurisdiction): Record<EInvoiceFormat, string[]> | null {
-  const input = eInvoiceInput(ctx, jurisdiction)
+/** What blocks each format for this document; null when e-invoicing doesn't apply at all. */
+export function eInvoiceReadiness(ctx: DocumentContext): Record<EInvoiceFormat, string[]> | null {
+  const input = eInvoiceInput(ctx)
   if (!input) return null
   return { zugferd: eInvoiceProblems(input, "en16931"), xrechnung: eInvoiceProblems(input, "xrechnung") }
 }
@@ -44,12 +43,11 @@ export function eInvoiceReadiness(ctx: Preview, jurisdiction: Jurisdiction): Rec
 export async function eInvoiceFile(
   db: Db,
   orgId: string,
-  ctx: Preview,
-  jurisdiction: Jurisdiction,
+  ctx: DocumentContext,
   format: EInvoiceFormat
 ): Promise<{ filename: string; contentType: string; body: Uint8Array }> {
-  const input = eInvoiceInput(ctx, jurisdiction)
-  if (!input) throw new DomainError("Only issued invoices and credit notes can be exported as e-invoices.")
+  const input = eInvoiceInput(ctx)
+  if (!input) throw new DomainError("E-invoices are available for issued invoices and credit notes of German workspaces.")
   const problems = eInvoiceProblems(input, PROFILE[format])
   if (problems.length) throw new DomainError(problems.join(" "))
   const xml = buildCiiXml(input, PROFILE[format])

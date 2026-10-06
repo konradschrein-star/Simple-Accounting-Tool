@@ -1,11 +1,11 @@
-import type { DocumentKind } from "./documents"
+import type { IssuedKind } from "./documents"
 
 /** Plain, deliverable HTML emails for documents and reminders (no tracking pixels — "viewed" comes from the link). */
 
 type Language = "de" | "en"
 
 type DocumentEmail = {
-  kind: DocumentKind
+  kind: IssuedKind
   language: Language
   number: string
   sellerName: string

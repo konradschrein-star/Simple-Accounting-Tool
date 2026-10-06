@@ -2,7 +2,7 @@ import { DownloadIcon, Trash2Icon } from "lucide-react"
 import type { Metadata } from "next"
 import { LogoUpload } from "@/components/settings/logo-upload"
 import { SettingsForm } from "@/components/settings/settings-form"
-import { workspaceCanEmail } from "@/invoicing/service"
+import { workspaceCanEmail } from "@/server/services/invoicing"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
 import {
   AlertDialog,

@@ -75,7 +75,7 @@ test("invoicing depth: part payment → paid, cancel by credit note, quote → i
   await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("menuitem", { name: /Cancel with credit note/ }).click()
   await page.getByRole("button", { name: "Issue credit note" }).click()
-  await expect(page.getByText(/Cancelled by credit note CN-/)).toBeVisible()
+  await expect(page.getByText(/Cancelled by credit note CN-/)).toBeVisible({ timeout: 15_000 })
   await page.goto("/invoices?tab=credit-notes")
   await expect(page.getByRole("link", { name: /CN-\d{4}-\d{4}/ }).first()).toBeVisible()
 

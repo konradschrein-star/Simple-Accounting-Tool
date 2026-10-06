@@ -5,7 +5,7 @@ import { RepeatIcon } from "lucide-react"
 import Link from "next/link"
 import { DataTable, facetFilterFn, SortHeader, type Facet } from "@/components/data-table/data-table"
 import { InvoiceStatusBadge } from "@/components/status-badge"
-import type { DisplayStatus } from "@/invoicing/documents"
+import { STATUS_LABELS, type DisplayStatus } from "@/invoicing/documents"
 import { formatDate } from "@/lib/dates"
 import { formatMoney, type CurrencyCode } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -21,21 +21,6 @@ export type DocumentRow = {
   openMinor: number
   currency: CurrencyCode
   recurring: boolean
-}
-
-const STATUS_LABELS: Partial<Record<DisplayStatus, string>> = {
-  draft: "Draft",
-  open: "Open",
-  partial: "Part-paid",
-  overdue: "Overdue",
-  paid: "Paid",
-  cancelled: "Cancelled",
-  sent: "Sent",
-  accepted: "Accepted",
-  declined: "Declined",
-  converted: "Invoiced",
-  expired: "Expired",
-  issued: "Issued",
 }
 
 export function DocumentsTable({
@@ -55,7 +40,7 @@ export function DocumentsTable({
   status?: DisplayStatus
 }) {
   const statuses = [...new Set(rows.map((r) => r.status))]
-  const facets: Facet[] = [{ columnId: "status", title: "Status", options: statuses.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s })) }]
+  const facets: Facet[] = [{ columnId: "status", title: "Status", options: statuses.map((s) => ({ value: s, label: STATUS_LABELS[s] })) }]
   const columns: ColumnDef<DocumentRow>[] = [
     {
       accessorKey: "number",

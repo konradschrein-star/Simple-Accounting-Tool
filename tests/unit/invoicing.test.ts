@@ -24,7 +24,17 @@ const seller = {
   ukAccountNumber: "",
   usRoutingNumber: "",
 }
-const client = { name: "Client GmbH", email: "", addressLine1: "Weg 2", addressLine2: "", postcode: "80331", city: "München", country: "Germany", vatId: "" }
+const client = {
+  name: "Client GmbH",
+  email: "",
+  addressLine1: "Weg 2",
+  addressLine2: "",
+  postcode: "80331",
+  city: "München",
+  country: "Germany",
+  vatId: "",
+  buyerReference: "",
+}
 const lines = [{ description: "Consulting", quantityMilli: 1000, unitPriceMinor: 10000, taxRateBp: 1900 }]
 
 describe("invoice rules", () => {

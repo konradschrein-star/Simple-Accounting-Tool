@@ -29,7 +29,6 @@ export type InvoiceLabels = {
   taxNumber: string
   vatId: string
   draft: string
-  void: string
   notes: string
 }
 
@@ -64,7 +63,6 @@ export const LABELS: Record<"de" | "en", InvoiceLabels> = {
     taxNumber: "Steuernummer",
     vatId: "USt-IdNr.",
     draft: "ENTWURF",
-    void: "STORNIERT",
     notes: "Hinweise",
   },
   en: {
@@ -96,7 +94,6 @@ export const LABELS: Record<"de" | "en", InvoiceLabels> = {
     taxNumber: "Tax reference",
     vatId: "VAT no.",
     draft: "DRAFT",
-    void: "VOID",
     notes: "Notes",
   },
 }

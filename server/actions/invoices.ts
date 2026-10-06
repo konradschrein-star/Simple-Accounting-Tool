@@ -7,28 +7,15 @@ import { evaluateTriggers } from "@/advisory/evaluate"
 import { CURRENCIES } from "@/db/schema"
 import { db } from "@/db/client"
 import type { DocumentKind } from "@/invoicing/documents"
-import { finalizeWithRate, sendDocument, workspaceCanEmail } from "@/invoicing/service"
 import { guarded, type ActionResult } from "@/lib/action-result"
 import { audit, requireReadyOrg, type ReadyOrgContext } from "@/server/context"
-import { exchangeRateMicro } from "@/server/repos/fx"
-import {
-  cancelInvoice,
-  clearPayments,
-  convertQuote,
-  createDraft,
-  deleteDraft,
-  duplicateDocument,
-  getInvoice,
-  InvoiceError,
-  recordPayment,
-  saveDraft,
-  setQuoteOutcome,
-} from "@/server/repos/invoices"
+import { convertQuote, createDraft, deleteDraft, duplicateDocument, recordPayment, removePayment, saveDraft, setQuoteOutcome } from "@/server/repos/invoices"
 import { bumpProductUsage } from "@/server/repos/products"
-import { createSeries, updateSeries } from "@/server/repos/recurring"
+import { createSeries, setSeriesPaused } from "@/server/repos/recurring"
+import { cancelWithRate, finalizeWithRate, sendDocument, workspaceCanEmail } from "@/server/services/invoicing"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
-const kindSchema = z.enum(["invoice", "quote", "credit_note"])
+const id = z.string().min(1).max(64)
 
 const draftSchema = z.object({
   clientId: z.string().nullable(),
@@ -54,7 +41,7 @@ const draftSchema = z.object({
   productIds: z.array(z.string()).max(200).default([]),
 })
 
-const listPath = (kind: DocumentKind) => (kind === "quote" ? "/quotes" : "/invoices")
+const listPath = (kind: DocumentKind) => (kind === "quote" ? "/quotes" : kind === "recurring_template" ? "/invoices?tab=recurring" : "/invoices")
 
 /** Anything that changes what is owed or paid feeds the advisory metrics and every list. */
 function afterMoneyChange(ctx: ReadyOrgContext) {
@@ -62,125 +49,123 @@ function afterMoneyChange(ctx: ReadyOrgContext) {
   revalidatePath("/", "layout")
 }
 
-export async function newDocument(kind: DocumentKind, clientId?: string) {
+export async function newDocument(kind: "invoice" | "quote", clientId?: string) {
   const ctx = await requireReadyOrg()
-  const id = createDraft(db, ctx.orgId, ctx.settings, ctx.today, { kind: kindSchema.parse(kind), clientId: clientId ?? null })
-  audit(ctx, `${kind}.created`, "invoice", id)
-  redirect(`/invoices/${id}`)
+  const draftId = createDraft(db, ctx.orgId, ctx.settings, ctx.today, { kind: z.enum(["invoice", "quote"]).parse(kind), clientId: clientId ?? null })
+  audit(ctx, `${kind}.created`, "invoice", draftId)
+  redirect(`/invoices/${draftId}`)
 }
 
-export async function saveInvoiceDraft(id: string, input: unknown): Promise<ActionResult> {
+export async function saveInvoiceDraft(documentId: string, input: unknown): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const parsed = draftSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid document" }
   const { productIds, ...draft } = parsed.data
   return guarded(() => {
-    saveDraft(db, ctx.orgId, id, draft)
+    saveDraft(db, ctx.orgId, documentId, draft)
     for (const productId of productIds) bumpProductUsage(db, ctx.orgId, productId)
     // Autosave fires constantly; only bookkeeper edits on a client's document are worth an audit row.
-    if (ctx.actor === "staff") audit(ctx, "invoice.draft_saved", "invoice", id)
+    if (ctx.actor === "staff") audit(ctx, "invoice.draft_saved", "invoice", documentId)
   })
 }
 
-export async function finalize(id: string): Promise<ActionResult> {
+export async function finalize(documentId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const result = await guarded(async () => {
-    const number = await finalizeWithRate(db, ctx.orgId, ctx.jurisdiction, id)
-    audit(ctx, "invoice.finalized", "invoice", id, { number })
+    const number = await finalizeWithRate(db, ctx.orgId, documentId, ctx.today)
+    audit(ctx, "invoice.finalized", "invoice", documentId, { number })
   })
   if (result.ok) afterMoneyChange(ctx)
   return result
 }
 
-export async function sendByEmail(id: string, to?: string): Promise<ActionResult> {
+export async function sendByEmail(documentId: string, to?: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   return guarded(async () => {
-    const recipient = await sendDocument(db, ctx.orgId, ctx.jurisdiction, id, z.string().email().optional().catch(undefined).parse(to))
-    audit(ctx, "invoice.sent", "invoice", id, { to: recipient })
-    revalidatePath(`/invoices/${id}`)
+    const recipient = await sendDocument(db, ctx.orgId, documentId, z.string().email().optional().catch(undefined).parse(to))
+    audit(ctx, "invoice.sent", "invoice", documentId, { to: recipient })
+    revalidatePath(`/invoices/${documentId}`)
     return { message: `Sent to ${recipient}` }
   })
 }
 
 const paymentSchema = z.object({ date: isoDate, amountMinor: z.number().int().positive() })
 
-export async function addPayment(id: string, input: unknown): Promise<ActionResult> {
+export async function addPayment(documentId: string, input: unknown): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const parsed = paymentSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Enter a date and a positive amount" }
   const result = await guarded(() => {
-    recordPayment(db, ctx.orgId, id, { ...parsed.data, method: "manual" })
-    audit(ctx, "invoice.payment", "invoice", id, parsed.data)
+    recordPayment(db, ctx.orgId, documentId, { ...parsed.data, method: "manual" }, ctx.today)
+    audit(ctx, "invoice.payment", "invoice", documentId, parsed.data)
   })
   if (result.ok) afterMoneyChange(ctx)
   return result
 }
 
-export async function undoPayments(id: string): Promise<ActionResult> {
+export async function deletePayment(paymentId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const result = await guarded(() => {
-    clearPayments(db, ctx.orgId, id)
-    audit(ctx, "invoice.payments_cleared", "invoice", id)
+    removePayment(db, ctx.orgId, id.parse(paymentId), ctx.today)
+    audit(ctx, "invoice.payment_removed", "invoice_payment", paymentId)
+    return { message: "Payment removed" }
   })
   if (result.ok) afterMoneyChange(ctx)
   return result
 }
 
-/** Cancellation by credit note (Stornorechnung) — the GoBD-compliant way to "void" an issued invoice. */
-export async function cancelWithCreditNote(id: string): Promise<ActionResult> {
+/** Cancellation by credit note (Stornorechnung) — the GoBD-compliant way to withdraw an issued invoice. */
+export async function cancelWithCreditNote(documentId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const result = await guarded(async () => {
-    const invoice = getInvoice(db, ctx.orgId, id)?.invoice
-    if (!invoice) throw new InvoiceError("Invoice not found")
-    const rate = await exchangeRateMicro(db, invoice.currency, ctx.settings.currency, ctx.today)
-    const { number } = cancelInvoice(db, ctx.orgId, ctx.jurisdiction, id, ctx.today, rate)
-    audit(ctx, "invoice.cancelled", "invoice", id, { creditNote: number })
+    const { number } = await cancelWithRate(db, ctx.orgId, documentId, ctx.today)
+    audit(ctx, "invoice.cancelled", "invoice", documentId, { creditNote: number })
     return { message: `Cancelled — credit note ${number} issued` }
   })
   if (result.ok) afterMoneyChange(ctx)
   return result
 }
 
-export async function quoteOutcome(id: string, outcome: "accepted" | "declined"): Promise<ActionResult> {
+export async function quoteOutcome(documentId: string, outcome: "accepted" | "declined"): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const result = await guarded(() => {
-    setQuoteOutcome(db, ctx.orgId, id, z.enum(["accepted", "declined"]).parse(outcome))
-    audit(ctx, `quote.${outcome}`, "invoice", id)
+    setQuoteOutcome(db, ctx.orgId, documentId, z.enum(["accepted", "declined"]).parse(outcome), "user", ctx.today)
+    audit(ctx, `quote.${outcome}`, "invoice", documentId)
   })
   if (result.ok) revalidatePath("/", "layout")
   return result
 }
 
-export async function convertToInvoice(id: string): Promise<ActionResult> {
+export async function convertToInvoice(documentId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  let invoiceId = ""
   const result = await guarded(() => {
-    invoiceId = convertQuote(db, ctx.orgId, ctx.settings, ctx.today, id)
-    audit(ctx, "quote.converted", "invoice", id, { invoiceId })
+    const invoiceId = convertQuote(db, ctx.orgId, ctx.settings, ctx.today, documentId)
+    audit(ctx, "quote.converted", "invoice", documentId, { invoiceId })
+    return { invoiceId }
   })
-  if (result.ok) redirect(`/invoices/${invoiceId}`)
+  if (result.ok) redirect(`/invoices/${result.invoiceId}`)
   return result
 }
 
-export async function removeDraft(id: string): Promise<ActionResult> {
+export async function removeDraft(documentId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  const kind = getInvoice(db, ctx.orgId, id)?.invoice.kind ?? "invoice"
   const result = await guarded(() => {
-    deleteDraft(db, ctx.orgId, id)
-    audit(ctx, "invoice.deleted", "invoice", id)
+    const kind = deleteDraft(db, ctx.orgId, documentId, ctx.today)
+    audit(ctx, "invoice.deleted", "invoice", documentId)
+    return { kind }
   })
-  if (result.ok) redirect(listPath(kind))
+  if (result.ok) redirect(listPath(result.kind))
   return result
 }
 
-export async function duplicate(id: string): Promise<ActionResult> {
+export async function duplicate(documentId: string): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  let copy = ""
   const result = await guarded(() => {
-    copy = duplicateDocument(db, ctx.orgId, ctx.settings, ctx.today, id)
-    audit(ctx, "invoice.duplicated", "invoice", copy, { from: id })
+    const copy = duplicateDocument(db, ctx.orgId, ctx.settings, ctx.today, documentId)
+    audit(ctx, "invoice.duplicated", "invoice", copy, { from: documentId })
+    return { copy }
   })
-  if (result.ok) redirect(`/invoices/${copy}`)
+  if (result.ok) redirect(`/invoices/${result.copy}`)
   return result
 }
 
@@ -192,31 +177,27 @@ const recurringSchema = z.object({
 })
 
 /** Turns an invoice into a recurring series: its content becomes the template for every future invoice. */
-export async function makeRecurring(id: string, input: unknown): Promise<ActionResult> {
+export async function makeRecurring(documentId: string, input: unknown): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
   const parsed = recurringSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Choose a frequency and a start date" }
-  if (parsed.data.startDate < ctx.today) return { ok: false, error: "The first invoice can't be in the past" }
-  if (parsed.data.autoSend && !workspaceCanEmail(ctx.settings)) return { ok: false, error: "Automatic sending needs email to be set up" }
+  const { frequency, startDate, count, autoSend } = parsed.data
+  if (startDate < ctx.today) return { ok: false, error: "The first invoice can’t be in the past" }
+  if (autoSend && !workspaceCanEmail(ctx.settings)) return { ok: false, error: "Automatic sending needs email to be set up" }
   return guarded(() => {
-    const templateId = duplicateDocument(db, ctx.orgId, ctx.settings, parsed.data.startDate, id, "invoice")
-    const seriesId = createSeries(db, ctx.orgId, {
-      templateInvoiceId: templateId,
-      frequency: parsed.data.frequency,
-      nextIssueDate: parsed.data.startDate,
-      endDate: null,
-      remaining: parsed.data.count,
-      autoSend: parsed.data.autoSend,
-    })
+    const seriesId = createSeries(db, ctx.orgId, ctx.settings, documentId, { frequency, startDate, totalCount: count, autoSend }, ctx.today)
     audit(ctx, "recurring.created", "recurring_series", seriesId, parsed.data)
     revalidatePath("/invoices")
-    return { message: `Recurring ${parsed.data.frequency} invoice scheduled from ${parsed.data.startDate}` }
+    return { message: `Recurring ${frequency} invoice scheduled from ${startDate}` }
   })
 }
 
-export async function setRecurringActive(seriesId: string, active: boolean) {
+export async function setRecurringPaused(seriesId: string, paused: boolean): Promise<ActionResult> {
   const ctx = await requireReadyOrg()
-  updateSeries(db, ctx.orgId, seriesId, { active })
-  audit(ctx, active ? "recurring.resumed" : "recurring.paused", "recurring_series", seriesId)
-  revalidatePath("/invoices")
+  const result = await guarded(() => {
+    setSeriesPaused(db, ctx.orgId, id.parse(seriesId), z.boolean().parse(paused), ctx.today)
+    audit(ctx, paused ? "recurring.paused" : "recurring.resumed", "recurring_series", seriesId)
+  })
+  if (result.ok) revalidatePath("/invoices")
+  return result
 }

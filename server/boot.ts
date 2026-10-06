@@ -5,7 +5,7 @@ import { onboardedWorkspaceIds } from "@/server/repos/workspace"
 import { cleanupExpiredDemos } from "@/demo/cleanup"
 import { recoverInterruptedImports } from "@/ingest/jobs"
 import { recoverInterruptedReceipts } from "@/server/repos/receipts"
-import { runPaymentReminders, runRecurringInvoices } from "@/invoicing/service"
+import { runPaymentReminders, runRecurringInvoices } from "@/server/services/invoicing"
 import { env } from "@/lib/env"
 
 let started = false

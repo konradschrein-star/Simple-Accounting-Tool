@@ -1,5 +1,5 @@
 import { Document, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
-import type { InvoiceSnapshot } from "@/db/schema"
+import type { InvoiceSnapshot } from "@/invoicing/rules"
 import { fromIso } from "@/lib/dates"
 import { formatMoney, formatRate } from "@/lib/money"
 import { LABELS } from "./labels"
@@ -13,7 +13,7 @@ export type InvoiceDocumentProps = {
   notes: string
   paymentTerms: string
   stripePaymentLink: string
-  watermark: "draft" | "void" | "cancelled" | null
+  watermark: "draft" | "cancelled" | null
   logo: { data: Buffer; format: "png" | "jpg" } | null
 }
 
@@ -101,7 +101,7 @@ const s = StyleSheet.create({
 export function InvoiceDocument(props: InvoiceDocumentProps) {
   const { snapshot: snap } = props
   const t = LABELS[snap.language]
-  const kind = snap.kind ?? "invoice"
+  const kind = snap.kind
   const title = t.title[kind]
   const money = (minor: number) => formatMoney(minor, snap.currency, snap.locale)
   const date = (iso: string) => new Intl.DateTimeFormat(snap.locale, { dateStyle: "medium", timeZone: "UTC" }).format(fromIso(iso))
@@ -125,7 +125,7 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
       <Page size="A4" style={s.page}>
         {props.watermark ? (
           <Text style={s.watermark} fixed>
-            {props.watermark === "void" ? t.void : props.watermark === "cancelled" ? t.cancelled : t.draft}
+            {props.watermark === "cancelled" ? t.cancelled : t.draft}
           </Text>
         ) : null}
 
@@ -211,7 +211,7 @@ export function InvoiceDocument(props: InvoiceDocumentProps) {
         <View style={s.section} wrap={false}>
           {snap.exemptionNote ? <Text style={[s.bold, { marginBottom: 6 }]}>{snap.exemptionNote}</Text> : null}
           <Text>{kind === "quote" ? t.quoteValid(date(props.dueDate)) : kind === "credit_note" ? t.credited : t.payableBy(date(props.dueDate))}</Text>
-          {props.paymentTerms && !/^\d+$/.test(props.paymentTerms) ? <Text style={s.note}>{props.paymentTerms}</Text> : null}
+          {props.paymentTerms ? <Text style={s.note}>{props.paymentTerms}</Text> : null}
           {props.notes ? (
             <View style={{ marginTop: 8 }}>
               <Text style={s.bold}>{t.notes}</Text>

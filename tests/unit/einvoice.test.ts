@@ -1,7 +1,7 @@
 import "@/einvoice/libxml-windows"
 import { check } from "@stafyniaksacha/facturx"
 import { describe, expect, it } from "vitest"
-import type { InvoiceSnapshot } from "@/db/schema"
+import type { InvoiceSnapshot } from "@/invoicing/rules"
 import { buildCiiXml, decimalAmount, eInvoiceProblems, type EInvoiceInput } from "@/einvoice/cii"
 import { countryCode } from "@/einvoice/countries"
 import { computeTotals, lineNetMinor } from "@/lib/money"
@@ -15,6 +15,7 @@ const lines = [
 function snapshot(overrides: Partial<InvoiceSnapshot> = {}, items = lines): InvoiceSnapshot {
   return {
     kind: "invoice",
+    relatedNumber: null,
     seller: {
       name: "Studio Nord",
       legalName: "Studio Nord – Lea Hartmann",
@@ -30,6 +31,9 @@ function snapshot(overrides: Partial<InvoiceSnapshot> = {}, items = lines): Invo
       vatId: "DE312345671",
       bankIban: "DE89 3704 0044 0532 0130 00",
       bankBic: "COBADEFFXXX",
+      ukSortCode: "",
+      ukAccountNumber: "",
+      usRoutingNumber: "",
     },
     client: {
       name: "Bäckerei Müller GmbH",
@@ -66,7 +70,7 @@ const input = (snap: InvoiceSnapshot, extra: Partial<EInvoiceInput> = {}): EInvo
   relatedNumber: null,
   snapshot: snap,
   homeCountry: "DE",
-  buyerReference: "",
+  buyerReference: snap.client.buyerReference,
   ...extra,
 })
 

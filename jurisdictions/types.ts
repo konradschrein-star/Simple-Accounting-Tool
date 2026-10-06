@@ -31,6 +31,10 @@ export type LedgerAccountTemplate = { code: string; name: string; kind: LedgerAc
 export interface Jurisdiction {
   code: JurisdictionCode
   name: string
+  /** ISO 3166-1 alpha-2, as e-invoices and payment formats need it. */
+  countryCode: string
+  /** Whether structured e-invoices (ZUGFeRD/XRechnung, EN 16931) are offered — a German B2B obligation. */
+  eInvoicing: boolean
   currency: CurrencyCode
   locale: string
   timezone: string

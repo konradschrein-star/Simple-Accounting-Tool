@@ -3,7 +3,6 @@ import path from "node:path"
 import { beforeAll, describe, expect, it } from "vitest"
 import type { Db } from "@/db/client"
 import { startImport } from "@/ingest/service"
-import { getJurisdiction } from "@/jurisdictions"
 import { createClient } from "@/server/repos/clients"
 import { listRows } from "@/server/repos/imports"
 import { createDraft, finalizeDocument, getInvoice, saveDraft } from "@/server/repos/invoices"
@@ -34,7 +33,7 @@ describe("structured statement import", () => {
       stripePaymentLink: "",
       lines: [{ description: "Workshop", quantityMilli: 2500, unitPriceMinor: 100000, taxRateBp: 1900, discountBp: 0, unit: "" }],
     })
-    expect(finalizeDocument(db, orgId, getJurisdiction("de"), id, 1_000_000)).toBe("INV-2026-0001")
+    expect(finalizeDocument(db, orgId, id, 1_000_000, "2026-09-20")).toBe("INV-2026-0001")
 
     const bytes = new Uint8Array(fs.readFileSync(path.join(__dirname, "../fixtures/structured/camt053-sparkasse.xml")))
     const batch = startImport({ orgId, jurisdiction: "de", currency: "EUR", today: "2026-11-01", filename: "statement.xml", bytes })

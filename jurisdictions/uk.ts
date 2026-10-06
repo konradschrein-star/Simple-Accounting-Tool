@@ -52,6 +52,8 @@ function perYear(profile: TaxProfile, year: number): TaxDeadline[] {
 
 export const uk: Jurisdiction = {
   code: "uk",
+  countryCode: "GB",
+  eInvoicing: false,
   name: "United Kingdom",
   currency: "GBP",
   locale: "en-GB",

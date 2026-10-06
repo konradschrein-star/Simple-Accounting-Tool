@@ -1,13 +1,13 @@
 import { PlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { db } from "@/db/client"
-import { displayStatus, KIND_LABELS, openAmount, type DisplayStatus, type DocumentKind } from "@/invoicing/documents"
+import { displayStatus, KIND_LABELS, openAmount, type DisplayStatus, type IssuedKind } from "@/invoicing/documents"
 import type { ReadyOrgContext } from "@/server/context"
 import { newDocument } from "@/server/actions/invoices"
 import { listDocuments } from "@/server/repos/invoices"
 import { DocumentsTable, type DocumentRow } from "./documents-table"
 
-export function NewDocumentButton({ kind, label }: { kind: DocumentKind; label?: string }) {
+export function NewDocumentButton({ kind, label }: { kind: "invoice" | "quote"; label?: string }) {
   return (
     <form action={newDocument.bind(null, kind, undefined)}>
       <Button>
@@ -18,7 +18,7 @@ export function NewDocumentButton({ kind, label }: { kind: DocumentKind; label?:
 }
 
 /** Server-side list of one document kind, rendered with the shared data table. */
-export function DocumentList({ ctx, kind, status }: { ctx: ReadyOrgContext; kind: DocumentKind; status?: string }) {
+export function DocumentList({ ctx, kind, status }: { ctx: ReadyOrgContext; kind: IssuedKind; status?: string }) {
   const rows: DocumentRow[] = listDocuments(db, ctx.orgId, kind).map(({ invoice, clientName, paidMinor }) => ({
     id: invoice.id,
     number: invoice.number,

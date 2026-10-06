@@ -1,10 +1,12 @@
-import { and, asc, desc, eq, inArray, sql, sum } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, lt, sql, sum } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import type { Db } from "@/db/client"
-import { clients, invoiceEvents, invoiceItems, invoicePayments, invoices, workspaceSettings } from "@/db/schema"
-import { formatDocumentNumber, NUMBERING, reversalLines, type DocumentKind } from "@/invoicing/documents"
-import { buildSnapshot, finalizeBlockers, type ClientInfo, type DraftLine, type SellerInfo } from "@/invoicing/rules"
-import type { Jurisdiction } from "@/jurisdictions"
+import { clients, invoiceEvents, invoiceItems, invoicePayments, invoices, transactions, workspaceSettings } from "@/db/schema"
+import { formatDocumentNumber, NUMBERING, openAmount, printedKind, reversalLines, type DocumentKind, type IssuedKind } from "@/invoicing/documents"
+import type { EventDetail, InvoiceEventType } from "@/invoicing/events"
+import { assertAllowed } from "@/invoicing/lifecycle"
+import { buildSnapshot, finalizeBlockers, type ClientInfo, type DraftLine, type InvoiceSnapshot, type SellerInfo } from "@/invoicing/rules"
+import { getJurisdiction, type Jurisdiction } from "@/jurisdictions"
 import { DomainError } from "@/lib/action-result"
 import { addDays, type IsoDate } from "@/lib/dates"
 import { computeTotals, lineNetMinor, type CurrencyCode } from "@/lib/money"
@@ -13,6 +15,9 @@ import { getOrganizationName, getSettings, taxProfileOf, type WorkspaceSettings 
 export type Invoice = typeof invoices.$inferSelect
 export type InvoiceItem = typeof invoiceItems.$inferSelect
 export type InvoicePayment = typeof invoicePayments.$inferSelect
+export type Client = typeof clients.$inferSelect
+/** A document that has been issued: it has a number, a frozen snapshot and a share link. */
+export type IssuedDocument = Invoice & { kind: IssuedKind; number: string; publicToken: string; snapshot: InvoiceSnapshot }
 
 export class InvoiceError extends DomainError {}
 
@@ -24,6 +29,9 @@ const toDraftLine = ({ description, quantityMilli, unitPriceMinor, taxRateBp, di
   discountBp,
   unit,
 })
+
+const isIssued = (invoice: Invoice): invoice is IssuedDocument =>
+  invoice.kind !== "recurring_template" && invoice.status !== "draft" && !!invoice.number && !!invoice.publicToken && !!invoice.snapshot
 
 // ─── Reading ──────────────────────────────────────────────────────────────────
 
@@ -41,13 +49,12 @@ export function paidAmounts(db: Db, orgId: string, ids?: string[]): Map<string, 
   )
 }
 
-export function listDocuments(db: Db, orgId: string, kind: DocumentKind) {
+export function listDocuments(db: Db, orgId: string, kind: IssuedKind) {
   const rows = db
     .select({ invoice: invoices, clientName: clients.name })
     .from(invoices)
     .leftJoin(clients, and(eq(clients.id, invoices.clientId), eq(clients.orgId, invoices.orgId)))
-    // Recurring templates only exist to be copied; they are not documents in their own right.
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, kind), sql`${invoices.id} not in (select template_invoice_id from recurring_series)`))
+    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, kind)))
     .orderBy(desc(invoices.issueDate), desc(invoices.createdAt))
     .all()
   const paid = paidAmounts(db, orgId)
@@ -81,6 +88,12 @@ export function getInvoice(db: Db, orgId: string, id: string) {
   return { invoice, items, client, payments, events, related, paidMinor: payments.reduce((s, p) => s + p.amountMinor, 0) }
 }
 
+function requireInvoice(db: Db, orgId: string, id: string) {
+  const found = getInvoice(db, orgId, id)
+  if (!found) throw new InvoiceError("Document not found")
+  return found
+}
+
 export function invoiceNumbers(db: Db, orgId: string, ids: string[]): Map<string, string | null> {
   if (!ids.length) return new Map()
   return new Map(
@@ -93,10 +106,8 @@ export function invoiceNumbers(db: Db, orgId: string, ids: string[]): Map<string
   )
 }
 
-export function logEvent(db: Db, orgId: string, invoiceId: string, type: string, detail?: Record<string, unknown>) {
-  db.insert(invoiceEvents)
-    .values({ orgId, invoiceId, type, detail: detail ?? null })
-    .run()
+export function logEvent<T extends InvoiceEventType>(db: Db, orgId: string, invoiceId: string, type: T, detail: EventDetail<T>) {
+  db.insert(invoiceEvents).values({ orgId, invoiceId, type, detail }).run()
 }
 
 // ─── Drafting ─────────────────────────────────────────────────────────────────
@@ -113,37 +124,39 @@ function assertClient(db: Db, orgId: string, clientId: string | null) {
     throw new InvoiceError("Unknown client")
 }
 
-/** Inserts a draft with its lines in one transaction. */
-function insertDraft(
-  db: Db,
-  orgId: string,
-  header: {
-    kind: DocumentKind
-    clientId: string | null
-    issueDate: IsoDate
-    serviceDate: IsoDate | null
-    dueDate: IsoDate
-    currency: CurrencyCode
-    notes?: string
-    paymentTerms?: string
-    stripePaymentLink?: string
-    relatedId?: string | null
-    recurringSeriesId?: string | null
-  },
-  lines: DraftLine[]
-): string {
+type DraftHeader = {
+  kind: DocumentKind
+  clientId: string | null
+  issueDate: IsoDate
+  serviceDate: IsoDate | null
+  dueDate: IsoDate
+  currency: CurrencyCode
+  notes?: string
+  paymentTerms?: string
+  stripePaymentLink?: string
+  relatedId?: string | null
+  recurringSeriesId?: string | null
+}
+
+function writeLines(db: Db, invoiceId: string, lines: DraftLine[]) {
+  db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId)).run()
+  if (lines.length)
+    db.insert(invoiceItems)
+      .values(lines.map((l, position) => ({ invoiceId, position, ...l, netMinor: lineNetMinor(l.quantityMilli, l.unitPriceMinor, l.discountBp) })))
+      .run()
+}
+
+/** Inserts a draft with its lines. */
+function insertDraft(db: Db, orgId: string, header: DraftHeader, lines: DraftLine[]): string {
   assertClient(db, orgId, header.clientId)
-  const totals = computeTotals(lines)
-  return db.transaction((tx) => {
-    const { id } = tx
+  const { subtotalMinor, taxMinor, totalMinor } = computeTotals(lines)
+  return db.transaction(() => {
+    const { id } = db
       .insert(invoices)
-      .values({ orgId, ...header, subtotalMinor: totals.subtotalMinor, taxMinor: totals.taxMinor, totalMinor: totals.totalMinor })
+      .values({ orgId, ...header, subtotalMinor, taxMinor, totalMinor })
       .returning({ id: invoices.id })
       .get()
-    if (lines.length)
-      tx.insert(invoiceItems)
-        .values(lines.map((l, position) => ({ invoiceId: id, position, ...l, netMinor: lineNetMinor(l.quantityMilli, l.unitPriceMinor, l.discountBp) })))
-        .run()
+    writeLines(db, id, lines)
     return id
   })
 }
@@ -153,7 +166,7 @@ export function createDraft(
   orgId: string,
   settings: WorkspaceSettings,
   today: IsoDate,
-  options: { kind?: DocumentKind; clientId?: string | null } = {}
+  options: { kind?: IssuedKind; clientId?: string | null } = {}
 ): string {
   const kind = options.kind ?? "invoice"
   return insertDraft(
@@ -185,37 +198,30 @@ export type DraftInput = {
 
 export function saveDraft(db: Db, orgId: string, id: string, input: DraftInput) {
   assertClient(db, orgId, input.clientId)
-  const totals = computeTotals(input.lines)
-  db.transaction((tx) => {
-    const current = tx
-      .select({ status: invoices.status })
-      .from(invoices)
-      .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id)))
-      .get()
-    if (!current) throw new InvoiceError("Document not found")
-    if (current.status !== "draft") throw new InvoiceError("Finalized documents cannot be edited")
-    const { lines, ...header } = input
-    tx.update(invoices)
-      .set({ ...header, subtotalMinor: totals.subtotalMinor, taxMinor: totals.taxMinor, totalMinor: totals.totalMinor })
-      .where(eq(invoices.id, id))
+  const { subtotalMinor, taxMinor, totalMinor } = computeTotals(input.lines)
+  const { lines, ...header } = input
+  db.transaction(() => {
+    const result = db
+      .update(invoices)
+      .set({ ...header, subtotalMinor, taxMinor, totalMinor })
+      .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id), eq(invoices.status, "draft")))
       .run()
-    tx.delete(invoiceItems).where(eq(invoiceItems.invoiceId, id)).run()
-    if (lines.length)
-      tx.insert(invoiceItems)
-        .values(lines.map((l, position) => ({ invoiceId: id, position, ...l, netMinor: lineNetMinor(l.quantityMilli, l.unitPriceMinor, l.discountBp) })))
-        .run()
+    if (!result.changes) throw new InvoiceError("Issued documents can’t be edited")
+    writeLines(db, id, lines)
   })
 }
 
-export function deleteDraft(db: Db, orgId: string, id: string) {
-  const result = db
-    .delete(invoices)
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id), eq(invoices.status, "draft")))
-    .run()
-  if (!result.changes) throw new InvoiceError("Only drafts can be deleted")
+/** Deletes a draft (templates are stopped via their series instead). Returns the kind, for the redirect. */
+export function deleteDraft(db: Db, orgId: string, id: string, today: IsoDate): DocumentKind {
+  return db.transaction(() => {
+    const { invoice, paidMinor } = requireInvoice(db, orgId, id)
+    assertAllowed(invoice, today, paidMinor, "delete")
+    db.delete(invoices).where(eq(invoices.id, id)).run()
+    return invoice.kind
+  })
 }
 
-/** A fresh draft with the same client, lines and notes (today's dates). */
+/** A fresh draft with the same client, lines and notes, dated `today`. */
 export function duplicateDocument(
   db: Db,
   orgId: string,
@@ -225,8 +231,7 @@ export function duplicateDocument(
   kind?: DocumentKind,
   extra: { relatedId?: string | null; recurringSeriesId?: string | null } = {}
 ): string {
-  const source = getInvoice(db, orgId, id)
-  if (!source) throw new InvoiceError("Document not found")
+  const source = requireInvoice(db, orgId, id)
   const targetKind = kind ?? source.invoice.kind
   return insertDraft(
     db,
@@ -272,187 +277,191 @@ export function sellerInfo(settings: WorkspaceSettings, orgName: string): Seller
   }
 }
 
-function clientInfo(client: typeof clients.$inferSelect): ClientInfo {
+function clientInfo(client: Client): ClientInfo {
   const { name, email, addressLine1, addressLine2, postcode, city, country, vatId, buyerReference } = client
   return { name, email, addressLine1, addressLine2, postcode, city, country, vatId, buyerReference }
 }
 
-const NO_CLIENT: ClientInfo = { name: "—", email: "", addressLine1: "", addressLine2: "", postcode: "", city: "", country: "", vatId: "" }
+const NO_CLIENT: ClientInfo = { name: "—", email: "", addressLine1: "", addressLine2: "", postcode: "", city: "", country: "", vatId: "", buyerReference: "" }
 
-/** Everything needed to print a draft or finalized document, plus what blocks finalizing it. */
-export function previewContext(db: Db, orgId: string, jurisdiction: Jurisdiction, id: string) {
+/**
+ * Everything needed to print a document: the frozen snapshot of an issued one, or a live snapshot of a draft
+ * (templates print as the invoice they become) plus what still blocks issuing it.
+ */
+export function documentContext(db: Db, orgId: string, id: string) {
   const found = getInvoice(db, orgId, id)
   if (!found) return null
   const settings = getSettings(db, orgId)
+  if (!settings.jurisdiction) throw new InvoiceError("Finish onboarding first")
+  const jurisdiction: Jurisdiction = getJurisdiction(settings.jurisdiction)
+  if (found.invoice.snapshot) return { ...found, snapshot: found.invoice.snapshot, blockers: [] as string[], settings, jurisdiction }
   const profile = taxProfileOf(settings)
   const seller = sellerInfo(settings, getOrganizationName(db, orgId))
   const client = found.client ? clientInfo(found.client) : null
   const lines = found.items.map(toDraftLine)
-  const snapshot =
-    found.invoice.snapshot ??
-    buildSnapshot({
-      kind: found.invoice.kind,
-      relatedNumber: found.related?.number ?? null,
-      language: found.client?.language,
-      jurisdiction,
-      profile,
-      seller,
-      client: client ?? NO_CLIENT,
-      lines,
-      logoPath: settings.logoPath,
-      currency: found.invoice.currency,
-      locale: settings.locale,
-    })
-  const blockers = finalizeBlockers({ kind: found.invoice.kind, jurisdiction, profile, seller, client, serviceDate: found.invoice.serviceDate, lines })
-  return { ...found, snapshot, blockers, settings }
+  const kind = printedKind(found.invoice.kind)
+  const snapshot = buildSnapshot({
+    kind,
+    relatedNumber: found.related?.number ?? null,
+    language: found.client?.language,
+    jurisdiction,
+    profile,
+    seller,
+    client: client ?? NO_CLIENT,
+    lines,
+    logoPath: settings.logoPath,
+    currency: found.invoice.currency,
+    locale: settings.locale,
+  })
+  const blockers = finalizeBlockers({ kind, jurisdiction, profile, seller, client, serviceDate: found.invoice.serviceDate, lines })
+  return { ...found, snapshot, blockers, settings, jurisdiction }
 }
 
-// ─── Finalizing & lifecycle ───────────────────────────────────────────────────
+export type DocumentContext = NonNullable<ReturnType<typeof documentContext>>
+
+// ─── Issuing & lifecycle (each use case is one transaction) ───────────────────
 
 /**
- * Finalize: validate, allocate the next gap-free number for this kind, lock the exchange rate,
- * freeze the snapshot and mint the public link token — one synchronous transaction.
+ * Finalize: validate, allocate the next gap-free number for this kind (year of issuing, so numbers never run
+ * backwards across a new year), lock the exchange rate, freeze the snapshot and mint the share token.
  */
-export function finalizeDocument(db: Db, orgId: string, jurisdiction: Jurisdiction, id: string, fxRateMicro: number): string {
-  const ctx = previewContext(db, orgId, jurisdiction, id)
-  if (!ctx) throw new InvoiceError("Document not found")
-  if (ctx.invoice.status !== "draft") throw new InvoiceError("This document is already finalized")
-  if (ctx.blockers.length) throw new InvoiceError(ctx.blockers.join(" "))
-  const { prefix, seq } = NUMBERING[ctx.invoice.kind]
-  return db.transaction((tx) => {
-    const settings = tx.select().from(workspaceSettings).where(eq(workspaceSettings.orgId, orgId)).get()!
-    const number = formatDocumentNumber(settings[prefix], Number(ctx.invoice.issueDate.slice(0, 4)), settings[seq])
-    tx.update(workspaceSettings)
+export function finalizeDocument(db: Db, orgId: string, id: string, fxRateMicro: number, today: IsoDate): string {
+  return db.transaction(() => {
+    const ctx = documentContext(db, orgId, id)
+    if (!ctx) throw new InvoiceError("Document not found")
+    assertAllowed(ctx.invoice, today, ctx.paidMinor, "finalize")
+    if (ctx.blockers.length) throw new InvoiceError(ctx.blockers.join(" "))
+    const { prefix, seq } = NUMBERING[printedKind(ctx.invoice.kind)]
+    const settings = db.select().from(workspaceSettings).where(eq(workspaceSettings.orgId, orgId)).get()!
+    const number = formatDocumentNumber(settings[prefix], Number(today.slice(0, 4)), settings[seq])
+    db.update(workspaceSettings)
       .set({ [seq]: sql`${workspaceSettings[seq]} + 1`, currencyLocked: true })
       .where(eq(workspaceSettings.orgId, orgId))
       .run()
-    tx.update(invoices)
+    db.update(invoices)
       .set({ number, status: "finalized", snapshot: ctx.snapshot, finalizedAt: new Date(), fxRateMicro, publicToken: nanoid(32) })
       .where(and(eq(invoices.id, id), eq(invoices.status, "draft")))
       .run()
-    tx.insert(invoiceEvents).values({ orgId, invoiceId: id, type: "finalized", detail: { number } }).run()
+    logEvent(db, orgId, id, "finalized", { number })
     return number
   })
 }
 
-/** Records money received; the invoice flips to paid once it is covered. */
-export function recordPayment(
-  db: Db,
-  orgId: string,
-  id: string,
-  payment: { date: IsoDate; amountMinor: number; method: InvoicePayment["method"]; transactionId?: string | null }
-) {
-  const found = getInvoice(db, orgId, id)
-  if (!found || found.invoice.kind !== "invoice") throw new InvoiceError("Invoice not found")
-  if (found.invoice.status !== "finalized") throw new InvoiceError("Only open invoices can receive payments")
-  if (payment.amountMinor <= 0) throw new InvoiceError("Enter a positive amount")
-  db.transaction(() => applyInvoicePayment(db, orgId, found.invoice, payment))
+type NewPayment = { date: IsoDate; amountMinor: number; method: InvoicePayment["method"]; transactionId?: string | null }
+
+/** Records money received by hand. Never more than is open, never in the future. */
+export function recordPayment(db: Db, orgId: string, id: string, payment: NewPayment, today: IsoDate) {
+  db.transaction(() => {
+    const { invoice, paidMinor } = requireInvoice(db, orgId, id)
+    assertAllowed(invoice, today, paidMinor, "pay")
+    if (payment.amountMinor <= 0) throw new InvoiceError("Enter a positive amount")
+    if (payment.amountMinor > openAmount(invoice.totalMinor, paidMinor)) throw new InvoiceError("That’s more than is still open on this invoice")
+    if (payment.date > today) throw new InvoiceError("Payments can’t be dated in the future")
+    applyInvoicePayment(db, orgId, invoice, payment)
+  })
 }
 
 /**
  * The one way money lands on an invoice: payment row, event, and the flip to paid once covered.
- * Call inside a transaction (better-sqlite3 is synchronous, so `db` there runs in that transaction).
+ * Runs inside the caller's transaction (better-sqlite3 is synchronous, so `db` there is that transaction).
  */
-export function applyInvoicePayment(
-  db: Db,
-  orgId: string,
-  invoice: { id: string; totalMinor: number },
-  payment: { date: IsoDate; amountMinor: number; method: InvoicePayment["method"]; transactionId?: string | null }
-): { paidInFull: boolean } {
+export function applyInvoicePayment(db: Db, orgId: string, invoice: { id: string; totalMinor: number }, payment: NewPayment): { paidInFull: boolean } {
   db.insert(invoicePayments)
     .values({ orgId, invoiceId: invoice.id, ...payment, transactionId: payment.transactionId ?? null })
     .run()
   const paid = paidAmounts(db, orgId, [invoice.id]).get(invoice.id) ?? 0
   const paidInFull = paid >= invoice.totalMinor
   if (paidInFull) db.update(invoices).set({ status: "paid", paidDate: payment.date }).where(eq(invoices.id, invoice.id)).run()
-  db.insert(invoiceEvents)
-    .values({ orgId, invoiceId: invoice.id, type: "payment", detail: { amountMinor: payment.amountMinor, date: payment.date, method: payment.method } })
-    .run()
+  logEvent(db, orgId, invoice.id, "payment", { amountMinor: payment.amountMinor, date: payment.date, method: payment.method })
   return { paidInFull }
 }
 
-/** Undo all payments (e.g. recorded by mistake). */
-export function clearPayments(db: Db, orgId: string, id: string) {
-  const found = getInvoice(db, orgId, id)
-  if (!found || found.invoice.kind !== "invoice") throw new InvoiceError("Invoice not found")
-  if (found.invoice.status !== "paid" && found.invoice.status !== "finalized") throw new InvoiceError("This invoice has no payments to undo")
-  db.transaction((tx) => {
-    tx.delete(invoicePayments).where(eq(invoicePayments.invoiceId, id)).run()
-    tx.update(invoices).set({ status: "finalized", paidDate: null }).where(eq(invoices.id, id)).run()
-    tx.insert(invoiceEvents).values({ orgId, invoiceId: id, type: "payments_cleared" }).run()
+/** Removes one payment (e.g. recorded by mistake). A bank-matched one also frees its bank line for re-matching. */
+export function removePayment(db: Db, orgId: string, paymentId: string, today: IsoDate) {
+  db.transaction(() => {
+    const payment = db
+      .select()
+      .from(invoicePayments)
+      .where(and(eq(invoicePayments.orgId, orgId), eq(invoicePayments.id, paymentId)))
+      .get()
+    if (!payment) throw new InvoiceError("Payment not found")
+    const { invoice, paidMinor } = requireInvoice(db, orgId, payment.invoiceId)
+    assertAllowed(invoice, today, paidMinor, "removePayment")
+    db.delete(invoicePayments).where(eq(invoicePayments.id, paymentId)).run()
+    if (payment.transactionId)
+      db.update(transactions)
+        .set({ invoiceId: null })
+        .where(and(eq(transactions.orgId, orgId), eq(transactions.id, payment.transactionId)))
+        .run()
+    if (invoice.status === "paid" && paidMinor - payment.amountMinor < invoice.totalMinor)
+      db.update(invoices).set({ status: "finalized", paidDate: null }).where(eq(invoices.id, invoice.id)).run()
+    logEvent(db, orgId, invoice.id, "payment_removed", { amountMinor: payment.amountMinor, date: payment.date })
   })
 }
 
 /**
- * Cancels a finalized invoice the compliant way (GoBD): a finalized credit note with the reversed lines
- * (Stornorechnung) is issued and linked; the original keeps its number and is marked cancelled.
+ * Cancels an issued invoice the compliant way (GoBD): a finalized credit note with the reversed lines
+ * (Stornorechnung) is issued and linked; the original keeps its number and is marked cancelled. All or nothing.
  */
-export function cancelInvoice(
-  db: Db,
-  orgId: string,
-  jurisdiction: Jurisdiction,
-  id: string,
-  today: IsoDate,
-  fxRateMicro: number
-): { creditNoteId: string; number: string } {
-  const found = getInvoice(db, orgId, id)
-  if (!found || found.invoice.kind !== "invoice") throw new InvoiceError("Invoice not found")
-  if (found.invoice.status !== "finalized" && found.invoice.status !== "paid") throw new InvoiceError("Only finalized invoices can be cancelled")
-  const creditNoteId = insertDraft(
-    db,
-    orgId,
-    {
-      kind: "credit_note",
-      clientId: found.invoice.clientId,
-      issueDate: today,
-      serviceDate: found.invoice.serviceDate,
-      dueDate: today,
-      currency: found.invoice.currency,
-      notes: `Cancellation of invoice ${found.invoice.number}.`,
-      relatedId: id,
-    },
-    reversalLines(found.items.map(toDraftLine))
-  )
-  const number = finalizeDocument(db, orgId, jurisdiction, creditNoteId, fxRateMicro)
-  db.transaction((tx) => {
-    tx.update(invoices).set({ status: "cancelled", relatedId: creditNoteId, voidedAt: new Date() }).where(eq(invoices.id, id)).run()
-    tx.insert(invoiceEvents)
-      .values({ orgId, invoiceId: id, type: "cancelled", detail: { creditNote: number } })
-      .run()
+export function cancelInvoice(db: Db, orgId: string, id: string, today: IsoDate, fxRateMicro: number): { creditNoteId: string; number: string } {
+  return db.transaction(() => {
+    const found = requireInvoice(db, orgId, id)
+    assertAllowed(found.invoice, today, found.paidMinor, "cancel")
+    const creditNoteId = insertDraft(
+      db,
+      orgId,
+      {
+        kind: "credit_note",
+        clientId: found.invoice.clientId,
+        issueDate: today,
+        serviceDate: found.invoice.serviceDate,
+        dueDate: today,
+        currency: found.invoice.currency,
+        notes: `Cancellation of invoice ${found.invoice.number}.`,
+        relatedId: id,
+      },
+      reversalLines(found.items.map(toDraftLine))
+    )
+    const number = finalizeDocument(db, orgId, creditNoteId, fxRateMicro, today)
+    db.update(invoices).set({ status: "cancelled", relatedId: creditNoteId, voidedAt: new Date() }).where(eq(invoices.id, id)).run()
+    logEvent(db, orgId, id, "cancelled", { creditNote: number })
+    return { creditNoteId, number }
   })
-  return { creditNoteId, number }
 }
 
-export function setQuoteOutcome(db: Db, orgId: string, id: string, outcome: "accepted" | "declined") {
-  const result = db
-    .update(invoices)
-    .set({ status: outcome })
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id), eq(invoices.kind, "quote"), inArray(invoices.status, ["finalized", "accepted", "declined"])))
-    .run()
-  if (!result.changes) throw new InvoiceError("Only sent quotes can be accepted or declined")
-  logEvent(db, orgId, id, outcome)
+/** Records a quote's outcome — by the owner, or by the client from the share link while the quote is valid. */
+export function setQuoteOutcome(db: Db, orgId: string, id: string, outcome: "accepted" | "declined", by: "client" | "user", today: IsoDate) {
+  db.transaction(() => {
+    const { invoice, paidMinor } = requireInvoice(db, orgId, id)
+    assertAllowed(invoice, today, paidMinor, by === "client" ? "respond" : outcome === "accepted" ? "accept" : "decline")
+    db.update(invoices).set({ status: outcome }).where(eq(invoices.id, id)).run()
+    logEvent(db, orgId, id, outcome, { by })
+  })
 }
 
 /** Turns a quote into an invoice draft with the same lines; the quote is marked converted and linked. */
 export function convertQuote(db: Db, orgId: string, settings: WorkspaceSettings, today: IsoDate, quoteId: string): string {
-  const quote = getInvoice(db, orgId, quoteId)
-  if (!quote || quote.invoice.kind !== "quote") throw new InvoiceError("Quote not found")
-  if (quote.invoice.status === "draft" || quote.invoice.status === "converted") throw new InvoiceError("This quote cannot be converted")
-  const invoiceId = duplicateDocument(db, orgId, settings, today, quoteId, "invoice", { relatedId: quoteId })
-  db.update(invoices).set({ status: "converted", relatedId: invoiceId }).where(eq(invoices.id, quoteId)).run()
-  logEvent(db, orgId, quoteId, "converted", { invoiceId })
-  return invoiceId
+  return db.transaction(() => {
+    const { invoice, paidMinor } = requireInvoice(db, orgId, quoteId)
+    assertAllowed(invoice, today, paidMinor, "convert")
+    const invoiceId = duplicateDocument(db, orgId, settings, today, quoteId, "invoice", { relatedId: quoteId })
+    db.update(invoices).set({ status: "converted", relatedId: invoiceId }).where(eq(invoices.id, quoteId)).run()
+    logEvent(db, orgId, quoteId, "converted", { invoiceId })
+    return invoiceId
+  })
 }
 
-export function markSent(db: Db, orgId: string, id: string, detail: Record<string, unknown>) {
-  db.update(invoices)
-    .set({ sentAt: new Date() })
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id)))
-    .run()
-  logEvent(db, orgId, id, "sent", detail)
+export function markSent(db: Db, orgId: string, id: string, detail: EventDetail<"sent">) {
+  db.transaction(() => {
+    db.update(invoices)
+      .set({ sentAt: new Date() })
+      .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id)))
+      .run()
+    logEvent(db, orgId, id, "sent", detail)
+  })
 }
 
-/** Finalized invoices render once; later downloads serve the stored file. */
+/** Issued documents render once; later downloads serve the stored file. */
 export function setInvoicePdfPath(db: Db, orgId: string, id: string, pdfPath: string) {
   db.update(invoices)
     .set({ pdfPath })
@@ -460,19 +469,52 @@ export function setInvoicePdfPath(db: Db, orgId: string, id: string, pdfPath: st
     .run()
 }
 
-// ─── Public link (no login) ───────────────────────────────────────────────────
+// ─── Dunning ──────────────────────────────────────────────────────────────────
 
-/** Resolves a public link. Tokens are 32 random characters; only finalized documents have one. */
-export function findByPublicToken(db: Db, token: string) {
-  if (!/^[\w-]{32}$/.test(token)) return null
-  const invoice = db.select().from(invoices).where(eq(invoices.publicToken, token)).get()
-  if (!invoice || invoice.status === "draft") return null
-  const paidMinor = paidAmounts(db, invoice.orgId, [invoice.id]).get(invoice.id) ?? 0
-  return { invoice, paidMinor }
+/** Issued, unpaid invoices of one workspace that are past due, with a client to remind. */
+export function overdueForReminders(db: Db, orgId: string, today: IsoDate): { invoice: IssuedDocument; client: Client; paidMinor: number }[] {
+  const rows = db
+    .select({ invoice: invoices, client: clients })
+    .from(invoices)
+    .innerJoin(clients, and(eq(clients.id, invoices.clientId), eq(clients.orgId, invoices.orgId)))
+    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, "invoice"), eq(invoices.status, "finalized"), lt(invoices.dueDate, today)))
+    .all()
+  const paid = paidAmounts(
+    db,
+    orgId,
+    rows.map((r) => r.invoice.id)
+  )
+  return rows.flatMap(({ invoice, client }) => (isIssued(invoice) && client.email ? [{ invoice, client, paidMinor: paid.get(invoice.id) ?? 0 }] : []))
 }
 
+export function recordReminder(db: Db, orgId: string, id: string, level: number, feeMinor: number) {
+  db.transaction(() => {
+    db.update(invoices)
+      .set({ reminderLevel: level })
+      .where(and(eq(invoices.orgId, orgId), eq(invoices.id, id)))
+      .run()
+    logEvent(db, orgId, id, "reminder", { level, feeMinor })
+  })
+}
+
+// ─── Public link (no login) ───────────────────────────────────────────────────
+
+/** Resolves a share link. Tokens are 32 random characters; only issued documents have one. */
+export function findByPublicToken(db: Db, token: string): { invoice: IssuedDocument; paidMinor: number } | null {
+  if (typeof token !== "string" || !/^[\w-]{32}$/.test(token)) return null
+  const invoice = db.select().from(invoices).where(eq(invoices.publicToken, token)).get()
+  if (!invoice || !isIssued(invoice)) return null
+  return { invoice, paidMinor: paidAmounts(db, invoice.orgId, [invoice.id]).get(invoice.id) ?? 0 }
+}
+
+/** Records the first time the client opens the link. */
 export function markViewed(db: Db, invoice: Invoice) {
-  if (invoice.viewedAt) return
-  db.update(invoices).set({ viewedAt: new Date() }).where(eq(invoices.id, invoice.id)).run()
-  logEvent(db, invoice.orgId, invoice.id, "viewed")
+  db.transaction(() => {
+    const result = db
+      .update(invoices)
+      .set({ viewedAt: new Date() })
+      .where(and(eq(invoices.id, invoice.id), isNull(invoices.viewedAt)))
+      .run()
+    if (result.changes) logEvent(db, invoice.orgId, invoice.id, "viewed", null)
+  })
 }

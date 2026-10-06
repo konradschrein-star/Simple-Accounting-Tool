@@ -118,3 +118,12 @@ export function eraseWorkspace(db: Db, orgId: string, ownerUserId: string | null
     if (ownerUserId) tx.delete(user).where(eq(user.id, ownerUserId)).run()
   })
 }
+
+/** Real (non-demo) workspaces that switched payment reminders on. */
+export function workspacesWithReminders(db: Db): WorkspaceSettings[] {
+  return db
+    .select()
+    .from(workspaceSettings)
+    .where(and(eq(workspaceSettings.remindersEnabled, true), eq(workspaceSettings.isDemo, false), isNotNull(workspaceSettings.jurisdiction)))
+    .all()
+}

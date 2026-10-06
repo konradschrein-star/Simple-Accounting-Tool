@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 import { DocumentTimeline } from "@/components/invoices/document-timeline"
 import { InvoiceActions } from "@/components/invoices/invoice-actions"
 import { InvoiceEditor } from "@/components/invoices/invoice-editor"
+import { RemovePaymentButton } from "@/components/invoices/remove-payment-button"
 import { PageBody, PageHeader } from "@/components/shell/page-header"
 import { InvoiceStatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
@@ -13,15 +14,16 @@ import { CURRENCIES } from "@/db/schema"
 import { db } from "@/db/client"
 import { invoiceRatesBp } from "@/jurisdictions/tax-profile"
 import { eInvoiceReadiness } from "@/einvoice/service"
-import { displayStatus, KIND_LABELS, openAmount } from "@/invoicing/documents"
-import { publicLink, workspaceCanEmail } from "@/invoicing/service"
+import { displayStatus, KIND_LABELS, openAmount, printedKind } from "@/invoicing/documents"
+import type { InvoiceEvent } from "@/invoicing/events"
+import { allowedActions } from "@/invoicing/lifecycle"
+import { publicLink, workspaceCanEmail } from "@/server/services/invoicing"
 import { formatDate } from "@/lib/dates"
 import { formatMoney, toBaseMinor } from "@/lib/money"
 import { requireReadyOrg } from "@/server/context"
 import { listClients } from "@/server/repos/clients"
-import { previewContext } from "@/server/repos/invoices"
+import { documentContext } from "@/server/repos/invoices"
 import { listProducts } from "@/server/repos/products"
-import { seriesForTemplate } from "@/server/repos/recurring"
 import { taxProfileOf } from "@/server/repos/workspace"
 
 export const metadata: Metadata = { title: "Document" }
@@ -29,14 +31,15 @@ export const metadata: Metadata = { title: "Document" }
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ctx = await requireReadyOrg()
-  const found = previewContext(db, ctx.orgId, ctx.jurisdiction, id)
+  const found = documentContext(db, ctx.orgId, id)
   if (!found) notFound()
   const { invoice, items, client, blockers, payments, events, related, paidMinor } = found
   const { locale } = ctx.settings
   const kind = invoice.kind
   const label = KIND_LABELS[kind].singular
   const status = displayStatus(invoice, ctx.today, paidMinor)
-  const listHref = kind === "quote" ? "/quotes" : kind === "credit_note" ? "/invoices?tab=credit-notes" : "/invoices"
+  const listHref = { quote: "/quotes", credit_note: "/invoices?tab=credit-notes", recurring_template: "/invoices?tab=recurring", invoice: "/invoices" }[kind]
+  const actions = [...allowedActions(invoice, ctx.today, paidMinor)]
   const back = (
     <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
       <Link href={listHref}>
@@ -46,7 +49,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   )
 
   if (invoice.status === "draft") {
-    const template = seriesForTemplate(db, ctx.orgId, invoice.id)
+    const template = kind === "recurring_template"
     return (
       <PageBody className="max-w-[1600px]">
         {back}
@@ -56,8 +59,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         />
         <InvoiceEditor
           invoiceId={invoice.id}
-          kind={kind}
-          recurringTemplate={!!template}
+          kind={printedKind(kind)}
+          recurringTemplate={template}
           initial={{
             clientId: invoice.clientId ?? "",
             currency: invoice.currency,
@@ -65,7 +68,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             serviceDate: invoice.serviceDate ?? "",
             dueDate: invoice.dueDate,
             notes: invoice.notes,
-            paymentTerms: /^\d+$/.test(invoice.paymentTerms) ? "" : invoice.paymentTerms,
+            paymentTerms: invoice.paymentTerms,
             stripePaymentLink: invoice.stripePaymentLink,
             lines: items,
           }}
@@ -122,14 +125,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         actions={
           <InvoiceActions
             id={invoice.id}
-            kind={kind}
-            status={status}
+            kind={printedKind(kind)}
+            actions={actions}
             today={ctx.today}
             openMinor={open}
             clientEmail={client?.email ?? ""}
             publicUrl={invoice.publicToken ? publicLink(invoice.publicToken) : null}
             emailEnabled={workspaceCanEmail(ctx.settings)}
-            eInvoice={ctx.jurisdiction.code === "de" ? eInvoiceReadiness(found, ctx.jurisdiction) : null}
+            eInvoice={eInvoiceReadiness(found)}
           />
         }
       />
@@ -178,7 +181,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                       <span className="text-muted-foreground">
                         {formatDate(p.date, locale)} · {p.method === "bank" ? "bank match" : p.method}
                       </span>
-                      <span className="font-medium tabular-nums">{money(p.amountMinor)}</span>
+                      <span className="flex items-center gap-1 font-medium tabular-nums">
+                        {money(p.amountMinor)}
+                        {actions.includes("removePayment") ? <RemovePaymentButton paymentId={p.id} /> : null}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -191,7 +197,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             </CardHeader>
             <CardContent>
               <DocumentTimeline
-                events={events.map((e) => ({ id: e.id, type: e.type, detail: e.detail, at: e.at.getTime() }))}
+                events={events.map((e) => ({ id: e.id, at: e.at.getTime(), ...({ type: e.type, detail: e.detail } as InvoiceEvent) }))}
                 currency={invoice.currency}
                 locale={locale}
                 timeZone={ctx.settings.timezone}

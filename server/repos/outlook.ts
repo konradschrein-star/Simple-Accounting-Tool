@@ -35,7 +35,7 @@ export function workspaceOutlook(db: Db, orgId: string, settings: WorkspaceSetti
     .select({ date: recurringSeries.nextIssueDate, totalMinor: invoices.totalMinor, fx: invoices.fxRateMicro })
     .from(recurringSeries)
     .innerJoin(invoices, eq(invoices.id, recurringSeries.templateInvoiceId))
-    .where(and(eq(recurringSeries.orgId, orgId), eq(recurringSeries.active, true)))
+    .where(and(eq(recurringSeries.orgId, orgId), eq(recurringSeries.state, "active")))
     .all()
   return cashOutlook({
     balance,
