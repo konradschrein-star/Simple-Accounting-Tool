@@ -1,9 +1,12 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm"
 import type { Db } from "@/db/client"
-import { csvMappingProfiles, importBatches, importRows, invoices, transactions, type Reconciliation, type RowIssue } from "@/db/schema"
+import { csvMappingProfiles, importBatches, importRows, invoices, transactions, workspaceSettings, type Reconciliation, type RowIssue } from "@/db/schema"
 import type { CsvMapping, NormalizedRow } from "@/ingest/csv/types"
 import { hashBankRows } from "@/ingest/dedupe"
+import { openAmount } from "@/invoicing/documents"
+import { matchPayment, type OpenInvoice } from "@/invoicing/matching"
 import { DomainError } from "@/lib/action-result"
+import { paidAmounts } from "./invoices"
 
 export type ImportBatch = typeof importBatches.$inferSelect
 export type ImportRow = typeof importRows.$inferSelect
@@ -58,6 +61,19 @@ export function saveMappingProfile(db: Db, orgId: string, fingerprint: string, m
  * Writes parsed rows to staging with review flags: duplicates of already-booked lines are excluded by default,
  * and credits that exactly match an open invoice get a "mark as paid" suggestion. One short sync transaction.
  */
+/** Issued, unpaid invoices in the workspace currency (statements are always in it), with what is still open. */
+function openInvoicesForMatching(db: Db, orgId: string): OpenInvoice[] {
+  const currency = db.select({ currency: workspaceSettings.currency }).from(workspaceSettings).where(eq(workspaceSettings.orgId, orgId)).get()?.currency
+  const open = db
+    .select({ id: invoices.id, number: invoices.number, total: invoices.totalMinor, issueDate: invoices.issueDate })
+    .from(invoices)
+    .where(and(eq(invoices.orgId, orgId), eq(invoices.kind, "invoice"), eq(invoices.status, "finalized"), eq(invoices.currency, currency ?? "EUR")))
+    .orderBy(asc(invoices.issueDate))
+    .all()
+  const paid = paidAmounts(db, orgId, open.map((i) => i.id))
+  return open.map((i) => ({ id: i.id, number: i.number ?? "", issueDate: i.issueDate, openMinor: openAmount(i.total, paid.get(i.id) ?? 0) }))
+}
+
 export function stageRows(
   db: Db,
   orgId: string,
@@ -78,11 +94,7 @@ export function stageRows(
           .map((r) => r.h)
       : [],
   )
-  const openInvoices = db
-    .select({ id: invoices.id, total: invoices.totalMinor, issueDate: invoices.issueDate })
-    .from(invoices)
-    .where(and(eq(invoices.orgId, orgId), eq(invoices.status, "finalized")))
-    .all()
+  const openInvoices = openInvoicesForMatching(db, orgId)
   const claimed = new Set<string>()
 
   db.transaction((tx) => {
@@ -92,10 +104,7 @@ export function stageRows(
       const hash = hashByRow.get(row)
       const duplicate = hash ? existing.has(hash) : false
       if (duplicate) issues.push("possible_duplicate")
-      const match =
-        row.amountMinor && row.amountMinor > 0 && row.date
-          ? openInvoices.find((inv) => !claimed.has(inv.id) && inv.total === row.amountMinor && inv.issueDate <= row.date!)
-          : undefined
+      const match = row.amountMinor && row.date ? matchPayment({ date: row.date, amountMinor: row.amountMinor, text: `${row.description} ${row.counterparty}` }, openInvoices, claimed) : null
       if (match) claimed.add(match.id)
       tx.insert(importRows)
         .values({

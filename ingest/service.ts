@@ -13,6 +13,7 @@ import { env } from "@/lib/env"
 import { createBatch, findBatchBySha, findMappingProfile, getBatch, saveMappingProfile, stageRows, updateBatch, type ImportBatch } from "@/server/repos/imports"
 import { decodeCsv, detectCsv } from "./csv/detect"
 import { normalizeRows } from "./csv/normalize"
+import { parseStructured, sniffStructured, type StructuredFormat } from "./structured"
 import type { CsvMapping } from "./csv/types"
 import { enqueuePdfImport } from "./jobs"
 
@@ -30,8 +31,12 @@ export class ImportRejected extends Error {
   }
 }
 
-function sniff(bytes: Uint8Array, filename: string): "pdf" | "csv" | null {
+type UploadKind = "pdf" | "csv" | StructuredFormat
+
+function sniff(bytes: Uint8Array, filename: string): UploadKind | null {
   if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"
+  const structured = sniffStructured(new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, 64 * 1024)))
+  if (structured) return structured
   const head = new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, 4096))
   // Text with at least one delimiter and no NUL bytes — CSV/TSV/TXT exports.
   if (!head.includes("\u0000") && /[;,\t|]/.test(head) && /\.(csv|txt|tsv)$/i.test(filename)) return "csv"
@@ -95,7 +100,17 @@ export function startImport(ctx: ImportContext & { today: string; filename: stri
   const batch = createBatch(db, orgId, { id, source: kind, filename: ctx.filename.slice(0, 200), fileSha256: sha, filePath })
 
   if (kind === "pdf") enqueuePdfImport(orgId, id)
-  else {
+  else if (kind === "camt" || kind === "ofx") {
+    try {
+      const statement = parseStructured(kind, new TextDecoder("utf-8").decode(bytes), ctx.currency)
+      if (!statement.rows.length) updateBatch(db, orgId, id, { status: "failed", errorCode: "NO_TRANSACTIONS_FOUND", parser: kind })
+      else stageRows(db, orgId, id, statement.rows, { parser: kind, reconciliation: statement.reconciliation })
+      if (statement.currency) updateBatch(db, orgId, id, { detectedCurrency: statement.currency })
+    } catch (error) {
+      console.error(`[import ${id}]`, error)
+      updateBatch(db, orgId, id, { status: "failed", errorCode: "INTERNAL", errorMessage: `This ${kind === "camt" ? "CAMT" : "OFX"} file could not be read.` })
+    }
+  } else {
     try {
       processCsv(ctx, batch)
     } catch (error) {

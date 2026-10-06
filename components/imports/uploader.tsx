@@ -1,6 +1,6 @@
 "use client"
 
-import { FileSpreadsheetIcon, FileTextIcon, UploadCloudIcon } from "lucide-react"
+import { FileCode2Icon, FileSpreadsheetIcon, FileTextIcon, UploadCloudIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useDropzone } from "react-dropzone"
@@ -15,7 +15,7 @@ export function StatementUploader({ pdfRemaining }: { pdfRemaining: number }) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     multiple: false,
     maxSize: 10 * 1024 * 1024,
-    accept: { "text/csv": [".csv", ".txt", ".tsv"], "application/pdf": [".pdf"] },
+    accept: { "text/csv": [".csv", ".txt", ".tsv"], "application/pdf": [".pdf"], "application/xml": [".xml"], "application/x-ofx": [".ofx", ".qfx"] },
     onDropRejected: ([rejection]) =>
       toast.error(importErrorMessage(rejection?.errors[0]?.code === "file-too-large" ? "FILE_TOO_LARGE" : "UNSUPPORTED_TYPE")),
     onDropAccepted: async ([file]) => {
@@ -54,6 +54,9 @@ export function StatementUploader({ pdfRemaining }: { pdfRemaining: number }) {
       <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <FileSpreadsheetIcon className="size-4" /> CSV export · unlimited
+        </span>
+        <span className="flex items-center gap-1.5">
+          <FileCode2Icon className="size-4" /> CAMT.053 / OFX · exact, unlimited
         </span>
         <span className="flex items-center gap-1.5">
           <FileTextIcon className="size-4" /> PDF statement · AI reader · {pdfRemaining} left this month

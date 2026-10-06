@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>CAMT053-2026-10-31-0001</MsgId>
+      <CreDtTm>2026-10-31T22:00:00+01:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>2026-10-31-STMT</Id>
+      <ElctrncSeqNb>10</ElctrncSeqNb>
+      <CreDtTm>2026-10-31T22:00:00+01:00</CreDtTm>
+      <FrToDt>
+        <FrDtTm>2026-10-01T00:00:00+02:00</FrDtTm>
+        <ToDtTm>2026-10-31T23:59:59+01:00</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id><IBAN>DE89370400440532013000</IBAN></Id>
+        <Ccy>EUR</Ccy>
+        <Ownr><Nm>Studio Nord</Nm></Ownr>
+        <Svcr><FinInstnId><BICFI>COBADEFFXXX</BICFI></FinInstnId></Svcr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>PRCD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">12500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-09-30</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">13017.10</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-10-31</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <Amt Ccy="EUR">1487.50</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-01</Dt></BookgDt>
+        <ValDt><Dt>2026-10-01</Dt></ValDt>
+        <AcctSvcrRef>2026100100001</AcctSvcrRef>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>RCDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>NOTPROVIDED</EndToEndId></Refs>
+            <Amt Ccy="EUR">1487.50</Amt>
+            <CdtDbtInd>CRDT</CdtDbtInd>
+            <RltdPties>
+              <Dbtr><Pty><Nm>Baeckerei Mueller GmbH</Nm></Pty></Dbtr>
+              <DbtrAcct><Id><IBAN>DE02100100100006820101</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>RE INV-2026-0001 Danke</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">850.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-02</Dt></BookgDt>
+        <ValDt><Dt>2026-10-02</Dt></ValDt>
+        <AcctSvcrRef>2026100200002</AcctSvcrRef>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>RDDT</Cd><SubFmlyCd>ESDD</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Amt Ccy="EUR">850.00</Amt>
+            <CdtDbtInd>DBIT</CdtDbtInd>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Hausverwaltung Schmidt</Nm></Pty></Cdtr>
+            </RltdPties>
+            <RmtInf><Ustrd>Miete Oktober Buero</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">66.45</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-15</Dt></BookgDt>
+        <ValDt><Dt>2026-10-15</Dt></ValDt>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>POSD</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Amt Ccy="EUR">66.45</Amt>
+            <CdtDbtInd>DBIT</CdtDbtInd>
+            <RltdPties>
+              <Cdtr><Pty><Nm>ADOBE SYSTEMS</Nm></Pty></Cdtr>
+            </RltdPties>
+            <RmtInf><Ustrd>Adobe Creative Cloud</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">4000.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <RvslInd>true</RvslInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-20</Dt></BookgDt>
+        <ValDt><Dt>2026-10-20</Dt></ValDt>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>RDDT</Cd><SubFmlyCd>UPDD</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Amt Ccy="EUR">4000.00</Amt>
+            <CdtDbtInd>DBIT</CdtDbtInd>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Leasing AG</Nm></Pty></Cdtr>
+            </RltdPties>
+            <RmtInf><Ustrd>Ruecklastschrift Leasing</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">4053.95</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-25</Dt></BookgDt>
+        <ValDt><Dt>2026-10-25</Dt></ValDt>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>ICDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Amt Ccy="EUR">4053.95</Amt>
+            <CdtDbtInd>DBIT</CdtDbtInd>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Finanzamt Berlin</Nm></Pty></Cdtr>
+            </RltdPties>
+            <RmtInf><Ustrd>USt-VA Q3 2026</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

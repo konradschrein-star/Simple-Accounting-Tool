@@ -279,14 +279,14 @@ export const importBatches = sqliteTable(
   {
     id: id(),
     orgId: orgId(),
-    source: text("source", { enum: ["csv", "pdf"] }).notNull(),
+    source: text("source", { enum: ["csv", "pdf", "camt", "ofx"] }).notNull(),
     filename: text("filename").notNull(),
     filePath: text("file_path"),
     fileSha256: text("file_sha256").notNull(),
     status: text("status", { enum: ["uploaded", "parsing", "needs_mapping", "staged", "committed", "failed"] })
       .notNull()
       .default("uploaded"),
-    parser: text("parser", { enum: ["csv", "pdf_text", "pdf_vision"] }),
+    parser: text("parser", { enum: ["csv", "pdf_text", "pdf_vision", "camt", "ofx"] }),
     modelUsed: text("model_used"),
     attempts: integer("attempts").notNull().default(0),
     llmCalled: bool("llm_called"),

@@ -15,8 +15,8 @@ import { listBatches } from "@/server/repos/imports"
 export const metadata: Metadata = { title: "Imports" }
 
 const SAMPLES: Record<string, { file: string; label: string }[]> = {
-  de: [{ file: "sparkasse.csv", label: "Sparkasse CSV" }, { file: "dkb.csv", label: "DKB CSV" }],
-  uk: [{ file: "monzo.csv", label: "Monzo CSV" }, { file: "barclays.csv", label: "Barclays CSV" }],
+  de: [{ file: "sparkasse.csv", label: "Sparkasse CSV" }, { file: "dkb.csv", label: "DKB CSV" }, { file: "sparkasse-camt053.xml", label: "CAMT.053 XML" }],
+  uk: [{ file: "monzo.csv", label: "Monzo CSV" }, { file: "barclays.csv", label: "Barclays CSV" }, { file: "barclays.ofx", label: "Barclays OFX" }],
   us: [{ file: "chase.csv", label: "Chase CSV" }],
   je: [{ file: "paid-in-out.csv", label: "Paid in / out CSV" }],
 }
