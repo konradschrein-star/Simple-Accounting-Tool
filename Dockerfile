@@ -17,6 +17,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
+# migrate.mjs / backup.mjs run outside the Next bundle (whose traced modules sit behind hashed names),
+# so they get their own node_modules with the same versions the app uses.
+FROM base AS scripts
+WORKDIR /scripts
+COPY package.json /tmp/package.json
+RUN npm install --omit=dev --no-save --no-package-lock   "better-sqlite3@$(node -p "require('/tmp/package.json').dependencies['better-sqlite3']")"   "drizzle-orm@$(node -p "require('/tmp/package.json').dependencies['drizzle-orm']")"
+
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 TZ=UTC DATA_DIR=/data MIGRATIONS_DIR=/app/drizzle
@@ -28,8 +35,9 @@ COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/assets ./assets
 COPY --from=build --chown=node:node /app/scripts/migrate.mjs /app/scripts/backup.mjs ./scripts/
-# Fail the build early if the native SQLite binding did not make it into the standalone output.
-RUN node -e "new (require('better-sqlite3'))(':memory:')" && pdftotext -v
+COPY --from=scripts --chown=node:node /scripts/node_modules ./scripts/node_modules
+# Fail the build early if the native SQLite binding is missing for the scripts or the app bundle.
+RUN cd scripts && node -e "new (require('better-sqlite3'))(':memory:')" && cd ..   && node -e "const d='.next/node_modules/';new (require('./'+d+require('fs').readdirSync(d).find(n=>n.startsWith('better-sqlite3'))))(':memory:')"   && pdftotext -v
 USER node
 VOLUME ["/data"]
 EXPOSE 3000
